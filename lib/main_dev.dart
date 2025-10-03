@@ -4,7 +4,9 @@ import 'package:qlgd_lhk/app/app.dart';
 import 'package:qlgd_lhk/common/constants/env.dart';
 
 void main() {
-  // Default to the development environment when running main.dart directly
+  // Ensures that plugin services are initialized before running the app
+  WidgetsFlutterBinding.ensureInitialized();
+
   Env.init(baseUrl: Env.devUrl, buildEnv: BuildEnv.dev);
 
   runApp(
