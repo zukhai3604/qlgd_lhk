@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:qlgd_lhk/features/auth/view/widgets/login_header.dart';
-import 'package:qlgd_lhk/features/auth/view_model/login_view_model.dart';
-import 'package:qlgd_lhk/core/api_client.dart'; // <-- thêm để gọi /me
+import 'package:dio/dio.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+// Import tương đối theo cấu trúc hiện tại
+import 'widgets/login_header.dart';
+import '../presentation/view_model/login_view_model.dart';
+import '../../../core/api_client.dart'; // gọi /auth/me hoặc /me
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -33,46 +37,83 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
   }
 
-  /// Sau khi login thành công, gọi /me để lấy role rồi điều hướng
+  /// Gọi /me với token để lấy role rồi điều hướng
   Future<void> _routeByRole() async {
     try {
-      final api = ApiClient.create();
-      final res = await api.dio.get('/me');
-      final data = res.data as Map<String, dynamic>;
+      // 1) Lấy token (tương thích key cũ/mới)
+      const storage = FlutterSecureStorage();
+      String? token = await storage.read(key: 'access_token');
+      token ??= await storage.read(key: 'auth_token');
 
-      // tuỳ payload backend, lấy role linh hoạt
+      if (token == null || token.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Không tìm thấy token. Vui lòng đăng nhập lại.')),
+        );
+        return;
+      }
+
+      // 2) Dùng ApiClient & gắn Authorization
+      final dio = ApiClient.create().dio;
+      final opts = Options(headers: {'Authorization': 'Bearer $token'});
+
+      // 3) Thử các endpoint /me phổ biến
+      final paths = ['/auth/me', '/me', '/api/me', '/api/user'];
+      Response res = await _getMeFlexible(dio, opts, paths);
+
+      // 4) Parse role linh hoạt
+      final data = (res.data as Map).cast<String, dynamic>();
       final role = (data['role'] ??
-              data['user']?['role'] ??
-              data['data']?['role'] ??
-              '')
+          data['user']?['role'] ??
+          data['data']?['role'] ??
+          '')
           .toString()
           .toLowerCase()
           .trim();
 
-      // các biến thể tên role có thể gặp
       final isLecturer =
           role == 'lecturer' || role == 'giang_vien' || role == 'giangvien';
 
       if (!mounted) return;
-
       if (isLecturer) {
         Navigator.of(context).pushNamedAndRemoveUntil('/home', (r) => false);
       } else {
-        // Nếu bạn đã có route cho admin/training, thêm điều hướng ở đây
-        // else if (role == 'admin') { Navigator.pushNamedAndRemoveUntil(context, '/admin', (_) => false); }
-        // else if (role == 'training' || role == 'dao_tao' || role == 'daotao') { ... }
-
-        // Mặc định: không đúng quyền => ở lại login + báo lỗi
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Tài khoản không có quyền phù hợp để vào ứng dụng giảng viên.')),
+          SnackBar(content: Text(role.isEmpty
+              ? 'Không xác định được quyền từ máy chủ.'
+              : 'Tài khoản không có quyền giảng viên (role: $role).')),
         );
       }
+    } on DioException catch (e) {
+      if (!mounted) return;
+      final code = e.response?.statusCode;
+      final msg = (e.response?.data is Map && (e.response!.data['message'] != null))
+          ? e.response!.data['message'].toString()
+          : 'Không xác định được quyền (HTTP $code)';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Không xác định được quyền: $e')),
       );
     }
+  }
+
+  /// Thử nhiều đường dẫn /me, trả response đầu tiên < 500
+  Future<Response> _getMeFlexible(Dio dio, Options opts, List<String> paths) async {
+    DioException? last;
+    for (final p in paths) {
+      try {
+        final r = await dio.get(p, options: opts);
+        if (r.statusCode != null && r.statusCode! < 500) return r;
+      } on DioException catch (e) {
+        last = e;
+        if (e.response?.statusCode == 401) rethrow; // token sai/hết hạn
+        // 404 -> thử path tiếp theo
+      }
+    }
+    if (last != null) throw last;
+    throw Exception('Không tìm thấy endpoint /me phù hợp.');
   }
 
   @override
@@ -89,7 +130,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       if (wasLoading && doneLoading) {
         if (next.errorMessage == null) {
           if (!mounted) return;
-          await _routeByRole(); // <-- kiểm tra role trước khi vào app
+          await _routeByRole(); // kiểm tra role trước khi vào app
         } else {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
@@ -188,9 +229,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         onPressed: vm.isLoggingIn ? null : _submit,
                         child: vm.isLoggingIn
                             ? const SizedBox(
-                                width: 18, height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
+                          width: 18, height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
                             : const Text('Đăng nhập'),
                       ),
                     ),

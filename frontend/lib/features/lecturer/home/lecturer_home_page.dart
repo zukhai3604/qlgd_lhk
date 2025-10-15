@@ -1,284 +1,498 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../../core/api_client.dart';
 
-/// ====== MODELS (gộp vào 1 file cho dễ compile) ======
-enum ScheduleStatus { done, teaching, canceled }
-
-class User {
-  final int id;
-  final String name;
-  final String email;
-  final String role;
-  User({required this.id, required this.name, required this.email, required this.role});
-}
-
-class ScheduleItem {
-  final int id;
-  final DateTime date;
-  final String subject;
-  final String room;
-  final String className;
-  final String start;
-  final String end;
-  final ScheduleStatus status;
-
-  ScheduleItem({
-    required this.id,
-    required this.date,
-    required this.subject,
-    required this.room,
-    required this.className,
-    required this.start,
-    required this.end,
-    required this.status,
-  });
-
-  String get timeLabel => '$start - $end';
-  bool isSameDate(DateTime d) => d.year == date.year && d.month == date.month && d.day == date.day;
-}
-
-/// ====== PROVIDERS (stub tạm để compile, sau nối API thật) ======
-final termProvider = StateProvider<String>((_) => '2025-1');
-
-final meProvider = FutureProvider<User>((ref) async {
-  // TODO: thay bằng gọi API /me sau
-  return User(id: 1, name: 'Nguyễn Văn A', email: 'a@tlu.edu.vn', role: 'lecturer');
-});
-
-final todayScheduleProvider = FutureProvider<List<ScheduleItem>>((ref) async {
-  // TODO: thay bằng gọi API /lecturer/schedule/week rồi lọc hôm nay
-  final now = DateTime.now();
-  return <ScheduleItem>[
-    ScheduleItem(
-      id: 1001,
-      date: now,
-      subject: 'Cơ sở dữ liệu',
-      room: 'B202',
-      className: 'K20-IT3',
-      start: '07:00',
-      end: '09:00',
-      status: ScheduleStatus.teaching,
-    ),
-  ];
-});
-
-/// ====== WIDGETS PHỤ ======
-class SectionCard extends StatelessWidget {
-  const SectionCard({super.key, required this.child});
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: .5,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      margin: const EdgeInsets.symmetric(vertical: 8),
-      child: Padding(padding: const EdgeInsets.all(12), child: child),
-    );
-  }
-}
-
-class ScheduleCard extends StatelessWidget {
-  const ScheduleCard({super.key, required this.item});
-  final ScheduleItem item;
-
-  Color _statusColor() {
-    if (item.status == ScheduleStatus.done) return const Color(0xFF2ECC71);
-    if (item.status == ScheduleStatus.canceled) return const Color(0xFFFF3B30);
-    return const Color(0xFF3498DB);
-  }
-
-  String _statusLabel() {
-    if (item.status == ScheduleStatus.done) return 'Lớp đã hoàn thành';
-    if (item.status == ScheduleStatus.canceled) return 'Lớp đã huỷ';
-    return 'Lớp đang giảng dạy';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final c = _statusColor();
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: c, width: 1.6),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      padding: const EdgeInsets.all(12),
-      margin: const EdgeInsets.symmetric(vertical: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            Expanded(
-              child: Text(
-                item.subject,
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(color: c.withOpacity(.1), borderRadius: BorderRadius.circular(12)),
-              child: Text(_statusLabel(), style: TextStyle(color: c, fontSize: 12, fontWeight: FontWeight.w600)),
-            ),
-          ]),
-          const SizedBox(height: 4),
-          Text('Phòng học: ${item.room}'),
-          Text('Lớp: ${item.className}'),
-          const SizedBox(height: 6),
-          Text(item.timeLabel, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-        ],
-      ),
-    );
-  }
-}
-
-/// ====== TRANG CHỦ GIẢNG VIÊN ======
-class LecturerHomePage extends ConsumerWidget {
+class LecturerHomePage extends StatefulWidget {
   const LecturerHomePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final me = ref.watch(meProvider);
-    final today = ref.watch(todayScheduleProvider);
-    final term = ref.watch(termProvider);
+  State<LecturerHomePage> createState() => _LecturerHomePageState();
+}
+
+class _LecturerHomePageState extends State<LecturerHomePage> {
+  String? displayName;
+  bool loading = true;
+  String? error;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _init());
+  }
+
+  Future<void> _init() async {
+    // Ưu tiên nhận tên từ arguments (LoginPage truyền sang)
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is Map && args['displayName'] is String && (args['displayName'] as String).trim().isNotEmpty) {
+      setState(() {
+        displayName = (args['displayName'] as String).trim();
+        loading = false;
+      });
+      return;
+    }
+    await _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    try {
+      setState(() { loading = true; error = null; });
+
+      const storage = FlutterSecureStorage();
+      String? token = await storage.read(key: 'access_token') ?? await storage.read(key: 'auth_token');
+      if (token == null || token.isEmpty) {
+        if (!mounted) return;
+        setState(() { error = 'Chưa có token. Vui lòng đăng nhập lại.'; loading = false; });
+        return;
+      }
+
+      final dio = ApiClient.create().dio;
+      final opts = Options(headers: {'Authorization': 'Bearer $token'});
+      final paths = ['/auth/me', '/me', '/api/me', '/api/user'];
+      final res = await _getMeFlexible(dio, opts, paths);
+
+      if (res.data is! Map) {
+        if (!mounted) return;
+        setState(() { error = 'Dữ liệu hồ sơ không hợp lệ'; loading = false; });
+        return;
+      }
+      final data = (res.data as Map).cast<String, dynamic>();
+      final name = (data['name'] ?? data['full_name'] ?? data['hoten'] ?? data['ho_ten']
+          ?? data['user']?['name'] ?? data['data']?['name'] ?? data['data']?['full_name'] ?? '')
+          .toString().trim();
+
+      if (!mounted) return;
+      setState(() {
+        displayName = name.isEmpty ? 'Giảng viên' : name;
+        loading = false;
+      });
+    } on DioException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        error = 'Lỗi tải hồ sơ${e.response?.statusCode != null ? ' (HTTP ${e.response!.statusCode})' : ''}';
+        loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() { error = 'Lỗi: $e'; loading = false; });
+    }
+  }
+
+  Future<Response> _getMeFlexible(Dio dio, Options opts, List<String> paths) async {
+    DioException? last;
+    for (final p in paths) {
+      try {
+        final r = await dio.get(p, options: opts);
+        if (r.statusCode != null && r.statusCode! < 500) return r;
+      } on DioException catch (e) {
+        last = e;
+        if (e.response?.statusCode == 401) rethrow;
+      }
+    }
+    if (last != null) throw last;
+    throw Exception('Không tìm thấy endpoint /me phù hợp.');
+  }
+
+  Future<void> _logout() async {
+    const storage = FlutterSecureStorage();
+    await storage.delete(key: 'access_token');
+    await storage.delete(key: 'auth_token');
+    if (!mounted) return;
+    Navigator.of(context).pushNamedAndRemoveUntil('/login', (_) => false);
+  }
+
+  // -------------------- UI --------------------
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    final title = loading ? 'Đang tải...' : (error != null ? 'Lỗi' : 'Trang chủ giảng viên');
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Trang chủ giảng viên'),
+        title: Text(title),
         actions: [
-          IconButton(
-            tooltip: 'Đăng xuất',
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              // TODO: xoá token trong storage nếu bạn đang lưu ở đây
-              Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
-            },
-          )
+          IconButton(tooltip: 'Tải lại', icon: const Icon(Icons.refresh), onPressed: _loadProfile),
+          IconButton(tooltip: 'Đăng xuất', icon: const Icon(Icons.logout), onPressed: _logout),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          ref.invalidate(meProvider);
-          ref.invalidate(todayScheduleProvider);
-        },
-        child: SafeArea(
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(12),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              // Header
-              SectionCard(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('TRƯỜNG ĐẠI HỌC THỦY LỢI', style: Theme.of(context).textTheme.labelLarge),
-                  const SizedBox(height: 8),
-                  me.when(
-                    data: (u) => Text(
-                      'Chào giảng viên ${u.name} !!!',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w900),
-                    ),
-                    loading: () => const Text('Đang tải...'),
-                    error: (_, __) => const Text('Không tải được người dùng'),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                    const Text('Thống kê nhanh', style: TextStyle(fontWeight: FontWeight.w700)),
-                    DropdownButton<String>(
-                      value: term,
-                      items: const [
-                        DropdownMenuItem(value: '2025-1', child: Text('Học kỳ I / 2025')),
-                        DropdownMenuItem(value: '2025-2', child: Text('Học kỳ II / 2025')),
-                      ],
-                      onChanged: (v) {
-                        if (v != null) ref.read(termProvider.notifier).state = v;
-                      },
-                    ),
-                  ]),
-                ]),
-              ),
-
-              // Tools (đã sửa overflow)
-              SectionCard(
-                child: LayoutBuilder(
-                  builder: (context, cst) {
-                    final crossAxis = cst.maxWidth < 360 ? 3 : 4; // màn nhỏ 3 cột
-                    return GridView(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: crossAxis,
-                        crossAxisSpacing: 8,
-                        mainAxisSpacing: 8,
-                        childAspectRatio: 0.82, // làm item cao hơn để không tràn
-                      ),
-                      children: [
-                        _tool(context, Icons.calendar_month, 'Lịch giảng dạy', () {}),
-                        _tool(context, Icons.insert_chart, 'Báo cáo dạy học', () {}),
-                        _tool(context, Icons.event_busy, 'Xin nghỉ', () {}),
-                        _tool(context, Icons.event_available, 'Đăng ký dạy bù', () {}),
-                      ],
-                    );
-                  },
-                ),
-              ),
-
-              // Today
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: Text(
-                  'Lịch giảng dạy hôm nay',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                ),
-              ),
-              today.when(
-                data: (list) => list.isEmpty
-                    ? const Text('Hôm nay không có buổi học.')
-                    : Column(children: list.map((e) => ScheduleCard(item: e)).toList()),
-                loading: () => const LinearProgressIndicator(),
-                error: (e, __) => Text('Không tải được lịch hôm nay: $e'),
-              ),
-            ]),
+      bottomNavigationBar: _BottomNav(),
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : (error != null)
+          ? Center(child: Text(error!, style: const TextStyle(color: Colors.red)))
+          : ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          // Header chào mừng
+          _GreetingCard(
+            name: displayName ?? 'Giảng viên',
+            termText: 'Học kỳ I / 2025',
           ),
-        ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          // TODO: Navigator.pushNamed(context, '/schedule');  // Mở “Lịch tuần”
-        },
-        icon: const Icon(Icons.view_week),
-        label: const Text('Lịch tuần'),
+          const SizedBox(height: 12),
+
+          // Thống kê nhanh (5 ô)
+          Text('Thống kê nhanh', style: theme.textTheme.bodyMedium),
+          const SizedBox(height: 8),
+          _QuickStats(
+            items: const [
+              QuickStatItem(label: 'Bỏ dạy', value: '10', bg: Color(0xFFE8F5E9)),
+              QuickStatItem(label: 'Buổi dạy', value: '34', bg: Color(0xFFE3F2FD)),
+              QuickStatItem(label: 'Buổi nghỉ', value: '04', bg: Color(0xFFFFF3E0)),
+              QuickStatItem(label: 'Số buổi dạy bù', value: '02', bg: Color(0xFFF3E5F5)),
+              QuickStatItem(label: 'Số buổi nghỉ bù', value: '2',  bg: Color(0xFFFFEBEE)),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Công cụ (4 ô)
+          Text('Công cụ', style: theme.textTheme.bodyMedium),
+          const SizedBox(height: 8),
+          _ToolsRow(
+            tools: const [
+              ToolItem(icon: Icons.calendar_month, label: 'Lịch giảng dạy', color: Color(0xFF4CAF50)),
+              ToolItem(icon: Icons.folder_open,    label: 'Báo cáo điểm danh', color: Color(0xFF2196F3)),
+              ToolItem(icon: Icons.assignment,     label: 'Xin nghỉ', color: Color(0xFFFF7043)),
+              ToolItem(icon: Icons.help_outline,   label: 'Hỗ trợ', color: Color(0xFFFFB300)),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Lịch giảng dạy hôm nay
+          _TodayTitle(dateText: 'Thứ 6 ngày 9/19/2025'),
+          const SizedBox(height: 8),
+          // 3 item mẫu giống ảnh (bạn nối API sau)
+          _ScheduleCard(
+            title: 'Lập trình phân tán',
+            room: '207-B5',
+            clazz: '64KTPM3',
+            noteRight: 'Lớp học đã hoàn thành',
+            timeText: '7:00–9:00',
+            status: ScheduleStatus.done,
+          ),
+          const SizedBox(height: 8),
+          _ScheduleCard(
+            title: 'Lập trình phân tán',
+            room: '210-B5',
+            clazz: '64KTPM3',
+            noteRight: 'Lớp đang sắp tới',
+            timeText: '9:10–11:10',
+            status: ScheduleStatus.upcoming,
+          ),
+          const SizedBox(height: 8),
+          _ScheduleCard(
+            title: 'Lập trình phân tán',
+            room: '210-B5',
+            clazz: '64KTPM3',
+            noteRight: 'Lớp đã huỷ',
+            timeText: '10:00–11:10',
+            status: ScheduleStatus.canceled,
+          ),
+          const SizedBox(height: 24),
+        ],
       ),
     );
   }
+}
 
-  Widget _tool(BuildContext c, IconData i, String t, VoidCallback onTap) {
-    final color = Theme.of(c).colorScheme.primary;
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Container(
-        decoration: BoxDecoration(
-          color: color.withOpacity(.08),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(i, color: color, size: 22),
-            const SizedBox(height: 6),
-            Flexible(
-              child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  t,
-                  textAlign: TextAlign.center,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
-          ],
-        ),
+// ================== Widgets con ==================
+
+class _GreetingCard extends StatelessWidget {
+  final String name;
+  final String termText;
+  const _GreetingCard({required this.name, required this.termText});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceVariant.withOpacity(.5),
+        borderRadius: BorderRadius.circular(16),
       ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('TRƯỜNG ĐẠI HỌC THỦY LỢI',
+                    style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black54)),
+                const SizedBox(height: 8),
+                RichText(
+                  text: TextSpan(
+                    style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+                    children: [
+                      const TextSpan(text: 'Chào giảng viên '),
+                      TextSpan(text: name),
+                      const TextSpan(text: ' !!!'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text('Thống kê nhanh'),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Dropdown kỳ học (giả lập)
+          DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: termText,
+              items: const [
+                DropdownMenuItem(value: 'Học kỳ I / 2025', child: Text('Học kỳ I / 2025')),
+                DropdownMenuItem(value: 'Học kỳ II / 2025', child: Text('Học kỳ II / 2025')),
+              ],
+              onChanged: (_) {},
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class QuickStatItem {
+  final String label;
+  final String value;
+  final Color bg;
+  const QuickStatItem({required this.label, required this.value, required this.bg});
+}
+
+class _QuickStats extends StatelessWidget {
+  final List<QuickStatItem> items;
+  const _QuickStats({required this.items});
+
+  @override
+  Widget build(BuildContext context) {
+    final isWide = MediaQuery.of(context).size.width > 480;
+    final crossAxisCount = isWide ? 5 : 3;
+
+    return GridView.builder(
+      itemCount: items.length,
+      physics: const NeverScrollableScrollPhysics(),
+      shrinkWrap: true,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        mainAxisExtent: 72,
+      ),
+      itemBuilder: (_, i) {
+        final it = items[i];
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: it.bg,
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(it.value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
+              const SizedBox(height: 2),
+              Text(it.label, style: const TextStyle(color: Colors.black54)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class ToolItem {
+  final IconData icon;
+  final String label;
+  final Color color;
+  const ToolItem({required this.icon, required this.label, required this.color});
+}
+
+class _ToolsRow extends StatelessWidget {
+  final List<ToolItem> tools;
+  const _ToolsRow({required this.tools});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: tools.map((t) {
+        return Expanded(
+          child: Container(
+            margin: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: t.color.withOpacity(.15),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: t.color,
+                  child: Icon(t.icon, color: Colors.white),
+                ),
+                const SizedBox(height: 8),
+                Text(t.label, textAlign: TextAlign.center),
+              ],
+            ),
+          ),
+        );
+      }).toList()
+        ..last = Expanded(
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: tools.last.color.withOpacity(.15),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: tools.last.color,
+                  child: Icon(tools.last.icon, color: Colors.white),
+                ),
+                const SizedBox(height: 8),
+                Text(tools.last.label, textAlign: TextAlign.center),
+              ],
+            ),
+          ),
+        ),
+    );
+  }
+}
+
+class _TodayTitle extends StatelessWidget {
+  final String dateText;
+  const _TodayTitle({required this.dateText});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      children: [
+        Text('Lịch giảng dạy hôm nay', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+        const Spacer(),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: const Color(0xFFEFF1F5),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(dateText, style: const TextStyle(color: Colors.black54)),
+        ),
+      ],
+    );
+  }
+}
+
+enum ScheduleStatus { upcoming, done, canceled }
+
+class _ScheduleCard extends StatelessWidget {
+  final String title;
+  final String room;
+  final String clazz;
+  final String noteRight;
+  final String timeText;
+  final ScheduleStatus status;
+
+  const _ScheduleCard({
+    required this.title,
+    required this.room,
+    required this.clazz,
+    required this.noteRight,
+    required this.timeText,
+    required this.status,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final Color border;
+    final Color chipBg;
+    final Color chipFg;
+
+    switch (status) {
+      case ScheduleStatus.done:
+        border = const Color(0xFF81C784);
+        chipBg = const Color(0xFFE8F5E9);
+        chipFg = const Color(0xFF2E7D32);
+        break;
+      case ScheduleStatus.upcoming:
+        border = const Color(0xFF64B5F6);
+        chipBg = const Color(0xFFE3F2FD);
+        chipFg = const Color(0xFF1565C0);
+        break;
+      case ScheduleStatus.canceled:
+        border = const Color(0xFFE57373);
+        chipBg = const Color(0xFFFFEBEE);
+        chipFg = const Color(0xFFC62828);
+        break;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: border, width: 2),
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: const [BoxShadow(color: Color(0x11000000), blurRadius: 4, offset: Offset(0, 2))],
+      ),
+      child: Row(
+        children: [
+          // Thông tin môn/lớp
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                Text('Phòng học: $room', style: const TextStyle(color: Colors.black54)),
+                Text('Lớp: $clazz', style: const TextStyle(color: Colors.black54)),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Nhãn trạng thái + giờ
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(color: chipBg, borderRadius: BorderRadius.circular(14)),
+                child: Text(noteRight, style: TextStyle(color: chipFg, fontWeight: FontWeight.w600)),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                timeText,
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BottomNav extends StatefulWidget {
+  @override
+  State<_BottomNav> createState() => _BottomNavState();
+}
+
+class _BottomNavState extends State<_BottomNav> {
+  int idx = 0;
+  @override
+  Widget build(BuildContext context) {
+    return NavigationBar(
+      selectedIndex: idx,
+      onDestinationSelected: (i) => setState(() => idx = i),
+      destinations: const [
+        NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Trang chủ'),
+        NavigationDestination(icon: Icon(Icons.notifications_outlined), selectedIcon: Icon(Icons.notifications), label: 'Thông báo'),
+        NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Tài khoản'),
+      ],
     );
   }
 }
