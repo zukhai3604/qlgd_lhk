@@ -1,12 +1,12 @@
 // lib/data/api.dart
 import 'package:dio/dio.dart';
-import '../app/env.dart';
+import 'package:qlgd_lhk/common/constants/env.dart';
 
 class Api {
   final dio = Dio(BaseOptions(
-    baseUrl: AppEnv.baseUrl, // KHÔNG thêm /api ở đây
+    baseUrl: Env.baseUrl, // KHÔNG thêm /api ở đây
     headers: {'Content-Type': 'application/json'},
-    connectTimeout: const Duration(seconds: 15),
-    receiveTimeout: const Duration(seconds: 15),
+    connectTimeout: const Duration(seconds: 30),
+    receiveTimeout: const Duration(seconds: 30),
   ));
 }

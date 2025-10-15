@@ -3,15 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qlgd_lhk/app/app.dart';
 import 'package:qlgd_lhk/common/constants/env.dart';
 
-void main() {
-  // Ensures that plugin services are initialized before running the app
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  Env.init(baseUrl: Env.devUrl, buildEnv: BuildEnv.dev);
+  // Lấy BASE_URL từ --dart-define (nếu không truyền thì dùng mặc định cho Android emulator)
+  const fallback = 'http://10.0.2.2:8888';
+  const defined  = String.fromEnvironment('BASE_URL', defaultValue: fallback);
 
-  runApp(
-    const ProviderScope(
-      child: App(),
-    ),
+  Env.init(
+    overrideBaseUrl: defined,
+    overrideBuildEnv: BuildEnv.dev,
   );
+
+  runApp(const ProviderScope(child: App()));
 }

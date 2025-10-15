@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qlgd_lhk/features/auth/view/widgets/login_header.dart';
 import 'package:qlgd_lhk/features/auth/view_model/login_view_model.dart';
+import 'package:qlgd_lhk/core/api_client.dart'; // <-- thêm để gọi /me
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -24,6 +25,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   void _submit() {
     if (_formKey.currentState?.validate() ?? false) {
+      FocusScope.of(context).unfocus(); // ẩn bàn phím
       ref.read(loginViewModelProvider.notifier).login(
         email: _emailCtrl.text.trim(),
         password: _passCtrl.text,
@@ -31,11 +33,71 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
   }
 
+  /// Sau khi login thành công, gọi /me để lấy role rồi điều hướng
+  Future<void> _routeByRole() async {
+    try {
+      final api = ApiClient.create();
+      final res = await api.dio.get('/me');
+      final data = res.data as Map<String, dynamic>;
+
+      // tuỳ payload backend, lấy role linh hoạt
+      final role = (data['role'] ??
+              data['user']?['role'] ??
+              data['data']?['role'] ??
+              '')
+          .toString()
+          .toLowerCase()
+          .trim();
+
+      // các biến thể tên role có thể gặp
+      final isLecturer =
+          role == 'lecturer' || role == 'giang_vien' || role == 'giangvien';
+
+      if (!mounted) return;
+
+      if (isLecturer) {
+        Navigator.of(context).pushNamedAndRemoveUntil('/home', (r) => false);
+      } else {
+        // Nếu bạn đã có route cho admin/training, thêm điều hướng ở đây
+        // else if (role == 'admin') { Navigator.pushNamedAndRemoveUntil(context, '/admin', (_) => false); }
+        // else if (role == 'training' || role == 'dao_tao' || role == 'daotao') { ... }
+
+        // Mặc định: không đúng quyền => ở lại login + báo lỗi
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Tài khoản không có quyền phù hợp để vào ứng dụng giảng viên.')),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Không xác định được quyền: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final vm = ref.watch(loginViewModelProvider);
+    final vm  = ref.watch(loginViewModelProvider);
     final vmN = ref.read(loginViewModelProvider.notifier);
-    final cs = Theme.of(context).colorScheme;
+    final cs  = Theme.of(context).colorScheme;
+
+    // Lắng nghe trạng thái login để điều hướng theo role
+    ref.listen(loginViewModelProvider, (prev, next) async {
+      final wasLoading  = prev?.isLoggingIn == true;
+      final doneLoading = next.isLoggingIn == false;
+
+      if (wasLoading && doneLoading) {
+        if (next.errorMessage == null) {
+          if (!mounted) return;
+          await _routeByRole(); // <-- kiểm tra role trước khi vào app
+        } else {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(next.errorMessage!)),
+          );
+        }
+      }
+    });
 
     return Scaffold(
       body: SafeArea(
@@ -50,7 +112,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const SizedBox(height: 8),
-                    const LoginHeader(),                // logo + “Đăng nhập”
+                    const LoginHeader(),
                     const SizedBox(height: 24),
 
                     // ---- Email
@@ -90,9 +152,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         ),
                         suffixIcon: IconButton(
                           tooltip: vm.obscurePassword ? 'Hiện mật khẩu' : 'Ẩn mật khẩu',
-                          icon: Icon(vm.obscurePassword
-                              ? Icons.visibility_off
-                              : Icons.visibility),
+                          icon: Icon(vm.obscurePassword ? Icons.visibility_off : Icons.visibility),
                           onPressed: vmN.togglePasswordVisibility,
                         ),
                       ),
@@ -128,14 +188,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         onPressed: vm.isLoggingIn ? null : _submit,
                         child: vm.isLoggingIn
                             ? const SizedBox(
-                          width: 18, height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
+                                width: 18, height: 18,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
                             : const Text('Đăng nhập'),
                       ),
                     ),
 
-                    // ---- Error (đỏ dưới nút)
                     if (vm.errorMessage != null) ...[
                       const SizedBox(height: 10),
                       Text(

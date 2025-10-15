@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
-import '../../../data/api.dart'; // file Api bạn đã tạo ở phần trước
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../../../data/api.dart'; // Api() của bạn
 
 // ====================
 // MODEL STATE
@@ -34,7 +35,10 @@ class LoginState {
 // ====================
 class LoginViewModel extends StateNotifier<LoginState> {
   LoginViewModel() : super(const LoginState());
+
   final api = Api();
+  static const _storage = FlutterSecureStorage();
+  static const _tokenKey = 'auth_token';
 
   // ---- Toggle ẩn/hiện mật khẩu
   void togglePasswordVisibility() {
@@ -62,36 +66,59 @@ class LoginViewModel extends StateNotifier<LoginState> {
     state = state.copyWith(isLoggingIn: true, errorMessage: null);
 
     try {
-      // GỌI API ĐĂNG NHẬP
+      // GỌI API ĐĂNG NHẬP (Laravel: thường là /api/login)
       final res = await api.dio.post('/api/login', data: {
         'email': email,
         'password': password,
       });
 
-      final data = res.data as Map<String, dynamic>;
+      final data = res.data is Map<String, dynamic>
+          ? res.data as Map<String, dynamic>
+          : <String, dynamic>{};
 
-      // lấy token (tuỳ backend trả)
-      final token = data['token'] as String?;
-      if (token == null) throw Exception('Không nhận được token');
+      // linh hoạt lấy token theo nhiều format trả về
+      final token = (data['token'] ??
+              data['access_token'] ??
+              data['data']?['token'] ??
+              data['data']?['access_token'])
+          ?.toString();
 
-      // lưu token vào header cho các API tiếp theo
+      if (token == null || token.isEmpty) {
+        throw Exception('Không nhận được token từ máy chủ');
+      }
+
+      // Lưu token -> dùng cho AuthGate + những lần mở app sau
+      await _storage.write(key: _tokenKey, value: token);
+
+      // Gắn header Authorization cho các request tiếp theo của Dio
       api.dio.options.headers['Authorization'] = 'Bearer $token';
-
-      // bạn có thể lưu token vào secure storage nếu muốn
-      // await const FlutterSecureStorage().write(key: 'token', value: token);
 
       state = state.copyWith(isLoggingIn: false, errorMessage: null);
     } on DioException catch (e) {
-      final msg = e.response?.data?.toString() ?? e.message;
-      state = state.copyWith(
-        isLoggingIn: false,
-        errorMessage: 'Đăng nhập thất bại: $msg',
-      );
+      // cố lấy message rõ ràng từ backend
+      String msg = 'Đăng nhập thất bại';
+      final data = e.response?.data;
+
+      if (data is Map && data['message'] != null) {
+        msg = data['message'].toString();
+      } else if (data is String && data.isNotEmpty) {
+        msg = data;
+      } else if (e.message != null) {
+        msg = e.message!;
+      }
+
+      state = state.copyWith(isLoggingIn: false, errorMessage: msg);
     } catch (e) {
-      state = state.copyWith(
-        isLoggingIn: false,
-        errorMessage: e.toString(),
-      );
+      state = state.copyWith(isLoggingIn: false, errorMessage: e.toString());
+    }
+  }
+
+  // (tuỳ chọn) Đăng xuất nhanh tại ViewModel
+  Future<void> logout() async {
+    try {
+      await _storage.delete(key: _tokenKey);
+    } finally {
+      api.dio.options.headers.remove('Authorization');
     }
   }
 }

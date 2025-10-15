@@ -20,6 +20,9 @@ Route::post('/login', [AuthController::class, 'login'])->name('login');
 
 // ===== Authenticated =====
 Route::get('/health', fn() => response()->json(['ok' => true]));
+
+Route::get('/ping', fn() => response()->json(['pong' => now()]));
+
 Route::middleware(['auth:sanctum', 'ensure.active'])->group(function () {
 
     // Me / Logout

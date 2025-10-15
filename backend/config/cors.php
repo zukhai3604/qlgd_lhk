@@ -22,7 +22,7 @@ return [
 
     'allowed_origins' => [
         'http://localhost',
-        'http://localhost:*',  // Cho phép mọi port của localhost (VD: 51978, 57744...)
+        'http://localhost:*',  // Cho phép mọi port của localhost (VD: 5173, 8080...)
         'http://127.0.0.1',
         'http://127.0.0.1:*',  // Cho phép mọi port của 127.0.0.1
     ],
@@ -31,7 +31,7 @@ return [
 
     'allowed_headers' => ['*'], // Cho phép mọi header (quan trọng để gửi token JSON)
 
-    'exposed_headers' => [],
+    'exposed_headers' => ['Authorization'], // Cho phép FE đọc token trong header nếu cần
 
     'max_age' => 0,
 
@@ -39,7 +39,7 @@ return [
     |--------------------------------------------------------------------------
     | Credentials (Cookie / Auth)
     |--------------------------------------------------------------------------
-    | Nếu bạn chỉ dùng token (Bearer token) → để false.
+    | Nếu bạn chỉ dùng Bearer token → để false.
     | Nếu bạn dùng Sanctum với cookie (CSRF) → đổi thành true.
     */
     'supports_credentials' => false,
