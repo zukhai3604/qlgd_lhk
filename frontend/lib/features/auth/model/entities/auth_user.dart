@@ -6,9 +6,11 @@ part 'auth_user.freezed.dart';
 @freezed
 class AuthUser with _$AuthUser {
   const factory AuthUser({
-    required String id,
-    required String email,
-    required String displayName,
+    required String token, // Added token
     required Role role,
+    // These fields are optional now
+    String? id,
+    String? email,
+    String? displayName,
   }) = _AuthUser;
 }

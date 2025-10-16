@@ -2,10 +2,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:qlgd_lhk/core/api_client.dart';
+import 'package:qlgd_lhk/common/providers/auth_state_provider.dart';
+import 'package:qlgd_lhk/common/providers/role_provider.dart';
 
-/// ====================
-/// MODEL STATE
-/// ====================
+// ... (LoginState class remains the same)
 class LoginState {
   final bool isLoggingIn;
   final bool obscurePassword;
@@ -31,28 +31,26 @@ class LoginState {
   }
 }
 
-/// ====================
-/// VIEWMODEL
-/// ====================
+
 class LoginViewModel extends StateNotifier<LoginState> {
-  LoginViewModel() : super(const LoginState());
+  // Inject the Ref to allow communication with other providers
+  final Ref _ref;
+
+  LoginViewModel(this._ref) : super(const LoginState());
 
   final api = ApiClient.create();
   static const _storage = FlutterSecureStorage();
   static const _kAccess = 'access_token';
   static const _kCompat = 'auth_token';
 
-  /// Toggle ẩn/hiện mật khẩu
   void togglePasswordVisibility() {
     state = state.copyWith(obscurePassword: !state.obscurePassword);
   }
 
-  /// Clear error thủ công (nếu UI cần)
   void clearError() {
     state = state.copyWith(clearError: true);
   }
 
-  /// Validate
   String? validateEmail(String? value) {
     if (value == null || value.trim().isEmpty) return 'Email không được để trống';
     final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
@@ -66,14 +64,12 @@ class LoginViewModel extends StateNotifier<LoginState> {
     return null;
   }
 
-  /// LOGIN
   Future<void> login({
     required String email,
     required String password,
   }) async {
     state = state.copyWith(isLoggingIn: true, clearError: true);
 
-    // Thử nhiều endpoint & payload để tương thích backend
     const paths = ['/auth/login', '/login', '/api/login'];
     final bodies = [
       {'email': email, 'password': password},
@@ -89,14 +85,15 @@ class LoginViewModel extends StateNotifier<LoginState> {
         throw Exception(msg);
       }
 
-      // Lưu cả 2 key để AuthGate/legacy code đều đọc được
       await _storage.write(key: _kAccess, value: token);
       await _storage.write(key: _kCompat, value: token);
-
-      // Set header Authorization cho các request sau
       api.dio.options.headers['Authorization'] = 'Bearer $token';
+      
+      // Fetch profile and update global auth state
+      await _fetchProfileAndSetAuth(token);
 
       state = state.copyWith(isLoggingIn: false);
+
     } on DioException catch (e) {
       final msg = _extractMessage(e.response?.data) ??
           (e.response?.statusCode == 401 || e.response?.statusCode == 422
@@ -108,17 +105,50 @@ class LoginViewModel extends StateNotifier<LoginState> {
     }
   }
 
-  /// LOGOUT (nếu cần dùng)
-  Future<void> logout() async {
+  // New method to get user profile and role
+  Future<void> _fetchProfileAndSetAuth(String token) async {
     try {
-      await _storage.delete(key: _kAccess);
-      await _storage.delete(key: _kCompat);
-    } catch (_) {}
+      final paths = ['/auth/me', '/me', '/api/me', '/api/user'];
+      final res = await _getMeFlexible(paths);
+      final data = (res.data as Map).cast<String, dynamic>();
+      final roleStr = (data['role'] ?? data['user']?['role'] ?? data['data']?['role'] ?? '').toString().toLowerCase().trim();
+      
+      final role = Role.values.firstWhere(
+        (e) => e.toString().split('.').last == roleStr,
+        orElse: () => Role.unknown,
+      );
+
+      // Update the global authentication state
+      _ref.read(authStateProvider.notifier).login(token, role);
+
+    } catch (e) {
+      // If profile fetch fails, still log in with unknown role
+      _ref.read(authStateProvider.notifier).login(token, Role.unknown);
+    }
   }
 
-  /// ---- helpers
+  Future<void> logout() async {
+    await _storage.delete(key: _kAccess);
+    await _storage.delete(key: _kCompat);
+    _ref.read(authStateProvider.notifier).logout();
+  }
+  
+  Future<Response> _getMeFlexible(List<String> paths) async {
+    DioException? lastErr;
+    for (final p in paths) {
+      try {
+        final r = await api.dio.get(p);
+        if ((r.statusCode ?? 500) < 500) return r;
+      } on DioException catch (e) {
+        lastErr = e;
+        if ([401, 403].contains(e.response?.statusCode)) rethrow;
+      }
+    }
+    throw lastErr ?? Exception('Không tìm thấy endpoint /me phù hợp.');
+  }
 
   Future<Response> _tryLogin(List<String> paths, List<Map<String, dynamic>> bodies) async {
+    // ... (This method remains the same)
     DioException? lastErr;
 
     for (final p in paths) {
@@ -133,14 +163,11 @@ class LoginViewModel extends StateNotifier<LoginState> {
               validateStatus: (c) => c != null && c < 500,
             ),
           );
-          // Nếu <500 coi như có phản hồi, để parse message hoặc token
           if (res.statusCode != null && res.statusCode! < 500) return res;
         } on DioException catch (e) {
           lastErr = e;
-          // 404/405 -> thử endpoint khác; 401/422 -> ném ngay để UI hiện lỗi hợp lệ
           final sc = e.response?.statusCode ?? 0;
           if (sc == 401 || sc == 422 || sc == 400) rethrow;
-          // tiếp tục thử biến thể kế tiếp
         }
       }
     }
@@ -149,8 +176,8 @@ class LoginViewModel extends StateNotifier<LoginState> {
   }
 
   String? _extractToken(dynamic data) {
-    try {
-      if (data is Map) {
+    // ... (This method remains the same)
+    if (data is Map) {
         final m = Map<String, dynamic>.from(data);
         return (m['access_token'] ??
             m['token'] ??
@@ -159,25 +186,20 @@ class LoginViewModel extends StateNotifier<LoginState> {
             m['meta']?['token'])
             ?.toString();
       }
-    } catch (_) {}
     return null;
   }
 
   String? _extractMessage(dynamic data) {
-    try {
-      if (data is Map) {
+    // ... (This method remains the same)
+    if (data is Map) {
         final m = Map<String, dynamic>.from(data);
         return (m['message'] ?? m['error'] ?? m['detail'])?.toString();
       }
-    } catch (_) {}
     return null;
   }
 }
 
-/// ====================
-/// PROVIDER
-/// ====================
-final loginViewModelProvider =
-StateNotifierProvider<LoginViewModel, LoginState>(
-      (ref) => LoginViewModel(),
+final loginViewModelProvider = StateNotifierProvider<LoginViewModel, LoginState>(
+  // Pass the ref to the ViewModel
+  (ref) => LoginViewModel(ref),
 );

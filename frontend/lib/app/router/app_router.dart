@@ -5,6 +5,8 @@ import 'package:qlgd_lhk/app/router/route_guards.dart';
 import 'package:qlgd_lhk/common/providers/auth_state_provider.dart';
 import 'package:qlgd_lhk/common/providers/role_provider.dart';
 import 'package:qlgd_lhk/features/auth/view/login_page.dart';
+import 'package:qlgd_lhk/features/lecturer/home/lecturer_home_page.dart';
+import 'package:qlgd_lhk/features/lecturer/account/lecturer_account_page.dart';
 
 // --- Placeholder Pages ---
 class SchedulePage extends StatelessWidget {
@@ -34,16 +36,22 @@ class UnauthorizedPage extends StatelessWidget {
 // --- Router Provider ---
 
 final routerProvider = Provider<GoRouter>((ref) {
-  // By watching the auth state, the router will be rebuilt whenever the user logs in or out.
   final authState = ref.watch(authStateProvider);
 
   return GoRouter(
     initialLocation: '/login',
-    // No refreshListenable is needed because the router is rebuilt on auth changes.
     routes: [
       GoRoute(
         path: '/login',
         builder: (context, state) => const LoginPage(),
+      ),
+      GoRoute(
+        path: '/home', // <-- Added home route
+        builder: (context, state) => const LecturerHomePage(),
+      ),
+      GoRoute(
+        path: '/account',
+        builder: (context, state) => const LecturerAccountPage(),
       ),
       GoRoute(
         path: '/schedule',
@@ -63,37 +71,33 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
     ],
     redirect: (BuildContext context, GoRouterState state) {
-      // Use the authState variable from the provider's scope.
       final isLoggedIn = authState != null;
       final role = authState?.role;
       final location = state.matchedLocation;
       final isAtLogin = location == '/login';
 
-      // If not logged in and not on the login page, redirect to login.
       if (!isLoggedIn && !isAtLogin) {
         return '/login';
       }
 
-      // If logged in and on the login page, redirect to the appropriate home page.
       if (isLoggedIn && isAtLogin) {
         switch (role) {
           case Role.lecturer:
-            return '/schedule';
+            return '/home'; // <-- Redirect to /home
           case Role.training:
             return '/schedule/editor';
           case Role.admin:
             return '/users';
           default:
-            return '/schedule'; // Fallback
+            return '/home';
         }
       }
-      
-      // Apply role-based guards for protected routes
+
       if (isLoggedIn) {
          return authGuard(state, role);
       }
 
-      return null; // No redirect needed
+      return null;
     },
   );
 });

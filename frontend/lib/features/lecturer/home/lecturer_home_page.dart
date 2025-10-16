@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/api_client.dart';
+import '../widgets/bottom_nav.dart'; // <-- Import the shared widget
 
 class LecturerHomePage extends StatefulWidget {
   const LecturerHomePage({super.key});
@@ -18,26 +20,13 @@ class _LecturerHomePageState extends State<LecturerHomePage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _init());
-  }
-
-  Future<void> _init() async {
-    // Ưu tiên nhận tên từ arguments (LoginPage truyền sang)
-    final args = ModalRoute.of(context)?.settings.arguments;
-    if (args is Map && args['displayName'] is String && (args['displayName'] as String).trim().isNotEmpty) {
-      setState(() {
-        displayName = (args['displayName'] as String).trim();
-        loading = false;
-      });
-      return;
-    }
-    await _loadProfile();
+    _loadProfile();
   }
 
   Future<void> _loadProfile() async {
-    try {
-      setState(() { loading = true; error = null; });
+    setState(() { loading = true; error = null; });
 
+    try {
       const storage = FlutterSecureStorage();
       String? token = await storage.read(key: 'access_token') ?? await storage.read(key: 'auth_token');
       if (token == null || token.isEmpty) {
@@ -98,14 +87,12 @@ class _LecturerHomePageState extends State<LecturerHomePage> {
     await storage.delete(key: 'access_token');
     await storage.delete(key: 'auth_token');
     if (!mounted) return;
-    Navigator.of(context).pushNamedAndRemoveUntil('/login', (_) => false);
+    context.go('/login');
   }
 
-  // -------------------- UI --------------------
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final cs = theme.colorScheme;
 
     final title = loading ? 'Đang tải...' : (error != null ? 'Lỗi' : 'Trang chủ giảng viên');
 
@@ -117,7 +104,7 @@ class _LecturerHomePageState extends State<LecturerHomePage> {
           IconButton(tooltip: 'Đăng xuất', icon: const Icon(Icons.logout), onPressed: _logout),
         ],
       ),
-      bottomNavigationBar: _BottomNav(),
+      bottomNavigationBar: const BottomNav(currentIndex: 0), // <-- Use the shared widget
       body: loading
           ? const Center(child: CircularProgressIndicator())
           : (error != null)
@@ -125,14 +112,12 @@ class _LecturerHomePageState extends State<LecturerHomePage> {
           : ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // Header chào mừng
           _GreetingCard(
             name: displayName ?? 'Giảng viên',
             termText: 'Học kỳ I / 2025',
           ),
           const SizedBox(height: 12),
 
-          // Thống kê nhanh (5 ô)
           Text('Thống kê nhanh', style: theme.textTheme.bodyMedium),
           const SizedBox(height: 8),
           _QuickStats(
@@ -146,7 +131,6 @@ class _LecturerHomePageState extends State<LecturerHomePage> {
           ),
           const SizedBox(height: 16),
 
-          // Công cụ (4 ô)
           Text('Công cụ', style: theme.textTheme.bodyMedium),
           const SizedBox(height: 8),
           _ToolsRow(
@@ -159,10 +143,9 @@ class _LecturerHomePageState extends State<LecturerHomePage> {
           ),
           const SizedBox(height: 16),
 
-          // Lịch giảng dạy hôm nay
           _TodayTitle(dateText: 'Thứ 6 ngày 9/19/2025'),
           const SizedBox(height: 8),
-          // 3 item mẫu giống ảnh (bạn nối API sau)
+
           _ScheduleCard(
             title: 'Lập trình phân tán',
             room: '207-B5',
@@ -196,7 +179,7 @@ class _LecturerHomePageState extends State<LecturerHomePage> {
   }
 }
 
-// ================== Widgets con ==================
+// ================== Sub-widgets for Home Page ==================
 
 class _GreetingCard extends StatelessWidget {
   final String name;
@@ -219,8 +202,7 @@ class _GreetingCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('TRƯỜNG ĐẠI HỌC THỦY LỢI',
-                    style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black54)),
+                const Text('TRƯỜNG ĐẠI HỌC THỦY LỢI', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.black54)),
                 const SizedBox(height: 8),
                 RichText(
                   text: TextSpan(
@@ -238,7 +220,6 @@ class _GreetingCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          // Dropdown kỳ học (giả lập)
           DropdownButtonHideUnderline(
             child: DropdownButton<String>(
               value: termText,
@@ -340,23 +321,26 @@ class _ToolsRow extends StatelessWidget {
           ),
         );
       }).toList()
-        ..last = Expanded(
-          child: Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: tools.last.color.withOpacity(.15),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Column(
-              children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: tools.last.color,
-                  child: Icon(tools.last.icon, color: Colors.white),
-                ),
-                const SizedBox(height: 8),
-                Text(tools.last.label, textAlign: TextAlign.center),
-              ],
+        ..removeLast()
+        ..add(
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: tools.last.color.withOpacity(.15),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                children: [
+                  CircleAvatar(
+                    radius: 18,
+                    backgroundColor: tools.last.color,
+                    child: Icon(tools.last.icon, color: Colors.white),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(tools.last.label, textAlign: TextAlign.center),
+                ],
+              ),
             ),
           ),
         ),
@@ -441,7 +425,6 @@ class _ScheduleCard extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Thông tin môn/lớp
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -454,7 +437,6 @@ class _ScheduleCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 12),
-          // Nhãn trạng thái + giờ
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -472,27 +454,6 @@ class _ScheduleCard extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _BottomNav extends StatefulWidget {
-  @override
-  State<_BottomNav> createState() => _BottomNavState();
-}
-
-class _BottomNavState extends State<_BottomNav> {
-  int idx = 0;
-  @override
-  Widget build(BuildContext context) {
-    return NavigationBar(
-      selectedIndex: idx,
-      onDestinationSelected: (i) => setState(() => idx = i),
-      destinations: const [
-        NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Trang chủ'),
-        NavigationDestination(icon: Icon(Icons.notifications_outlined), selectedIcon: Icon(Icons.notifications), label: 'Thông báo'),
-        NavigationDestination(icon: Icon(Icons.person_outline), selectedIcon: Icon(Icons.person), label: 'Tài khoản'),
-      ],
     );
   }
 }
