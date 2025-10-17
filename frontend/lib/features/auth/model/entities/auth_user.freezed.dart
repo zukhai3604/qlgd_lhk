@@ -16,10 +16,12 @@ final _privateConstructorUsedError = UnsupportedError(
 
 /// @nodoc
 mixin _$AuthUser {
-  String get id => throw _privateConstructorUsedError;
-  String get email => throw _privateConstructorUsedError;
-  String get displayName => throw _privateConstructorUsedError;
-  Role get role => throw _privateConstructorUsedError;
+  String get token => throw _privateConstructorUsedError; // Added token
+  Role get role =>
+      throw _privateConstructorUsedError; // These fields are optional now
+  String? get id => throw _privateConstructorUsedError;
+  String? get email => throw _privateConstructorUsedError;
+  String? get displayName => throw _privateConstructorUsedError;
 
   @JsonKey(ignore: true)
   $AuthUserCopyWith<AuthUser> get copyWith =>
@@ -31,7 +33,12 @@ abstract class $AuthUserCopyWith<$Res> {
   factory $AuthUserCopyWith(AuthUser value, $Res Function(AuthUser) then) =
       _$AuthUserCopyWithImpl<$Res, AuthUser>;
   @useResult
-  $Res call({String id, String email, String displayName, Role role});
+  $Res call(
+      {String token,
+      Role role,
+      String? id,
+      String? email,
+      String? displayName});
 }
 
 /// @nodoc
@@ -47,28 +54,33 @@ class _$AuthUserCopyWithImpl<$Res, $Val extends AuthUser>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? id = null,
-    Object? email = null,
-    Object? displayName = null,
+    Object? token = null,
     Object? role = null,
+    Object? id = freezed,
+    Object? email = freezed,
+    Object? displayName = freezed,
   }) {
     return _then(_value.copyWith(
-      id: null == id
-          ? _value.id
-          : id // ignore: cast_nullable_to_non_nullable
-              as String,
-      email: null == email
-          ? _value.email
-          : email // ignore: cast_nullable_to_non_nullable
-              as String,
-      displayName: null == displayName
-          ? _value.displayName
-          : displayName // ignore: cast_nullable_to_non_nullable
+      token: null == token
+          ? _value.token
+          : token // ignore: cast_nullable_to_non_nullable
               as String,
       role: null == role
           ? _value.role
           : role // ignore: cast_nullable_to_non_nullable
               as Role,
+      id: freezed == id
+          ? _value.id
+          : id // ignore: cast_nullable_to_non_nullable
+              as String?,
+      email: freezed == email
+          ? _value.email
+          : email // ignore: cast_nullable_to_non_nullable
+              as String?,
+      displayName: freezed == displayName
+          ? _value.displayName
+          : displayName // ignore: cast_nullable_to_non_nullable
+              as String?,
     ) as $Val);
   }
 }
@@ -81,7 +93,12 @@ abstract class _$$AuthUserImplCopyWith<$Res>
       __$$AuthUserImplCopyWithImpl<$Res>;
   @override
   @useResult
-  $Res call({String id, String email, String displayName, Role role});
+  $Res call(
+      {String token,
+      Role role,
+      String? id,
+      String? email,
+      String? displayName});
 }
 
 /// @nodoc
@@ -95,28 +112,33 @@ class __$$AuthUserImplCopyWithImpl<$Res>
   @pragma('vm:prefer-inline')
   @override
   $Res call({
-    Object? id = null,
-    Object? email = null,
-    Object? displayName = null,
+    Object? token = null,
     Object? role = null,
+    Object? id = freezed,
+    Object? email = freezed,
+    Object? displayName = freezed,
   }) {
     return _then(_$AuthUserImpl(
-      id: null == id
-          ? _value.id
-          : id // ignore: cast_nullable_to_non_nullable
-              as String,
-      email: null == email
-          ? _value.email
-          : email // ignore: cast_nullable_to_non_nullable
-              as String,
-      displayName: null == displayName
-          ? _value.displayName
-          : displayName // ignore: cast_nullable_to_non_nullable
+      token: null == token
+          ? _value.token
+          : token // ignore: cast_nullable_to_non_nullable
               as String,
       role: null == role
           ? _value.role
           : role // ignore: cast_nullable_to_non_nullable
               as Role,
+      id: freezed == id
+          ? _value.id
+          : id // ignore: cast_nullable_to_non_nullable
+              as String?,
+      email: freezed == email
+          ? _value.email
+          : email // ignore: cast_nullable_to_non_nullable
+              as String?,
+      displayName: freezed == displayName
+          ? _value.displayName
+          : displayName // ignore: cast_nullable_to_non_nullable
+              as String?,
     ));
   }
 }
@@ -125,23 +147,28 @@ class __$$AuthUserImplCopyWithImpl<$Res>
 
 class _$AuthUserImpl implements _AuthUser {
   const _$AuthUserImpl(
-      {required this.id,
-      required this.email,
-      required this.displayName,
-      required this.role});
+      {required this.token,
+      required this.role,
+      this.id,
+      this.email,
+      this.displayName});
 
   @override
-  final String id;
-  @override
-  final String email;
-  @override
-  final String displayName;
+  final String token;
+// Added token
   @override
   final Role role;
+// These fields are optional now
+  @override
+  final String? id;
+  @override
+  final String? email;
+  @override
+  final String? displayName;
 
   @override
   String toString() {
-    return 'AuthUser(id: $id, email: $email, displayName: $displayName, role: $role)';
+    return 'AuthUser(token: $token, role: $role, id: $id, email: $email, displayName: $displayName)';
   }
 
   @override
@@ -149,15 +176,17 @@ class _$AuthUserImpl implements _AuthUser {
     return identical(this, other) ||
         (other.runtimeType == runtimeType &&
             other is _$AuthUserImpl &&
+            (identical(other.token, token) || other.token == token) &&
+            (identical(other.role, role) || other.role == role) &&
             (identical(other.id, id) || other.id == id) &&
             (identical(other.email, email) || other.email == email) &&
             (identical(other.displayName, displayName) ||
-                other.displayName == displayName) &&
-            (identical(other.role, role) || other.role == role));
+                other.displayName == displayName));
   }
 
   @override
-  int get hashCode => Object.hash(runtimeType, id, email, displayName, role);
+  int get hashCode =>
+      Object.hash(runtimeType, token, role, id, email, displayName);
 
   @JsonKey(ignore: true)
   @override
@@ -168,19 +197,22 @@ class _$AuthUserImpl implements _AuthUser {
 
 abstract class _AuthUser implements AuthUser {
   const factory _AuthUser(
-      {required final String id,
-      required final String email,
-      required final String displayName,
-      required final Role role}) = _$AuthUserImpl;
+      {required final String token,
+      required final Role role,
+      final String? id,
+      final String? email,
+      final String? displayName}) = _$AuthUserImpl;
 
   @override
-  String get id;
-  @override
-  String get email;
-  @override
-  String get displayName;
-  @override
+  String get token;
+  @override // Added token
   Role get role;
+  @override // These fields are optional now
+  String? get id;
+  @override
+  String? get email;
+  @override
+  String? get displayName;
   @override
   @JsonKey(ignore: true)
   _$$AuthUserImplCopyWith<_$AuthUserImpl> get copyWith =>

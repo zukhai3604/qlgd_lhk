@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qlgd_lhk/app/router/app_router.dart';
-import 'package:qlgd_lhk/app/theme/light_theme.dart';
 
 class App extends ConsumerWidget {
   const App({super.key});
@@ -12,9 +11,12 @@ class App extends ConsumerWidget {
 
     return MaterialApp.router(
       routerConfig: router,
-      title: 'QLGD LHK',
-      theme: lightTheme,
-      // You can add darkTheme and themeMode here
+      title: 'QLGD',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(
+        useMaterial3: true,
+        colorSchemeSeed: const Color(0xFF1976D2),
+      ),
     );
   }
 }

@@ -50,4 +50,14 @@ class AuthController extends Controller
         $request->user()->currentAccessToken()->delete();
         return response()->json(['message' => 'Đăng xuất thành công.']);
     }
+
+    public function logoutAll(Request $request)
+{
+    $user = $request->user();
+
+    // Xóa tất cả các token đã cấp cho người dùng này
+    $user->tokens()->delete();
+
+    return response()->json(['message' => 'Successfully logged out from all devices.']);
+}
 }
