@@ -10,6 +10,7 @@ use App\Http\Controllers\Lecturer\ScheduleController;
 use App\Http\Controllers\TrainingDepartment\ApprovalController;
 use App\Http\Controllers\API\ProfileController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\ReportController;
 
 
 /*
@@ -42,6 +43,8 @@ Route::middleware(['auth:sanctum', 'ensure.active'])->group(function () {
         Route::post('users/{user}/unlock', [UserController::class, 'unlock']);
 
         Route::get('dashboard/stats', [DashboardController::class, 'getStats']);
+
+        Route::get('reports/system', [App\Http\Controllers\Admin\ReportController::class, 'system']);
     });
 
     // ----- PHÒNG ĐÀO TẠO -----
