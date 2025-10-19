@@ -7,6 +7,10 @@ import 'package:qlgd_lhk/common/providers/role_provider.dart';
 import 'package:qlgd_lhk/features/auth/view/login_page.dart';
 import 'package:qlgd_lhk/features/lecturer/home/lecturer_home_page.dart';
 import 'package:qlgd_lhk/features/lecturer/account/lecturer_account_page.dart';
+import 'package:qlgd_lhk/features/training_dept/view/tr_home_page.dart';
+import 'package:qlgd_lhk/features/training_dept/view/tr_requests_page.dart';
+import 'package:qlgd_lhk/features/training_dept/view/tr_reports_page.dart';
+import 'package:qlgd_lhk/features/training_dept/view/tr_schedule_page.dart';
 
 // --- Placeholder Pages ---
 class SchedulePage extends StatelessWidget {
@@ -69,6 +73,24 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/unauthorized',
         builder: (context, state) => const UnauthorizedPage(),
       ),
+            // === Training Department routes ===
+      GoRoute(
+        path: '/training-dept/home',
+        builder: (context, state) => const TrainingDepartmentHomePage(),
+      ),
+      GoRoute(
+        path: '/training-dept/requests',
+        builder: (context, state) => const TrainingDepartmentRequestsPage(),
+      ),
+      GoRoute(
+        path: '/training-dept/reports',
+        builder: (context, state) => const TrainingDepartmentReportsPage(),
+      ),
+      GoRoute(
+        path: '/training-dept/schedule',
+        builder: (context, state) => const TrainingDepartmentSchedulePage(),
+      ),
+      
     ],
     redirect: (BuildContext context, GoRouterState state) {
       final isLoggedIn = authState != null;
@@ -85,7 +107,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           case Role.lecturer:
             return '/home'; // <-- Redirect to /home
           case Role.training:
-            return '/schedule/editor';
+            return '/training-dept/home';
           case Role.admin:
             return '/users';
           default:

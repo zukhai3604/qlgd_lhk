@@ -111,12 +111,28 @@ class LoginViewModel extends StateNotifier<LoginState> {
       final paths = ['/auth/me', '/me', '/api/me', '/api/user'];
       final res = await _getMeFlexible(paths);
       final data = (res.data as Map).cast<String, dynamic>();
-      final roleStr = (data['role'] ?? data['user']?['role'] ?? data['data']?['role'] ?? '').toString().toLowerCase().trim();
-      
-      final role = Role.values.firstWhere(
-        (e) => e.toString().split('.').last == roleStr,
-        orElse: () => Role.unknown,
-      );
+      final rawRole = (data['role'] ?? data['user']?['role'] ?? data['data']?['role'] ?? '').toString();
+
+      // Normalize: remove non-alphanumeric, lowercase
+      final roleStr = rawRole.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+      // Map common server role strings (including DAO_TAO) to our Role enum
+      final roleMap = <String, Role>{
+        'lecturer': Role.lecturer,
+        'giangvien': Role.lecturer,
+        'teacher': Role.lecturer,
+
+        'training': Role.training,
+        'trainingdept': Role.training,
+        'trainingdepartment': Role.training,
+        'daotao': Role.training, // DAO_TAO from backend
+        'dao_tao': Role.training,
+
+        'admin': Role.admin,
+        'administrator': Role.admin,
+      };
+
+      final role = roleMap[roleStr] ?? Role.unknown;
 
       // Update the global authentication state
       _ref.read(authStateProvider.notifier).login(token, role);

@@ -7,8 +7,9 @@ use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\API\LeaveController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Lecturer\ScheduleController;
-use App\Http\Controllers\TrainingDepartment\ApprovalController;
-
+use App\Http\Controllers\TrainingDepartment\RequestController as TrRequestController;
+use App\Http\Controllers\TrainingDepartment\ScheduleController as TrScheduleController;
+use App\Http\Controllers\TrainingDepartment\ReportController as TrReportController;
 /*
 |--------------------------------------------------------------------------
 | API Routes
@@ -37,23 +38,30 @@ Route::middleware(['auth:sanctum', 'ensure.active'])->group(function () {
     });
 
     // ----- PHÒNG ĐÀO TẠO -----
-    Route::middleware(['auth:sanctum','role:DAO_TAO'])
-    ->prefix('training_department')->group(function () {
+    Route::middleware('role:DAO_TAO')->prefix('training_department')->group(function () {
+        // 1) Đơn & Duyệt
+        Route::get('requests', [TrRequestController::class, 'index']);
+        Route::get('requests/{type}/{id}', [TrRequestController::class, 'show']); // type: leave|makeup
+        Route::post('leave/{id}/approve',  [TrRequestController::class, 'approveLeave']);
+        Route::post('leave/{id}/reject',   [TrRequestController::class, 'rejectLeave']);
+        Route::post('makeup/{id}/approve', [TrRequestController::class, 'approveMakeup']);
+        Route::post('makeup/{id}/reject',  [TrRequestController::class, 'rejectMakeup']);
 
-    // Duyệt/xem danh sách đơn (browsing)
-    Route::get('requests', [RequestBrowseController::class, 'index']);
-    Route::get('requests/{type}/{id}', [RequestBrowseController::class, 'show']); // type: leave|makeup
+        // 2) Lịch
+        Route::get('schedules/week',        [TrScheduleController::class, 'week']);
+        Route::get('schedules/month',       [TrScheduleController::class, 'month']);
+        Route::get('schedules/conflicts',   [TrScheduleController::class, 'conflicts']);
+        Route::post('schedules/generate',   [TrScheduleController::class, 'generate']);
+        Route::post('schedules/bulk-adjust',[TrScheduleController::class, 'bulkAdjust']);
 
-    // Báo cáo tóm tắt
-    Route::get('reports/summary', [TrainingReportController::class, 'summary']);
-
-    // Lịch: sinh/điều chỉnh/xung đột/xem lịch
-    Route::post('schedules/generate', [SchedulePlannerController::class, 'generate']);
-    Route::post('schedules/bulk-adjust', [SchedulePlannerController::class, 'bulkAdjust']);
-    Route::get('schedules/conflicts', [SchedulePlannerController::class, 'conflicts']);
-    Route::get('schedules/week', [ScheduleViewerController::class, 'week']);
-    Route::get('schedules/month', [ScheduleViewerController::class, 'month']);
-});
+        // 3) Báo cáo + DataOps
+        Route::get('reports/overview',           [TrReportController::class, 'semesterOverview']);
+        Route::get('reports/subject-progress',   [TrReportController::class, 'subjectProgress']);
+        Route::get('reports/lecturer-progress',  [TrReportController::class, 'lecturerProgress']);
+        Route::get('reports/class-progress',     [TrReportController::class, 'classProgress']);
+        Route::get('reports/subject-sessions',   [TrReportController::class, 'subjectSessions']);
+        Route::post('data/push-class-students',  [TrReportController::class, 'pushClassStudents']);
+    });
 
     // ----- GIẢNG VIÊN -----
     Route::middleware('role:GIANG_VIEN')->prefix('lecturer')->group(function () {
