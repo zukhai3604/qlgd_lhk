@@ -5,7 +5,6 @@ import 'package:qlgd_lhk/core/api_client.dart';
 import 'package:qlgd_lhk/common/providers/auth_state_provider.dart';
 import 'package:qlgd_lhk/common/providers/role_provider.dart';
 
-// ... (LoginState class remains the same)
 class LoginState {
   final bool isLoggingIn;
   final bool obscurePassword;
@@ -31,25 +30,25 @@ class LoginState {
   }
 }
 
+final loginViewModelProvider =
+StateNotifierProvider<LoginViewModel, LoginState>((ref) {
+  return LoginViewModel(ref);
+});
 
 class LoginViewModel extends StateNotifier<LoginState> {
-  // Inject the Ref to allow communication with other providers
-  final Ref _ref;
-
   LoginViewModel(this._ref) : super(const LoginState());
+
+  final Ref _ref;
 
   final api = ApiClient.create();
   static const _storage = FlutterSecureStorage();
   static const _kAccess = 'access_token';
   static const _kCompat = 'auth_token';
 
-  void togglePasswordVisibility() {
-    state = state.copyWith(obscurePassword: !state.obscurePassword);
-  }
+  void togglePasswordVisibility() =>
+      state = state.copyWith(obscurePassword: !state.obscurePassword);
 
-  void clearError() {
-    state = state.copyWith(clearError: true);
-  }
+  void clearError() => state = state.copyWith(clearError: true);
 
   String? validateEmail(String? value) {
     if (value == null || value.trim().isEmpty) return 'Email không được để trống';
@@ -64,22 +63,35 @@ class LoginViewModel extends StateNotifier<LoginState> {
     return null;
   }
 
+  // Maps the backend string to our standardized Role enum
+  Role _mapBackendRole(String? raw) {
+    switch ((raw ?? '').toUpperCase().trim()) {
+      case 'ADMIN':
+        return Role.ADMIN;
+      case 'TRAINING_DEPARTMENT': // <-- Sửa để khớp với backend Laravel
+        return Role.DAO_TAO;
+      case 'LECTURER': // <-- Sửa để khớp với backend Laravel
+        return Role.GIANG_VIEN;
+      default:
+        return Role.UNKNOWN;
+    }
+  }
+
   Future<void> login({
     required String email,
     required String password,
   }) async {
     state = state.copyWith(isLoggingIn: true, clearError: true);
 
-    const paths = ['/auth/login', '/login', '/api/login'];
+    const paths = ['/api/login', '/auth/login', '/login']; // <-- Ưu tiên /api/login
     final bodies = [
       {'email': email, 'password': password},
-      {'username': email, 'password': password},
     ];
 
     try {
-      Response res = await _tryLogin(paths, bodies);
-      final token = _extractToken(res.data);
+      final res = await _tryLogin(paths, bodies);
 
+      final token = _extractToken(res.data);
       if (token == null || token.isEmpty) {
         final msg = _extractMessage(res.data) ?? 'Không nhận được token từ máy chủ';
         throw Exception(msg);
@@ -87,52 +99,67 @@ class LoginViewModel extends StateNotifier<LoginState> {
 
       await _storage.write(key: _kAccess, value: token);
       await _storage.write(key: _kCompat, value: token);
+
       api.dio.options.headers['Authorization'] = 'Bearer $token';
-      
-      // Fetch profile and update global auth state
+
       await _fetchProfileAndSetAuth(token);
 
       state = state.copyWith(isLoggingIn: false);
-
     } on DioException catch (e) {
       final msg = _extractMessage(e.response?.data) ??
-          (e.response?.statusCode == 401 || e.response?.statusCode == 422
+          ((e.response?.statusCode == 401 || e.response?.statusCode == 422)
               ? 'Sai tài khoản hoặc mật khẩu'
               : 'Đăng nhập thất bại. Vui lòng thử lại.');
       state = state.copyWith(isLoggingIn: false, errorMessage: msg);
     } catch (e) {
-      state = state.copyWith(isLoggingIn: false, errorMessage: e.toString().replaceFirst('Exception: ', ''));
+      state = state.copyWith(
+        isLoggingIn: false,
+        errorMessage: e.toString().replaceFirst('Exception: ', ''),
+      );
     }
   }
 
-  // New method to get user profile and role
   Future<void> _fetchProfileAndSetAuth(String token) async {
-    try {
-      final paths = ['/auth/me', '/me', '/api/me', '/api/user'];
-      final res = await _getMeFlexible(paths);
-      final data = (res.data as Map).cast<String, dynamic>();
-      final roleStr = (data['role'] ?? data['user']?['role'] ?? data['data']?['role'] ?? '').toString().toLowerCase().trim();
-      
-      final role = Role.values.firstWhere(
-        (e) => e.toString().split('.').last == roleStr,
-        orElse: () => Role.unknown,
-      );
+    const mePaths = ['/api/me', '/auth/me', '/me', '/api/user'];
+    final res = await _getMeFlexible(mePaths);
 
-      // Update the global authentication state
-      _ref.read(authStateProvider.notifier).login(token, role);
+    // GỘP VÀO ĐÂY: Dòng print để kiểm tra lỗi
+    print('👤 /api/me response -> Status: ${res.statusCode}, Data: ${res.data}');
 
-    } catch (e) {
-      // If profile fetch fails, still log in with unknown role
-      _ref.read(authStateProvider.notifier).login(token, Role.unknown);
+    Map<String, dynamic> m;
+    if (res.data is Map && (res.data['data'] is Map)) {
+      m = Map<String, dynamic>.from(res.data['data']);
+    } else if (res.data is Map) {
+      m = Map<String, dynamic>.from(res.data);
+    } else {
+      throw Exception('Dữ liệu hồ sơ không hợp lệ');
     }
+
+    final id = (m['id'] ?? m['user']?['id'] ?? m['data']?['id']) ?? 0;
+    final name = (m['name'] ?? m['full_name'] ?? m['user']?['name'] ?? m['data']?['name'])?.toString() ?? '';
+    final email = (m['email'] ?? m['user']?['email'] ?? m['data']?['email'])?.toString() ?? '';
+    final backendRole = (m['role'] ?? m['user']?['role'] ?? m['data']?['role'])?.toString();
+
+    final role = _mapBackendRole(backendRole);
+
+    _ref.read(authStateProvider.notifier).login(
+      token,
+      role,
+      id: int.tryParse(id.toString()) ?? 0,
+      name: name,
+      email: email,
+    );
   }
 
   Future<void> logout() async {
+    try {
+      await api.dio.post('/api/logout');
+    } catch (_) {}
     await _storage.delete(key: _kAccess);
     await _storage.delete(key: _kCompat);
     _ref.read(authStateProvider.notifier).logout();
   }
-  
+
   Future<Response> _getMeFlexible(List<String> paths) async {
     DioException? lastErr;
     for (final p in paths) {
@@ -147,10 +174,9 @@ class LoginViewModel extends StateNotifier<LoginState> {
     throw lastErr ?? Exception('Không tìm thấy endpoint /me phù hợp.');
   }
 
-  Future<Response> _tryLogin(List<String> paths, List<Map<String, dynamic>> bodies) async {
-    // ... (This method remains the same)
+  Future<Response> _tryLogin(
+      List<String> paths, List<Map<String, dynamic>> bodies) async {
     DioException? lastErr;
-
     for (final p in paths) {
       for (final b in bodies) {
         try {
@@ -161,6 +187,10 @@ class LoginViewModel extends StateNotifier<LoginState> {
               receiveTimeout: const Duration(seconds: 30),
               sendTimeout: const Duration(seconds: 30),
               validateStatus: (c) => c != null && c < 500,
+              headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+              },
             ),
           );
           if (res.statusCode != null && res.statusCode! < 500) return res;
@@ -176,30 +206,19 @@ class LoginViewModel extends StateNotifier<LoginState> {
   }
 
   String? _extractToken(dynamic data) {
-    // ... (This method remains the same)
     if (data is Map) {
-        final m = Map<String, dynamic>.from(data);
-        return (m['access_token'] ??
-            m['token'] ??
-            m['data']?['access_token'] ??
-            m['data']?['token'] ??
-            m['meta']?['token'])
-            ?.toString();
-      }
+      final m = Map<String, dynamic>.from(data);
+      // Cập nhật để khớp với response của Laravel
+      return (m['token'] ?? m['access_token'] ?? m['data']?['token'])?.toString();
+    }
     return null;
   }
 
   String? _extractMessage(dynamic data) {
-    // ... (This method remains the same)
     if (data is Map) {
-        final m = Map<String, dynamic>.from(data);
-        return (m['message'] ?? m['error'] ?? m['detail'])?.toString();
-      }
+      final m = Map<String, dynamic>.from(data);
+      return (m['message'] ?? m['error'] ?? m['detail'] ?? m['debug']?['message'])?.toString();
+    }
     return null;
   }
 }
-
-final loginViewModelProvider = StateNotifierProvider<LoginViewModel, LoginState>(
-  // Pass the ref to the ViewModel
-  (ref) => LoginViewModel(ref),
-);

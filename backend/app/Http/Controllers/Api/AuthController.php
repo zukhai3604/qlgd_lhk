@@ -1,50 +1,99 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers\API; // ✅ ĐÚNG CHỮ HOA
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\User;                      // <-- SỬA LỖI: THÊM DÒNG NÀY
-use Illuminate\Support\Facades\Auth;      // <-- SỬA LỖI: THÊM DÒNG NÀY
+use Illuminate\Support\Facades\Auth;
+use App\Models\User;
 
 class AuthController extends Controller
 {
-    // SỬA LỖI: HÀM LOGIN PHẢI NẰM BÊN TRONG CẶP DẤU {} CỦA CLASS
+    /**
+     * POST /api/login
+     */
     public function login(Request $request)
     {
-        // 1. Kiểm tra dữ liệu đầu vào (email, password) có hợp lệ không
         $credentials = $request->validate([
-            'email' => 'required|email',
-            'password' => 'required',
+            'email'    => ['required', 'email'],
+            'password' => ['required'],
         ]);
 
-        // 2. Thử xác thực người dùng với thông tin đã cung cấp
         if (!Auth::attempt($credentials)) {
-            // Nếu sai email hoặc password, trả về lỗi
-            return response()->json([
-                'message' => 'Email hoặc mật khẩu không chính xác.'
-            ], 401); // 401 Unauthorized
+            return response()->json(['message' => 'Email hoặc mật khẩu không chính xác.'], 401);
         }
 
-        // 3. Xác thực thành công, lấy thông tin user
-        $user = User::where('email', $request->email)->first();
+        /** @var User $user */
+        $user = User::where('email', $credentials['email'])->firstOrFail();
 
-        // 4. Tạo ra một token mới cho user này
+        // (Tuỳ chọn) Huỷ token cũ: $user->tokens()->delete();
         $token = $user->createToken('api_token')->plainTextToken;
 
-        // 5. Trả về thông tin user và token cho client (app mobile)
+        // Nếu muốn trả kèm hồ sơ tóm tắt lúc login:
+        $user->loadMissing(['lecturer.department.faculty']);
+        $lec = $user->lecturer;
+
         return response()->json([
-            'user' => $user,
             'token' => $token,
+            'user'  => [
+                'id'    => $user->id,
+                'name'  => $user->name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'role'  => $user->role,
+            ],
+            'lecturer' => $lec ? [
+                'gender'        => $lec->gender,
+                'date_of_birth' => $lec->date_of_birth,
+                'department'    => $lec->department ? [
+                    'id'   => $lec->department->id,
+                    'name' => $lec->department->name,
+                    'faculty' => $lec->department->faculty ? [
+                        'id'   => $lec->department->faculty->id,
+                        'name' => $lec->department->faculty->name,
+                    ] : null,
+                ] : null,
+            ] : null,
+            'avatar_url' => $lec->avatar_url ?? null,
         ]);
     }
 
-    // (Các hàm me() và logout() mà chúng ta đã làm trước đó sẽ nằm ở đây)
+    /**
+     * GET /api/me
+     * Trả profile chuẩn dùng cho app
+     */
     public function me(Request $request)
     {
-        return response()->json($request->user());
+        $user = $request->user()->loadMissing(['lecturer.department.faculty']);
+        $lec  = $user->lecturer;
+
+        return response()->json([
+            'user' => [
+                'id'    => $user->id,
+                'name'  => $user->name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+                'role'  => $user->role,
+            ],
+            'lecturer' => $lec ? [
+                'gender'        => $lec->gender,
+                'date_of_birth' => $lec->date_of_birth,
+                'department'    => $lec->department ? [
+                    'id'   => $lec->department->id,
+                    'name' => $lec->department->name,
+                    'faculty' => $lec->department->faculty ? [
+                        'id'   => $lec->department->faculty->id,
+                        'name' => $lec->department->faculty->name,
+                    ] : null,
+                ] : null,
+            ] : null,
+            'avatar_url' => $lec->avatar_url ?? null,
+        ]);
     }
 
+    /**
+     * POST /api/logout
+     */
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
