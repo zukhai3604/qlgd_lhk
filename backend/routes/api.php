@@ -37,9 +37,23 @@ Route::middleware(['auth:sanctum', 'ensure.active'])->group(function () {
     });
 
     // ----- PHÒNG ĐÀO TẠO -----
-    Route::middleware('role:DAO_TAO')->prefix('training_department')->group(function () {
-        Route::post('approvals/leave/{leave}', [ApprovalController::class, 'approveLeave']);
-    });
+    Route::middleware(['auth:sanctum','role:DAO_TAO'])
+    ->prefix('training_department')->group(function () {
+
+    // Duyệt/xem danh sách đơn (browsing)
+    Route::get('requests', [RequestBrowseController::class, 'index']);
+    Route::get('requests/{type}/{id}', [RequestBrowseController::class, 'show']); // type: leave|makeup
+
+    // Báo cáo tóm tắt
+    Route::get('reports/summary', [TrainingReportController::class, 'summary']);
+
+    // Lịch: sinh/điều chỉnh/xung đột/xem lịch
+    Route::post('schedules/generate', [SchedulePlannerController::class, 'generate']);
+    Route::post('schedules/bulk-adjust', [SchedulePlannerController::class, 'bulkAdjust']);
+    Route::get('schedules/conflicts', [SchedulePlannerController::class, 'conflicts']);
+    Route::get('schedules/week', [ScheduleViewerController::class, 'week']);
+    Route::get('schedules/month', [ScheduleViewerController::class, 'month']);
+});
 
     // ----- GIẢNG VIÊN -----
     Route::middleware('role:GIANG_VIEN')->prefix('lecturer')->group(function () {
