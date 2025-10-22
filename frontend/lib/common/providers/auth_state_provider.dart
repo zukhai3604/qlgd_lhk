@@ -17,6 +17,22 @@ class AuthState {
     this.name,
     this.email,
   });
+
+  AuthState copyWith({
+    String? token,
+    Role? role,
+    int? id,
+    String? name,
+    String? email,
+  }) {
+    return AuthState(
+      token: token ?? this.token,
+      role: role ?? this.role,
+      id: id ?? this.id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+    );
+  }
 }
 
 // Manages the authentication state throughout the app
@@ -25,12 +41,35 @@ class AuthStateNotifier extends StateNotifier<AuthState?> {
 
   // Call this method when the user successfully logs in
   void login(String token, Role role, {int? id, String? name, String? email}) {
-    state = AuthState(token: token, role: role, id: id, name: name, email: email);
+    state =
+        AuthState(token: token, role: role, id: id, name: name, email: email);
   }
 
   // Call this method when the user logs out
   void logout() {
     state = null;
+  }
+
+  void mergeProfile({String? name, String? email}) {
+    patch(name: name, email: email);
+  }
+
+  void patch({
+    String? token,
+    Role? role,
+    int? id,
+    String? name,
+    String? email,
+  }) {
+    final current = state;
+    if (current == null) return;
+    state = current.copyWith(
+      token: token ?? current.token,
+      role: role ?? current.role,
+      id: id ?? current.id,
+      name: name ?? current.name,
+      email: email ?? current.email,
+    );
   }
 }
 

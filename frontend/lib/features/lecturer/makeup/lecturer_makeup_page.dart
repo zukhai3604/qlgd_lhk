@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
@@ -58,8 +60,18 @@ class _LecturerMakeupPageState extends State<LecturerMakeupPage> {
 
       // Dữ liệu giả
       _missedSessions = [
-        MissedSession(id: 1, subjectName: 'Lập trình phân tán', date: '21/09/2025', timeSlot: '9:30 - 12:30', reason: 'Công tác đột xuất'),
-        MissedSession(id: 2, subjectName: 'Công nghệ Web', date: '22/09/2025', timeSlot: '7:00 - 9:00', reason: 'Ốm'),
+        MissedSession(
+            id: 1,
+            subjectName: 'Lập trình phân tán',
+            date: '21/09/2025',
+            timeSlot: '9:30 - 12:30',
+            reason: 'Công tác đột xuất'),
+        MissedSession(
+            id: 2,
+            subjectName: 'Công nghệ Web',
+            date: '22/09/2025',
+            timeSlot: '7:00 - 9:00',
+            reason: 'Ốm'),
       ];
       _availableTimeSlots = ['7:00 - 9:00', '9:10 - 11:10', '15:30 - 18:30'];
       _availableRooms = ['210 - B5', '301 - A2', '404 - C1'];
@@ -68,7 +80,6 @@ class _LecturerMakeupPageState extends State<LecturerMakeupPage> {
       if (_missedSessions.isNotEmpty) {
         _selectedMissedSession = _missedSessions.first;
       }
-
     } catch (e) {
       _error = 'Không thể tải dữ liệu. Vui lòng thử lại.';
     } finally {
@@ -95,13 +106,15 @@ class _LecturerMakeupPageState extends State<LecturerMakeupPage> {
 
       // Hiển thị thông báo thành công và quay lại
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Gửi yêu cầu dạy bù thành công!'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        context.pop();
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text('Gửi yêu cầu dạy bù thành công!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        context.go('/home');
       }
     }
   }
@@ -133,8 +146,10 @@ class _LecturerMakeupPageState extends State<LecturerMakeupPage> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-          ? Center(child: Text(_error!, style: const TextStyle(color: Colors.red)))
-          : _buildForm(),
+              ? Center(
+                  child:
+                      Text(_error!, style: const TextStyle(color: Colors.red)))
+              : _buildForm(),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: 0, // Thay đổi giá trị này để highlight đúng item
         onTap: (index) {
@@ -151,9 +166,12 @@ class _LecturerMakeupPageState extends State<LecturerMakeupPage> {
           }
         },
         items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'Trang chủ'),
-          BottomNavigationBarItem(icon: Icon(Icons.notifications_outlined), label: 'Thông báo'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'Tài khoản'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.home_outlined), label: 'Trang chủ'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.notifications_outlined), label: 'Thông báo'),
+          BottomNavigationBarItem(
+              icon: Icon(Icons.person_outline), label: 'Tài khoản'),
         ],
       ),
     );
@@ -176,18 +194,23 @@ class _LecturerMakeupPageState extends State<LecturerMakeupPage> {
               });
             },
             itemToString: (session) => session.subjectName,
-            validator: (value) => value == null ? 'Vui lòng chọn môn học' : null,
+            validator: (value) =>
+                value == null ? 'Vui lòng chọn môn học' : null,
           ),
           const SizedBox(height: 16),
-          _buildReadOnlyField(label: 'Ngày nghỉ', value: _selectedMissedSession?.date),
+          _buildReadOnlyField(
+              label: 'Ngày nghỉ', value: _selectedMissedSession?.date),
           const SizedBox(height: 16),
-          _buildReadOnlyField(label: 'Ca', value: _selectedMissedSession?.timeSlot),
+          _buildReadOnlyField(
+              label: 'Ca', value: _selectedMissedSession?.timeSlot),
           const SizedBox(height: 16),
-          _buildReadOnlyField(label: 'Lý do', value: _selectedMissedSession?.reason),
+          _buildReadOnlyField(
+              label: 'Lý do', value: _selectedMissedSession?.reason),
           const SizedBox(height: 24),
 
           // === Phần chọn lịch dạy bù ===
-          const Text('Chọn lịch dạy bù', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const Text('Chọn lịch dạy bù',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
           _buildDateField(
             label: 'Ngày dạy bù',
@@ -220,7 +243,8 @@ class _LecturerMakeupPageState extends State<LecturerMakeupPage> {
                 _selectedMakeupRoom = room;
               });
             },
-            validator: (value) => value == null ? 'Vui lòng chọn phòng học' : null,
+            validator: (value) =>
+                value == null ? 'Vui lòng chọn phòng học' : null,
           ),
           const SizedBox(height: 32),
           ElevatedButton(
@@ -229,9 +253,11 @@ class _LecturerMakeupPageState extends State<LecturerMakeupPage> {
               padding: const EdgeInsets.symmetric(vertical: 16),
               backgroundColor: Theme.of(context).colorScheme.primary,
               foregroundColor: Theme.of(context).colorScheme.onPrimary,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
             ),
-            child: const Text('Gửi yêu cầu dạy bù', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            child: const Text('Gửi yêu cầu dạy bù',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -252,7 +278,8 @@ class _LecturerMakeupPageState extends State<LecturerMakeupPage> {
       decoration: InputDecoration(
         labelText: label,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
       items: items.map((item) {
         return DropdownMenuItem<T>(
@@ -273,7 +300,8 @@ class _LecturerMakeupPageState extends State<LecturerMakeupPage> {
       decoration: InputDecoration(
         labelText: label,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         fillColor: Colors.grey.shade200,
         filled: true,
       ),
@@ -294,7 +322,8 @@ class _LecturerMakeupPageState extends State<LecturerMakeupPage> {
       decoration: InputDecoration(
         labelText: label,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         suffixIcon: const Icon(Icons.calendar_today),
       ),
       onTap: () async {
@@ -308,7 +337,8 @@ class _LecturerMakeupPageState extends State<LecturerMakeupPage> {
           onChanged(pickedDate);
         }
       },
-      validator: (text) => (text == null || text.isEmpty) ? 'Vui lòng chọn ngày' : null,
+      validator: (text) =>
+          (text == null || text.isEmpty) ? 'Vui lòng chọn ngày' : null,
     );
   }
 }

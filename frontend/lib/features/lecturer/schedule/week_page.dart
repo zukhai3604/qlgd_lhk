@@ -1,8 +1,25 @@
 import 'package:flutter/material.dart';
-// Nếu bạn muốn điều hướng bằng GoRouter route /schedule/:id thì mở import dưới:
-// import 'package:go_router/go_router.dart';
+import 'package:go_router/go_router.dart';
+
 import 'service.dart';
-import 'detail_page.dart';
+
+const List<Map<String, String>> _periods = [
+  {'start': '07:00', 'end': '07:50'},
+  {'start': '07:55', 'end': '08:45'},
+  {'start': '08:50', 'end': '09:40'},
+  {'start': '09:45', 'end': '10:35'},
+  {'start': '10:40', 'end': '11:30'},
+  {'start': '11:35', 'end': '12:25'},
+  {'start': '12:55', 'end': '13:45'},
+  {'start': '13:50', 'end': '14:40'},
+  {'start': '14:45', 'end': '15:35'},
+  {'start': '15:40', 'end': '16:30'},
+  {'start': '16:35', 'end': '17:25'},
+  {'start': '17:30', 'end': '18:20'},
+  {'start': '18:50', 'end': '19:40'},
+  {'start': '19:45', 'end': '20:35'},
+  {'start': '20:40', 'end': '21:30'},
+];
 
 class LecturerWeekPage extends StatefulWidget {
   const LecturerWeekPage({super.key});
@@ -18,13 +35,89 @@ class _LecturerWeekPageState extends State<LecturerWeekPage> {
   Map<String, dynamic> range = {};
   List<Map<String, dynamic>> items = [];
 
+  static const int _toleranceMinutes = 2;
+
   @override
   void initState() {
     super.initState();
     _load();
   }
 
+  void _sortItems() {
+    items.sort((a, b) {
+      final dateA = (a['date'] ?? '').toString();
+      final dateB = (b['date'] ?? '').toString();
+      final cmp = dateA.compareTo(dateB);
+      if (cmp != 0) return cmp;
+      final startA = _hhmmToMin(_normHHmm(a['start_time']));
+      final startB = _hhmmToMin(_normHHmm(b['start_time']));
+      return startA.compareTo(startB);
+    });
+  }
+
+  DateTime? _composeDateTime(Map<String, dynamic> item) {
+    final dateRaw = item['date']?.toString();
+    if (dateRaw == null || dateRaw.isEmpty) return null;
+    final dateOnly = dateRaw.contains(' ') ? dateRaw.split(' ').first : dateRaw;
+    final startNorm = _normHHmm(item['start_time']);
+    final endNorm = _normHHmm(item['end_time']);
+    final period = _detectPeriod(startNorm, endNorm);
+    final useStart = period != null ? _periodStart(period) : startNorm;
+    final candidate = '$dateOnly ${useStart == '--:--' ? '00:00' : useStart}';
+    return DateTime.tryParse(candidate);
+  }
+
+  String _normHHmm(dynamic raw) {
+    if (raw == null) return '--:--';
+    if (raw is DateTime) {
+      return DateFormat('HH:mm').format(raw);
+    }
+    var s = raw.toString().trim();
+    if (s.isEmpty) return '--:--';
+    if (s.contains(' ')) s = s.split(' ').last;
+    if (s.contains('T')) s = s.split('T').last;
+    s = s.replaceAll(RegExp(r'[Zz]$'), '');
+    if (s.contains('+')) s = s.split('+').first;
+    if (s.contains('-') && s.indexOf('-') > 2) s = s.split('-').first;
+    if (s.length >= 5) s = s.substring(0, 5);
+    final parts = s.split(':');
+    if (parts.length < 2) return '--:--';
+    final hh = parts[0].padLeft(2, '0');
+    final mm = parts[1].padLeft(2, '0');
+    return '$hh:$mm';
+  }
+
+  int? _detectPeriod(String startStr, String endStr) {
+    if (startStr == '--:--' || endStr == '--:--') return null;
+    final s = _hhmmToMin(startStr);
+    final e = _hhmmToMin(endStr);
+    for (var i = 0; i < _periods.length; i++) {
+      final ps = _hhmmToMin(_periods[i]['start']!);
+      final pe = _hhmmToMin(_periods[i]['end']!);
+      if ((s - ps).abs() <= _toleranceMinutes &&
+          (e - pe).abs() <= _toleranceMinutes) {
+        return i + 1;
+      }
+    }
+    for (var i = 0; i < _periods.length; i++) {
+      final ps = _hhmmToMin(_periods[i]['start']!);
+      if ((s - ps).abs() <= 30) return i + 1;
+    }
+    return null;
+  }
+
+  int _hhmmToMin(String hhmm) {
+    final parts = hhmm.split(':');
+    final h = int.tryParse(parts[0]) ?? 0;
+    final m = int.tryParse(parts.length > 1 ? parts[1] : '0') ?? 0;
+    return h * 60 + m;
+  }
+
+  String _periodStart(int period) => _periods[period - 1]['start']!;
+  String _periodEnd(int period) => _periods[period - 1]['end']!;
+}
   Future<void> _load() async {
+    if (!mounted) return;
     setState(() {
       loading = true;
       error = null;
@@ -33,19 +126,23 @@ class _LecturerWeekPageState extends State<LecturerWeekPage> {
       final res = await _svc.getWeek();
       range = Map<String, dynamic>.from(res['range'] ?? {});
       items = (res['data'] as List)
-          .cast<Map>()
-          .map((e) => Map<String, dynamic>.from(e))
+          .map((e) => Map<String, dynamic>.from(e as Map))
           .toList();
+      _sortItems();
     } catch (e) {
-      error = '$e';
+      if (mounted) {
+        setState(() => error = 'Khong the tai lich tuan: $e');
+      }
     } finally {
-      if (mounted) setState(() => loading = false);
+      if (mounted) {
+        setState(() => loading = false);
+      }
     }
   }
 
-  Color _statusColor(String? s, BuildContext ctx) {
-    final cs = Theme.of(ctx).colorScheme;
-    switch (s) {
+  Color _statusColor(String? status, BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    switch ((status ?? '').toUpperCase()) {
       case 'TEACHING':
         return cs.primary;
       case 'DONE':
@@ -61,97 +158,154 @@ class _LecturerWeekPageState extends State<LecturerWeekPage> {
     }
   }
 
+  String _formatDate(dynamic value) {
+    if (value == null) return '-';
+    final s = value.toString();
+    final only = s.contains(' ') ? s.split(' ').first : s;
+    final parts = only.split('-');
+    return parts.length == 3 ? '${parts[2]}/${parts[1]}/${parts[0]}' : only;
+  }
+
+  String _formatTime(dynamic value) {
+    final normalized = _normalizeTimeStr(value);
+    return normalized ?? '--:--';
+  }
+
+  String _formatRoom(dynamic value) {
+    if (value == null) return '-';
+    final s = value.toString();
+    if (s.startsWith('P.')) return s.substring(2);
+    return s;
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (loading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    if (error != null) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('Lịch giảng dạy')),
-        body: Center(
-          child: Text(
-            error!,
-            style: const TextStyle(color: Colors.red),
-            textAlign: TextAlign.center,
-          ),
-        ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: _load,
-          child: const Icon(Icons.refresh),
-        ),
-      );
-    }
+    final rangeText = loading
+        ? ''
+        : '${_formatDate(range['from'])} - ${_formatDate(range['to'])}';
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Lịch giảng dạy'),
+        title: const Text('Lich giang day theo tuan'),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(22),
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Text(
-              '${range['from'] ?? ''} → ${range['to'] ?? ''}',
-              style: const TextStyle(fontSize: 12),
-            ),
+          child: loading
+              ? const SizedBox.shrink()
+              : Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    rangeText,
+                    style: const TextStyle(fontSize: 12),
+                  ),
+                ),
+        ),
+      ),
+      body: _buildBody(),
+    );
+  }
+
+  Widget _buildBody() {
+    if (loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                error!,
+                style: const TextStyle(color: Colors.red),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              FilledButton.icon(
+                onPressed: _load,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Tai lai'),
+              ),
+            ],
           ),
         ),
-      ),
-      body: RefreshIndicator(
+      );
+    }
+
+    if (items.isEmpty) {
+      return RefreshIndicator(
         onRefresh: _load,
-        child: items.isEmpty
-            ? ListView(
+        child: ListView(
           children: const [
             SizedBox(height: 120),
-            Center(child: Text('Tuần này chưa có buổi học.')),
+            Center(child: Text('Tuan nay khong co buoi hoc nao.')),
           ],
-        )
-            : ListView.separated(
-          padding: const EdgeInsets.all(12),
-          itemCount: items.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
-          itemBuilder: (_, i) {
-            final it = items[i];
-            final status = (it['status'] ?? '') as String;
-            return Card(
-              child: ListTile(
-                title: Text(
-                  '${it['subject'] ?? 'Môn'} • ${it['class_name'] ?? 'Lớp'}',
-                ),
-                subtitle: Text(
-                  '${it['date']} | ${it['start_time'] ?? '--:--'}–${it['end_time'] ?? '--:--'}  •  P.${it['room'] ?? '-'}',
-                ),
-                trailing: Chip(
-                  label: Text(status),
-                  backgroundColor:
-                  _statusColor(status, context).withOpacity(.15),
-                ),
-                onTap: () {
-                  // Nếu bạn đã tạo route /schedule/:id bằng GoRouter:
-                  // context.push('/schedule/${it['id']}');
-
-                  // Hoặc mở thẳng widget chi tiết:
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => LecturerScheduleDetailPage(
-                        id: it['id'] as int,
-                      ),
-                    ),
-                  );
-                },
-              ),
-            );
-          },
         ),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _load,
-        icon: const Icon(Icons.refresh),
-        label: const Text('Tải lại'),
+      );
+    }
+
+  return RefreshIndicator(
+      onRefresh: _load,
+      child: ListView.separated(
+        padding: const EdgeInsets.all(12),
+        itemCount: items.length,
+        separatorBuilder: (_, __) => const SizedBox(height: 8),
+        itemBuilder: (context, index) {
+          final it = items[index];
+          final status = (it['status'] ?? '').toString();
+          final subject = (it['subject'] ?? 'Mon hoc').toString();
+          final className = (it['class_name'] ?? 'Lop').toString();
+          final dateLabel = _formatDate(it['date']);
+          final startNorm = _normalizeTimeStr(it['start_time']);
+          final endNorm = _normalizeTimeStr(it['end_time']);
+          final period = _detectPeriod(startNorm, endNorm);
+          final displayStart = period != null
+              ? _periodStart(period)
+              : (startNorm ?? '--:--');
+          final displayEnd = period != null
+              ? _periodEnd(period)
+              : (endNorm ?? '--:--');
+          final timeLabel = (displayStart == '--:--' && displayEnd == '--:--')
+              ? '--:--'
+              : '$displayStart - $displayEnd';
+          final periodLabel = period != null ? ' � Ti?t ${period.index}' : '';
+          final roomLabel = _formatRoom(it['room']);
+
+          return Card(
+            elevation: 1,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(color: Colors.grey.withOpacity(0.2)),
+            ),
+            child: ListTile(
+              title: Text(
+                '$subject - $className',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              subtitle: Text(
+                '$dateLabel | $timeLabel$periodLabel � Phong: $roomLabel',
+              ),
+              trailing: Chip(
+                label: Text(
+                  status.toUpperCase(),
+                  style: const TextStyle(
+                      fontSize: 10, fontWeight: FontWeight.bold),
+                ),
+                backgroundColor: _statusColor(status, context).withOpacity(.15),
+                side: BorderSide.none,
+                visualDensity: VisualDensity.compact,
+              ),
+              onTap: () {
+                final sessionId = it['id'] as int?;
+                if (sessionId != null) {
+                  context.push('/schedule/$sessionId');
+                }
+              },
+            ),
+          );
+        },
       ),
     );
   }
-}
+

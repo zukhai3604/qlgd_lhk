@@ -10,40 +10,46 @@ class SubjectSeeder extends Seeder
 {
     public function run(): void
     {
-        // Find the department for "Công nghệ thông tin"
         $itDepartment = Department::where('code', 'CNTT')->first();
 
-        // If the department doesn't exist, stop the seeder to avoid errors.
         if (!$itDepartment) {
-            $this->command->warn('Department with code "CNTT" not found. Skipping SubjectSeeder.');
+            $this->command?->warn('Department with code CNTT not found, skip SubjectSeeder.');
             return;
         }
 
         $subjects = [
             [
-                'code' => 'INT101',
-                'name' => 'Công nghệ Web',
+                'code' => 'CNW',
+                'name' => 'Cong nghe Web',
                 'credits' => 3,
-                'total_sessions' => 15,
-                'semester_label' => 'Xuân 2025',
-                'department_id' => $itDepartment->id
+                'total_sessions' => 30,
+                'semester_label' => '2025-2026 HK1',
+                'department_id' => $itDepartment->id,
             ],
             [
-                'code' => 'INT102',
-                'name' => 'Lập trình phân tán',
+                'code' => 'CTDL',
+                'name' => 'Cau truc du lieu',
                 'credits' => 3,
-                'total_sessions' => 15,
-                'semester_label' => 'Xuân 2025',
-                'department_id' => $itDepartment->id
+                'total_sessions' => 30,
+                'semester_label' => '2025-2026 HK1',
+                'department_id' => $itDepartment->id,
             ],
-            // You can add more subjects here
+            [
+                'code' => 'CSDL',
+                'name' => 'Co so du lieu',
+                'credits' => 3,
+                'total_sessions' => 30,
+                'semester_label' => '2025-2026 HK1',
+                'department_id' => $itDepartment->id,
+            ],
         ];
 
-        foreach ($subjects as $subjectData) {
+        foreach ($subjects as $payload) {
             Subject::updateOrCreate(
-                ['code' => $subjectData['code']], // Key to check for existence
-                $subjectData                     // Data to create or update
+                ['code' => $payload['code']],
+                $payload
             );
         }
     }
 }
+

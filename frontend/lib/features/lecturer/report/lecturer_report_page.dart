@@ -1,3 +1,5 @@
+// ignore_for_file: prefer_const_constructors, use_key_in_widget_constructors
+
 import 'package:flutter/material.dart';
 
 class LecturerReportPage extends StatelessWidget {
@@ -25,7 +27,8 @@ class ReportRow extends StatelessWidget {
   final String subject;
   final int done;
   final int total;
-  const ReportRow({required this.subject, required this.done, required this.total});
+  const ReportRow(
+      {required this.subject, required this.done, required this.total});
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +38,7 @@ class ReportRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('$subject (${done}/${total} buổi)'),
+          Text('$subject ($done/$total buổi)'),
           LinearProgressIndicator(value: ratio),
         ],
       ),

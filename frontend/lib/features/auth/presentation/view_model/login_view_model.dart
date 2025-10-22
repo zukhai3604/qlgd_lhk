@@ -1,6 +1,7 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qlgd_lhk/core/api_client.dart';
 import 'package:qlgd_lhk/common/providers/auth_state_provider.dart';
 import 'package:qlgd_lhk/common/providers/role_provider.dart';
@@ -31,7 +32,7 @@ class LoginState {
 }
 
 final loginViewModelProvider =
-StateNotifierProvider<LoginViewModel, LoginState>((ref) {
+    StateNotifierProvider<LoginViewModel, LoginState>((ref) {
   return LoginViewModel(ref);
 });
 
@@ -51,7 +52,9 @@ class LoginViewModel extends StateNotifier<LoginState> {
   void clearError() => state = state.copyWith(clearError: true);
 
   String? validateEmail(String? value) {
-    if (value == null || value.trim().isEmpty) return 'Email không được để trống';
+    if (value == null || value.trim().isEmpty) {
+      return 'Email không được để trống';
+    }
     final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
     if (!emailRegex.hasMatch(value.trim())) return 'Email không đúng định dạng';
     return null;
@@ -83,7 +86,11 @@ class LoginViewModel extends StateNotifier<LoginState> {
   }) async {
     state = state.copyWith(isLoggingIn: true, clearError: true);
 
-    const paths = ['/api/login', '/auth/login', '/login']; // <-- Ưu tiên /api/login
+    const paths = [
+      '/api/login',
+      '/auth/login',
+      '/login'
+    ]; // <-- Ưu tiên /api/login
     final bodies = [
       {'email': email, 'password': password},
     ];
@@ -93,7 +100,8 @@ class LoginViewModel extends StateNotifier<LoginState> {
 
       final token = _extractToken(res.data);
       if (token == null || token.isEmpty) {
-        final msg = _extractMessage(res.data) ?? 'Không nhận được token từ máy chủ';
+        final msg =
+            _extractMessage(res.data) ?? 'Không nhận được token từ máy chủ';
         throw Exception(msg);
       }
 
@@ -124,7 +132,8 @@ class LoginViewModel extends StateNotifier<LoginState> {
     final res = await _getMeFlexible(mePaths);
 
     // GỘP VÀO ĐÂY: Dòng print để kiểm tra lỗi
-    print('👤 /api/me response -> Status: ${res.statusCode}, Data: ${res.data}');
+    debugPrint(
+        '👤 /api/me response -> Status: ${res.statusCode}, Data: ${res.data}');
 
     Map<String, dynamic> m;
     if (res.data is Map && (res.data['data'] is Map)) {
@@ -136,19 +145,27 @@ class LoginViewModel extends StateNotifier<LoginState> {
     }
 
     final id = (m['id'] ?? m['user']?['id'] ?? m['data']?['id']) ?? 0;
-    final name = (m['name'] ?? m['full_name'] ?? m['user']?['name'] ?? m['data']?['name'])?.toString() ?? '';
-    final email = (m['email'] ?? m['user']?['email'] ?? m['data']?['email'])?.toString() ?? '';
-    final backendRole = (m['role'] ?? m['user']?['role'] ?? m['data']?['role'])?.toString();
+    final name = (m['name'] ??
+                m['full_name'] ??
+                m['user']?['name'] ??
+                m['data']?['name'])
+            ?.toString() ??
+        '';
+    final email = (m['email'] ?? m['user']?['email'] ?? m['data']?['email'])
+            ?.toString() ??
+        '';
+    final backendRole =
+        (m['role'] ?? m['user']?['role'] ?? m['data']?['role'])?.toString();
 
     final role = _mapBackendRole(backendRole);
 
     _ref.read(authStateProvider.notifier).login(
-      token,
-      role,
-      id: int.tryParse(id.toString()) ?? 0,
-      name: name,
-      email: email,
-    );
+          token,
+          role,
+          id: int.tryParse(id.toString()) ?? 0,
+          name: name,
+          email: email,
+        );
   }
 
   Future<void> logout() async {
@@ -209,7 +226,8 @@ class LoginViewModel extends StateNotifier<LoginState> {
     if (data is Map) {
       final m = Map<String, dynamic>.from(data);
       // Cập nhật để khớp với response của Laravel
-      return (m['token'] ?? m['access_token'] ?? m['data']?['token'])?.toString();
+      return (m['token'] ?? m['access_token'] ?? m['data']?['token'])
+          ?.toString();
     }
     return null;
   }
@@ -217,7 +235,11 @@ class LoginViewModel extends StateNotifier<LoginState> {
   String? _extractMessage(dynamic data) {
     if (data is Map) {
       final m = Map<String, dynamic>.from(data);
-      return (m['message'] ?? m['error'] ?? m['detail'] ?? m['debug']?['message'])?.toString();
+      return (m['message'] ??
+              m['error'] ??
+              m['detail'] ??
+              m['debug']?['message'])
+          ?.toString();
     }
     return null;
   }

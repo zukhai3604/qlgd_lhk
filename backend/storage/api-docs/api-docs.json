@@ -1,0 +1,839 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "QLGD_LHK API",
+        "description": "Tài liệu API hệ thống Quản lý Lịch giảng dạy",
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "http://localhost:8888",
+            "description": "Local (Laradock Nginx 8888)"
+        }
+    ],
+    "paths": {
+        "/api/admin/users": {
+            "get": {
+                "tags": [
+                    "Admin - Users"
+                ],
+                "summary": "Danh sách người dùng",
+                "operationId": "2979f0297ab881ad0b8b86ee613f077b",
+                "parameters": [
+                    {
+                        "name": "page",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/PaginatedUsers"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Admin - Users"
+                ],
+                "summary": "Tạo người dùng",
+                "operationId": "7601d6cfa9768b3857d0e58d45eb618b",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "email",
+                                    "password",
+                                    "role"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password"
+                                    },
+                                    "role": {
+                                        "type": "string",
+                                        "example": "GIANG_VIEN"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/admin/users/{id}": {
+            "get": {
+                "tags": [
+                    "Admin - Users"
+                ],
+                "summary": "Chi tiết người dùng",
+                "operationId": "bc1bd7b0a9c5c03d14165e230c9b74a1",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Admin - Users"
+                ],
+                "summary": "Cập nhật người dùng",
+                "operationId": "a13246ab4f01cf3913b77f7d4520bbd7",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email"
+                                    },
+                                    "role": {
+                                        "type": "string"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/User"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Admin - Users"
+                ],
+                "summary": "Xoá người dùng",
+                "operationId": "edba4ea5d13c283794da36b1eb31b2fd",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/health": {
+            "get": {
+                "tags": [
+                    "System"
+                ],
+                "summary": "Health check",
+                "operationId": "9b09e89d95cbd4cd0db9600a14f9495e",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "ok": {
+                                            "type": "boolean",
+                                            "example": true
+                                        },
+                                        "time": {
+                                            "type": "string",
+                                            "format": "date-time"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/ping": {
+            "get": {
+                "tags": [
+                    "System"
+                ],
+                "summary": "Ping",
+                "operationId": "758e3599c49c580b671a8364c3eb5cef",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "pong": {
+                                            "type": "string",
+                                            "format": "date-time"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/lecturer/sessions/{id}/attendance": {
+            "get": {
+                "tags": [
+                    "Lecturer"
+                ],
+                "summary": "Xem điểm danh",
+                "operationId": "0108fa2d22b070d272408ef7884efdb4",
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Lecturer"
+                ],
+                "summary": "Tạo/cập nhật điểm danh",
+                "operationId": "6d36a5e2efa21d6c9fbe3ea4e3c66b02",
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/lecturer/me/profile": {
+            "get": {
+                "tags": [
+                    "Lecturer"
+                ],
+                "summary": "Hồ sơ giảng viên",
+                "operationId": "ef93b4bc3c2b694394cd421fbe9154cc",
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "Lecturer"
+                ],
+                "summary": "Cập nhật hồ sơ",
+                "operationId": "0f1f1b34768557e74d1b71fbded9e7fe",
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/lecturer/stats/teaching-hours": {
+            "get": {
+                "tags": [
+                    "Lecturer"
+                ],
+                "summary": "Thống kê giờ giảng",
+                "operationId": "fd19814aebd8bc8024163c6b9bcc2c55",
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/lecturer/sessions": {
+            "get": {
+                "tags": [
+                    "Lecturer"
+                ],
+                "summary": "Danh sách buổi dạy",
+                "operationId": "10556aeda1e473de3d9589cfcedbe2ca",
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/lecturer/sessions/{id}": {
+            "get": {
+                "tags": [
+                    "Lecturer"
+                ],
+                "summary": "Chi tiết buổi dạy",
+                "operationId": "d6ade59eeafb80391da2b5fea049429e",
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "Lecturer"
+                ],
+                "summary": "Cập nhật buổi dạy (note/room khi PLANNED)",
+                "operationId": "dd7d9610c3369c3d044014b14659076e",
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/lecturer/sessions/{id}/start": {
+            "post": {
+                "tags": [
+                    "Lecturer"
+                ],
+                "summary": "Start session",
+                "operationId": "5fb21e09c02b36e8934e3231974ff2dd",
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/lecturer/sessions/{id}/finish": {
+            "post": {
+                "tags": [
+                    "Lecturer"
+                ],
+                "summary": "Finish session",
+                "operationId": "e8a88ba10ed080e7b6aa95f4fd6c329f",
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "403": {
+                        "description": "Forbidden"
+                    },
+                    "404": {
+                        "description": "Not Found"
+                    },
+                    "422": {
+                        "description": "Unprocessable Entity"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/lecturer/profile": {
+            "get": {
+                "tags": [
+                    "Lecturer - Profile"
+                ],
+                "summary": "Xem hồ sơ",
+                "operationId": "082070223fefc79e2353b962bd6855d4",
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/lecturer/schedule/{id}/report": {
+            "post": {
+                "tags": [
+                    "Lecturer - Report"
+                ],
+                "summary": "Nộp báo cáo",
+                "operationId": "c7362dd24c07845335f14c793e964f0b",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "content"
+                                ],
+                                "properties": {
+                                    "content": {
+                                        "description": "Nội dung chính đã dạy",
+                                        "type": "string"
+                                    },
+                                    "note": {
+                                        "description": "Ghi chú thêm",
+                                        "type": "string",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Created"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/lecturer/schedule/week": {
+            "get": {
+                "tags": [
+                    "Lecturer - Schedule"
+                ],
+                "summary": "Lịch dạy theo tuần",
+                "operationId": "029087001ed6cc663ecacfb04d74f87c",
+                "parameters": [
+                    {
+                        "name": "date",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/lecturer/schedule/{id}": {
+            "get": {
+                "tags": [
+                    "Lecturer - Schedule"
+                ],
+                "summary": "Chi tiết buổi học",
+                "operationId": "bb9f9cde07efeb91b586cce62978b962",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/training_department/approvals/leave/{leave}": {
+            "post": {
+                "tags": [
+                    "Training Department - Approvals"
+                ],
+                "summary": "Phê duyệt đơn nghỉ",
+                "operationId": "fea8bc34e63160073fb93b07487545fa",
+                "parameters": [
+                    {
+                        "name": "leave",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "status"
+                                ],
+                                "properties": {
+                                    "status": {
+                                        "description": "APPROVED|REJECTED",
+                                        "type": "string",
+                                        "example": "APPROVED"
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Error"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "User": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Nguyen Van A"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "lecturer@tlu.edu.vn"
+                    },
+                    "role": {
+                        "type": "string",
+                        "example": "GIANG_VIEN"
+                    }
+                },
+                "type": "object"
+            },
+            "Error": {
+                "properties": {
+                    "message": {
+                        "type": "string"
+                    },
+                    "errors": {
+                        "type": "object",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "PaginatedUsers": {
+                "properties": {
+                    "data": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/User"
+                        }
+                    },
+                    "links": {
+                        "type": "object"
+                    },
+                    "meta": {
+                        "type": "object"
+                    }
+                },
+                "type": "object"
+            }
+        },
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "description": "Use: Bearer {token}",
+                "bearerFormat": "JWT",
+                "scheme": "bearer"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Admin - Users",
+            "description": "Quản lý người dùng (ADMIN)"
+        },
+        {
+            "name": "Lecturer - Profile",
+            "description": "Hồ sơ giảng viên"
+        },
+        {
+            "name": "Lecturer - Report",
+            "description": "Báo cáo/bút ký buổi học"
+        },
+        {
+            "name": "Lecturer - Schedule",
+            "description": "Lịch dạy"
+        },
+        {
+            "name": "Training Department - Approvals",
+            "description": "Phê duyệt (DAO_TAO)"
+        },
+        {
+            "name": "System",
+            "description": "System"
+        },
+        {
+            "name": "Lecturer",
+            "description": "Lecturer"
+        }
+    ]
+}

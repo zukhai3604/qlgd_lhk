@@ -1,51 +1,13 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import 'package:qlgd_lhk/common/providers/auth_state_provider.dart';
-
-/// --- Service giả lập (bạn thay bằng API thật khi sẵn sàng) ---
-class LecturerScheduleService {
-  Future<Map<String, dynamic>> getWeek() async {
-    await Future.delayed(const Duration(milliseconds: 600));
-    return {
-      "data": [
-        {
-          "id": 1,
-          "date": DateTime.now().toIso8601String().substring(0, 10),
-          "start_time": "7:00",
-          "end_time": "9:00",
-          "subject": "Lập trình phân tán",
-          "class_name": "64KTPM3",
-          "room": "207-B5",
-          "status": "DONE",
-        },
-        {
-          "id": 2,
-          "date": DateTime.now().toIso8601String().substring(0, 10),
-          "start_time": "9:10",
-          "end_time": "11:10",
-          "subject": "Công nghệ Web",
-          "class_name": "64KTPM1",
-          "room": "210-B5",
-          "status": "PLANNED",
-        },
-        {
-          "id": 3,
-          "date": DateTime.now().toIso8601String().substring(0, 10),
-          "start_time": "9:10",
-          "end_time": "11:10",
-          "subject": "An toàn và bảo mật HTTT",
-          "class_name": "64ANM2",
-          "room": "303-A2",
-          "status": "CANCELED",
-        },
-      ]
-    };
-  }
-}
-// -----------------------------------------------------------------
+// ✅ service thật của lịch giảng dạy
+import 'package:qlgd_lhk/features/lecturer/schedule/service.dart';
 
 class LecturerHomePage extends ConsumerStatefulWidget {
   const LecturerHomePage({super.key});
@@ -74,16 +36,29 @@ class _LecturerHomePageState extends ConsumerState<LecturerHomePage> {
       error = null;
     });
     try {
-      final scheduleRes = await _svc.getWeek();
+      // === CÙNG NGUỒN VỚI MÀN LỊCH ===
+      final today = DateTime.now();
+      final iso = DateFormat('yyyy-MM-dd').format(today);
+      final scheduleRes = await _svc.getWeek(date: iso);
 
-      final list = (scheduleRes['data'] as List? ?? const [])
-          .cast<Map>()
-          .map((e) => Map<String, dynamic>.from(e))
-          .toList();
-      final now = DateTime.now().toIso8601String().substring(0, 10);
-      todaySchedule = list.where((x) => (x['date'] ?? '') == now).toList();
+      final List raw = (scheduleRes['data'] as List?) ?? const [];
+      final list = raw.map((e) => Map<String, dynamic>.from(e as Map)).toList();
 
-      // số liệu giả
+      // BE có thể trả "YYYY-MM-DD" hoặc "YYYY-MM-DD HH:mm:ss"
+      bool isSameDay(dynamic d) {
+        final s = (d ?? '').toString();
+        final only = s.split(' ').first;
+        return only == iso;
+      }
+
+      todaySchedule = list.where((x) => isSameDay(x['date'])).toList();
+
+      // sắp theo start_time (chuỗi HH:mm:ss -> safe so sánh chuỗi)
+      todaySchedule.sort((a, b) => (a['start_time'] ?? '')
+          .toString()
+          .compareTo((b['start_time'] ?? '').toString()));
+
+      // số liệu (tùy backend sau này, tạm đặt placeholder)
       stats = {
         'taught': 10,
         'remaining': 34,
@@ -105,7 +80,7 @@ class _LecturerHomePageState extends ConsumerState<LecturerHomePage> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider);
-    final lecturerName = authState?.name ?? 'Kiều Tuấn Dũng';
+    final lecturerName = authState?.name ?? 'Giảng viên';
 
     return Scaffold(
       body: _buildBody(lecturerName),
@@ -141,25 +116,20 @@ class _LecturerHomePageState extends ConsumerState<LecturerHomePage> {
         children: [
           _buildHeader(lecturerName, cs, textTheme),
           const SizedBox(height: 24),
-
           _buildSectionHeader('Thống kê nhanh', _buildSemesterDropdown(cs)),
           const SizedBox(height: 12),
           _buildStatsGrid(),
           const SizedBox(height: 24),
-
           _buildSectionHeader('Công cụ', null),
           const SizedBox(height: 12),
           _buildToolsGrid(),
           const SizedBox(height: 24),
-
           _buildSectionHeader(
             'Lịch giảng dạy hôm nay',
-            Text(_formatDate(DateTime.now()),
-                style: textTheme.bodyMedium),
+            Text(_formatDate(DateTime.now()), style: textTheme.bodyMedium),
           ),
           const SizedBox(height: 12),
           _buildTodayScheduleList(cs, textTheme),
-
           const SizedBox(height: 8),
           if (todaySchedule.isNotEmpty)
             Center(
@@ -175,7 +145,6 @@ class _LecturerHomePageState extends ConsumerState<LecturerHomePage> {
 
   // ========================= UI PARTS =========================
 
-  /// Header (card chào + logo trường) – giống mockup
   Widget _buildHeader(String name, ColorScheme cs, TextTheme textTheme) {
     return Card(
       elevation: 3,
@@ -207,10 +176,13 @@ class _LecturerHomePageState extends ConsumerState<LecturerHomePage> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                const CircleAvatar(
+                CircleAvatar(
                   radius: 26,
                   backgroundColor: Colors.white,
-                  backgroundImage: AssetImage('assets/images/penguin.png'),
+                  child: Icon(
+                    Icons.person_outline,
+                    color: cs.primary,
+                  ),
                 ),
               ],
             ),
@@ -252,15 +224,14 @@ class _LecturerHomePageState extends ConsumerState<LecturerHomePage> {
       items: const ['Học kỳ I 2025', 'Học kỳ II 2024']
           .map<DropdownMenuItem<String>>(
             (String value) => DropdownMenuItem<String>(
-          value: value,
-          child: Text(value),
-        ),
-      )
+              value: value,
+              child: Text(value),
+            ),
+          )
           .toList(),
     );
   }
 
-  /// Lưới 4 thẻ số liệu – styling bám mockup
   Widget _buildStatsGrid() {
     return GridView.count(
       shrinkWrap: true,
@@ -317,7 +288,6 @@ class _LecturerHomePageState extends ConsumerState<LecturerHomePage> {
     );
   }
 
-  /// Công cụ – 4 nút vuông màu, “Xin nghỉ” trỏ /leave/choose
   Widget _buildToolsGrid() {
     return GridView.count(
       shrinkWrap: true,
@@ -341,7 +311,7 @@ class _LecturerHomePageState extends ConsumerState<LecturerHomePage> {
         _buildToolButton(
           label: 'Xin nghỉ',
           icon: Icons.edit_calendar,
-          onTap: () => context.go('/leave/choose'), // <-- route đúng
+          onTap: () => context.go('/leave/choose'),
           color: Colors.red,
         ),
         _buildToolButton(
@@ -394,14 +364,13 @@ class _LecturerHomePageState extends ConsumerState<LecturerHomePage> {
     );
   }
 
-  /// Danh sách lịch hôm nay – thẻ giống mockup (viền mờ, chip trạng thái)
   Widget _buildTodayScheduleList(ColorScheme cs, TextTheme textTheme) {
     if (todaySchedule.isEmpty) {
       return Card(
         elevation: 0,
         color: cs.surfaceVariant.withOpacity(0.5),
         child: const Padding(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(16),
           child: Text('Hôm nay không có lịch dạy.'),
         ),
       );
@@ -418,8 +387,8 @@ class _LecturerHomePageState extends ConsumerState<LecturerHomePage> {
     final subject = (s['subject'] ?? 'Môn học').toString();
     final className = (s['class_name'] ?? 'Lớp').toString();
     final room = (s['room'] ?? '-').toString();
-    final start = (s['start_time'] ?? '--:--').toString();
-    final end = (s['end_time'] ?? '--:--').toString();
+    final start = (s['start_time'] ?? '--:--').toString().substring(0, 5);
+    final end = (s['end_time'] ?? '--:--').toString().substring(0, 5);
     final status = (s['status'] ?? 'PLANNED').toString();
 
     final statusInfo = _getStatusInfo(status, cs);
@@ -435,33 +404,33 @@ class _LecturerHomePageState extends ConsumerState<LecturerHomePage> {
         onTap: () => _openDetail(s),
         borderRadius: BorderRadius.circular(10),
         child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              children: [
-                Icon(statusInfo.icon, color: statusInfo.color, size: 32),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(subject,
-                          style: textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.bold)),
-                      Text('Lớp: $className • Phòng: $room'),
-                      const SizedBox(height: 4),
-                      Text('$start - $end',
-                          style: textTheme.bodySmall
-                              ?.copyWith(color: cs.onSurfaceVariant)),
-                    ],
-                  ),
+          padding: const EdgeInsets.all(16.0),
+          child: Row(
+            children: [
+              Icon(statusInfo.icon, color: statusInfo.color, size: 32),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(subject,
+                        style: textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold)),
+                    Text('Lớp: $className • Phòng: $room'),
+                    const SizedBox(height: 4),
+                    Text('$start - $end',
+                        style: textTheme.bodySmall
+                            ?.copyWith(color: cs.onSurfaceVariant)),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                Text(statusInfo.text,
-                    style: TextStyle(
-                        color: statusInfo.color,
-                        fontWeight: FontWeight.bold)),
-              ],
-            )),
+              ),
+              const SizedBox(width: 8),
+              Text(statusInfo.text,
+                  style: TextStyle(
+                      color: statusInfo.color, fontWeight: FontWeight.bold)),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -471,35 +440,30 @@ class _LecturerHomePageState extends ConsumerState<LecturerHomePage> {
     switch (status.toUpperCase()) {
       case 'DONE':
         return (color: Colors.green, text: 'Đã dạy', icon: Icons.check_circle);
-      case 'PLANNED':
+      case 'TEACHING':
+        return (color: cs.primary, text: 'Đang dạy', icon: Icons.schedule);
+      case 'CANCELED':
+        return (color: Colors.red, text: 'Đã hủy', icon: Icons.cancel);
+      // PLANNED và mọi trạng thái khác trong hôm nay: coi là sắp tới
+      default:
         return (
           color: cs.primary,
           text: 'Sắp tới',
           icon: Icons.access_time_filled
         );
-      case 'CANCELED':
-        return (color: Colors.red, text: 'Đã hủy', icon: Icons.cancel);
-      case 'LEAVE_REQUESTED':
-        return (
-          color: Colors.orange,
-          text: 'Xin nghỉ',
-          icon: Icons.pending_actions
-        );
-      case 'MAKEUP_PLANNED':
-        return (
-          color: Colors.blue,
-          text: 'Dạy bù',
-          icon: Icons.replay_circle_filled
-        );
-      default:
-        return (color: Colors.grey, text: 'Không rõ', icon: Icons.info);
     }
   }
 
   String _formatDate(DateTime date) {
-    final dow = {1:'Hai',2:'Ba',3:'Tư',4:'Năm',5:'Sáu',6:'Bảy',7:'Chủ Nhật'};
+    final dow = {
+      1: 'Hai',
+      2: 'Ba',
+      3: 'Tư',
+      4: 'Năm',
+      5: 'Sáu',
+      6: 'Bảy',
+      7: 'Chủ Nhật'
+    };
     return 'Thứ ${dow[date.weekday]}, ngày ${DateFormat('dd/MM/yyyy').format(date)}';
   }
-
-
 }

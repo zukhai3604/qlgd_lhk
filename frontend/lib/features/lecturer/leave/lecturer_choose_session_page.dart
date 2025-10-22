@@ -1,3 +1,5 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../schedule/service.dart';
@@ -10,8 +12,7 @@ class LecturerChooseSessionPage extends StatefulWidget {
       _LecturerChooseSessionPageState();
 }
 
-class _LecturerChooseSessionPageState
-    extends State<LecturerChooseSessionPage> {
+class _LecturerChooseSessionPageState extends State<LecturerChooseSessionPage> {
   final _scheduleSvc = LecturerScheduleService();
 
   bool loading = true;
@@ -57,9 +58,8 @@ class _LecturerChooseSessionPageState
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-c
+
     return Scaffold(
-      // AppBar bám mockup: mũi tên back + tên trường màu xanh
       appBar: AppBar(
         elevation: 0,
         leading: IconButton(
@@ -77,51 +77,46 @@ c
           ),
         ),
       ),
-
       body: loading
           ? const Center(child: CircularProgressIndicator())
           : error != null
-          ? _ErrorBox(message: error!, onRetry: _load)
-          : RefreshIndicator(
-        onRefresh: _load,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          children: [
-            const SizedBox(height: 4),
-            Text(
-              'Chọn buổi cần nghỉ',
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 12),
-
-            if (sessions.isEmpty)
-              _EmptyBox(onReload: _load)
-            else
-              ...sessions.map((s) => _SessionCard(
-                subject: s['subject'] ?? 'Môn học',
-                dateText: _dateLine(
-                  s['date'],
-                  s['start_time'],
-                  s['end_time'],
-                  s['room'],
+              ? _ErrorBox(message: error!, onRetry: _load)
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  child: ListView(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                    children: [
+                      const SizedBox(height: 4),
+                      Text(
+                        'Chọn buổi cần nghỉ',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleLarge
+                            ?.copyWith(fontWeight: FontWeight.w800),
+                      ),
+                      const SizedBox(height: 12),
+                      if (sessions.isEmpty)
+                        _EmptyBox(onReload: _load)
+                      else
+                        ...sessions.map((s) => _SessionCard(
+                              subject: s['subject'] ?? 'Môn học',
+                              dateText: _dateLine(
+                                s['date'],
+                                s['start_time'],
+                                s['end_time'],
+                                s['room'],
+                              ),
+                              onTap: () =>
+                                  context.push('/leave/form', extra: s),
+                              borderColor: cs.outlineVariant,
+                            )),
+                    ],
+                  ),
                 ),
-                onTap: () =>
-                    context.push('/leave/form', extra: s),
-                borderColor: cs.outlineVariant,
-              )),
-          ],
-        ),
-      ),
     );
   }
 
-  /// Tạo dòng phụ: "Thứ 5 · 18/09/2025 · 7:00 - 9:00 · P207B5"
-  String _dateLine(
-      String? d, String? start, String? end, String? roomCode) {
-    // d dạng "YYYY-MM-DD"
+  String _dateLine(String? d, String? start, String? end, String? roomCode) {
     String thu = '';
     String ddMMyyyy = '';
     try {
@@ -138,7 +133,7 @@ c
         };
         thu = mapThu[dt.weekday] ?? '';
         ddMMyyyy =
-        '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+            '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
       }
     } catch (_) {}
 
@@ -149,8 +144,6 @@ c
     return [thu, ddMMyyyy, time].where((x) => x.isNotEmpty).join(' · ') + room;
   }
 }
-
-/// === Widgets con ===
 
 class _SessionCard extends StatelessWidget {
   final String subject;

@@ -1,43 +1,21 @@
 <?php
-
 namespace App\Http\Controllers\Lecturer;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use OpenApi\Annotations as OA;
 
+/** @OA\Tag(name="Lecturer - Profile", description="Hồ sơ giảng viên") */
 class ProfileController extends Controller
 {
+    /** @OA\Get(
+     *  path="/api/lecturer/profile", tags={"Lecturer - Profile"}, summary="Xem hồ sơ",
+     *  security={{"bearerAuth":{}}},
+     *  @OA\Response(response=200, description="OK")
+     * ) */
     public function show(Request $request)
     {
-        // Lấy user đang đăng nhập + eager-load các quan hệ cần thiết
-        $user = $request->user()->loadMissing([
-            'lecturer.department.faculty',
-        ]);
-
-        $lecturer = $user->lecturer;
-
-     return response()->json([
-         'user' => [
-             'id'    => $user->id,
-             'name'  => $user->name,
-             'email' => $user->email,
-             'phone' => $user->phone,
-             'role'  => $user->role,
-         ],
-         'lecturer' => [
-             'gender'        => $lecturer->gender ?? null,
-             'date_of_birth' => $lecturer->date_of_birth ?? null,
-             'department'    => $lecturer?->department ? [
-                 'id'   => $lecturer->department->id,
-                 'name' => $lecturer->department->name,
-                 'faculty' => $lecturer->department->faculty ? [
-                     'id'   => $lecturer->department->faculty->id,
-                     'name' => $lecturer->department->faculty->name,
-                 ] : null,
-             ] : null,
-         ],
-         'avatar_url' => $lecturer->avatar_url ?? null,
-     ]);
-
+        return Auth::user()->lecturer()->with('faculty', 'department')->first();
     }
 }

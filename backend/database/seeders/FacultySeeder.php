@@ -10,8 +10,9 @@ class FacultySeeder extends Seeder
     public function run(): void
     {
         Faculty::updateOrCreate(
-            ['code' => 'KCNTT'],
-            ['name' => 'Khoa Công nghệ Thông tin']
+            ['code' => 'CNTT'],
+            ['name' => 'Khoa Cong nghe Thong tin']
         );
     }
 }
+

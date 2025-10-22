@@ -17,29 +17,37 @@ class RoomSeeder extends Seeder
                 'code' => 'B5-207',
                 'building' => 'B5',
                 'capacity' => 80,
-                'room_type' => 'LT' // Sửa từ 'THEORY' thành 'LT' (Lý thuyết)
+                'room_type' => 'LT',
             ],
             [
                 'code' => 'B5-210',
                 'building' => 'B5',
                 'capacity' => 80,
-                'room_type' => 'LT'
+                'room_type' => 'LT',
             ],
             [
                 'code' => 'A2-301',
                 'building' => 'A2',
                 'capacity' => 40,
-                'room_type' => 'TH' // Sửa từ 'PRACTICE' thành 'TH' (Thực hành)
+                'room_type' => 'TH',
             ],
             [
                 'code' => 'C1-404',
                 'building' => 'C1',
                 'capacity' => 100,
-                'room_type' => 'OTHER' // Sửa từ 'HALL' thành 'OTHER' (Khác)
+                'room_type' => 'OTHER',
             ],
         ];
 
-        // Dùng vòng lặp để tạo hoặc cập nhật từng phòng
+        foreach (range(101, 120) as $number) {
+            $rooms[] = [
+                'code' => 'A' . $number,
+                'building' => 'A',
+                'capacity' => 60,
+                'room_type' => 'LT',
+            ];
+        }
+
         foreach ($rooms as $room) {
             Room::updateOrCreate(
                 ['code' => $room['code']],
@@ -48,3 +56,4 @@ class RoomSeeder extends Seeder
         }
     }
 }
+

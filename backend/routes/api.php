@@ -6,9 +6,27 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Lecturer\ScheduleController;
-use App\Http\Controllers\Lecturer\LeaveController;                 // ✅ đúng namespace
-use App\Http\Controllers\Lecturer\ProfileController;               // ✅ thêm import
+use App\Http\Controllers\Lecturer\LeaveController;
+use App\Http\Controllers\Lecturer\ProfileController;
+use App\Http\Controllers\Lecturer\ReportController;
+use App\Http\Controllers\Lecturer\MaterialController;
 use App\Http\Controllers\TrainingDepartment\ApprovalController;
+use App\Http\Controllers\Api\HealthController; // <- THASM DANG NAY (Chu y: Api, khong phai API)
+use App\Http\Controllers\Api\FacultyController as ApiFacultyController;
+use App\Http\Controllers\Api\DepartmentController as ApiDepartmentController;
+
+// --- API Lecturer module (Bearer token)
+use App\Http\Controllers\API\Lecturer\LecturerProfileController as ApiLecturerProfileController;
+use App\Http\Controllers\API\Lecturer\LecturerReportController as ApiLecturerReportController;
+use App\Http\Controllers\API\Lecturer\ScheduleController as ApiLecturerScheduleController;
+use App\Http\Controllers\API\Lecturer\TeachingSessionController as ApiTeachingSessionController;
+use App\Http\Controllers\API\Lecturer\TeachingSessionWorkflowController as ApiTeachingSessionWorkflowController;
+use App\Http\Controllers\API\Lecturer\AttendanceController as ApiAttendanceController;
+use App\Http\Controllers\API\Lecturer\LeaveRequestController as ApiLeaveRequestController;
+use App\Http\Controllers\API\Lecturer\MakeupRequestController as ApiMakeupRequestController;
+use App\Http\Controllers\API\Lecturer\NotificationController as ApiNotificationController;
+use App\Http\Controllers\API\Lecturer\OfficeHourController as ApiOfficeHourController;
+use App\Http\Controllers\API\Lecturer\StatsController as ApiStatsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -16,46 +34,86 @@ use App\Http\Controllers\TrainingDepartment\ApprovalController;
 |--------------------------------------------------------------------------
 */
 
-// ===== Public =====
 Route::post('/login', [AuthController::class, 'login'])->name('login');
 
-// ===== Health (public) =====
-Route::get('/health', fn() => response()->json(['ok' => true]));
-Route::get('/ping',   fn() => response()->json(['pong' => now()]));
+// Thay closure bang controller, va de NGOAI moi middleware group
+Route::get('/health', [HealthController::class, 'health']);
+Route::get('/ping',   [HealthController::class, 'ping']);
 
-// ===== Authenticated =====
 Route::middleware(['auth:sanctum', 'ensure.active'])->group(function () {
+    Route::get('/me',      [AuthController::class, 'me']);
+    Route::post('/logout', [AuthController::class, 'logout']);
+    Route::get('/faculties', [ApiFacultyController::class, 'index']);
+    Route::get('/departments', [ApiDepartmentController::class, 'index']);
 
-    // Me / Logout
-    Route::get('/me',     [AuthController::class, 'me']);
-    Route::post('/logout',[AuthController::class, 'logout']);
-
-    // ----- ADMIN -----
     Route::middleware('role:ADMIN')->prefix('admin')->group(function () {
         Route::apiResource('users', UserController::class);
-        // Ví dụ: Route::post('users/{user}/lock', [UserController::class,'lock']);
     });
 
-    // ----- PHÒNG ĐÀO TẠO -----
     Route::middleware('role:DAO_TAO')->prefix('training_department')->group(function () {
         Route::post('approvals/leave/{leave}', [ApprovalController::class, 'approveLeave']);
     });
 
-    // ----- GIẢNG VIÊN -----
     Route::middleware('role:GIANG_VIEN')->prefix('lecturer')->group(function () {
-        // ✅ Hồ sơ giảng viên: trả về user + lecturer + department + faculty
+
         Route::get('profile', [ProfileController::class, 'show']);
 
-        // Thời khóa biểu tuần
         Route::get('schedule/week', [ScheduleController::class, 'getWeekSchedule']);
+        Route::get('schedule/{id}', [ScheduleController::class, 'show']);
 
-        // Nghỉ dạy
+        Route::post('schedule/{id}/report', [ReportController::class, 'store']);
+
+        // Tai lieu buoi hoc (RESTful)
+        Route::get('schedule/{id}/materials',  [MaterialController::class, 'index']);
+        Route::post('schedule/{id}/materials', [MaterialController::class, 'store']);
+
         Route::post('leaves',   [LeaveController::class, 'store']);
         Route::get('leaves/my', [LeaveController::class, 'my']);
 
-        // Báo cáo & tài liệu buổi học (nếu đã có controllers)
-        Route::post('schedule/{id}/report',    [\App\Http\Controllers\Lecturer\ReportController::class, 'store']);
-        Route::post('schedule/{id}/materials', [\App\Http\Controllers\Lecturer\MaterialController::class, 'upload']);
-        Route::get('schedule/{id}/materials',  [\App\Http\Controllers\Lecturer\MaterialController::class, 'list']);
+        // DUNG DAT /health & /ping O DAY
     });
+});
+
+// New API Lecturer group (Bearer token)
+Route::prefix('lecturer')->middleware(['auth:sanctum','ensure.active','role:GIANG_VIEN'])->group(function () {
+    Route::get('me/profile', [ApiLecturerProfileController::class, 'show']);
+    Route::patch('me/profile', [ApiLecturerProfileController::class, 'update']);
+    Route::post('me/change-password', [ApiLecturerProfileController::class, 'changePassword']);
+
+    Route::get('schedule', [ApiLecturerScheduleController::class, 'index']);
+
+    Route::get('sessions', [ApiTeachingSessionController::class, 'index']);
+    Route::get('sessions/{id}', [ApiTeachingSessionController::class, 'show']);
+    Route::patch('sessions/{id}', [ApiTeachingSessionController::class, 'update']);
+    Route::post('sessions/{id}/start', [ApiTeachingSessionWorkflowController::class, 'start']);
+    Route::post('sessions/{id}/finish', [ApiTeachingSessionWorkflowController::class, 'finish']);
+
+    Route::get('sessions/{id}/attendance', [ApiAttendanceController::class, 'show']);
+    Route::post('sessions/{id}/attendance', [ApiAttendanceController::class, 'store']);
+
+    Route::get('leave-requests', [ApiLeaveRequestController::class, 'index']);
+    Route::post('leave-requests', [ApiLeaveRequestController::class, 'store']);
+    Route::get('leave-requests/{id}', [ApiLeaveRequestController::class, 'show']);
+    Route::patch('leave-requests/{id}', [ApiLeaveRequestController::class, 'update']);
+    Route::delete('leave-requests/{id}', [ApiLeaveRequestController::class, 'destroy']);
+
+    Route::get('makeup-requests', [ApiMakeupRequestController::class, 'index']);
+    Route::post('makeup-requests', [ApiMakeupRequestController::class, 'store']);
+    Route::get('makeup-requests/{id}', [ApiMakeupRequestController::class, 'show']);
+    Route::patch('makeup-requests/{id}', [ApiMakeupRequestController::class, 'update']);
+    Route::delete('makeup-requests/{id}', [ApiMakeupRequestController::class, 'destroy']);
+
+    Route::get('notifications', [ApiNotificationController::class, 'index']);
+    Route::get('notifications/{id}', [ApiNotificationController::class, 'show']);
+    Route::post('notifications/{id}/read', [ApiNotificationController::class, 'markRead']);
+    Route::delete('notifications/{id}', [ApiNotificationController::class, 'destroy']);
+
+    Route::apiResource('office-hours', ApiOfficeHourController::class)->except(['create','edit']);
+
+    Route::get('stats/teaching-hours', [ApiStatsController::class, 'teachingHours']);
+});
+
+Route::prefix('reports')->middleware(['auth:sanctum','ensure.active'])->group(function () {
+    Route::get('lecturers/{lecturer}', [ApiLecturerReportController::class, 'show'])
+        ->whereNumber('lecturer');
 });
