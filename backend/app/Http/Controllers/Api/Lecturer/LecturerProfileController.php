@@ -10,32 +10,71 @@ use App\Models\Department;
 use App\Models\Faculty;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use OpenApi\Annotations as OA;
 
 class LecturerProfileController extends Controller
 {
     /**
      * @OA\Get(
      *   path="/api/lecturer/me/profile",
-     *   tags={"Lecturer"},
-     *   summary="Hồ sơ giảng viên",
+     *   operationId="lecturerProfileShow",
+     *   tags={"Lecturer - Hồ sơ"},
+     *   summary="Lấy thông tin hồ sơ giảng viên",
      *   security={{"bearerAuth":{}}},
-     *   @OA\Response(response=200, description="OK")
+     *   @OA\Response(
+     *     response=200,
+     *     description="Thông tin hồ sơ",
+     *     @OA\JsonContent(
+     *       @OA\Property(property="data", ref="#/components/schemas/LecturerProfile")
+     *     )
+     *   ),
+     *   @OA\Response(
+     *     response=401,
+     *     description="Chưa xác thực",
+     *     @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *   )
      * )
      */
     public function show(Request $request)
     {
         $user = $request->user()->load(['lecturer.department.faculty']);
-        return response()->json(['data' => new LecturerProfileResource($user)]);
+
+        return response()->json([
+            'data' => new LecturerProfileResource($user),
+        ]);
     }
 
     /**
      * @OA\Patch(
      *   path="/api/lecturer/me/profile",
-     *   tags={"Lecturer"},
-     *   summary="Cập nhật hồ sơ",
+     *   operationId="lecturerProfileUpdate",
+     *   tags={"Lecturer - Hồ sơ"},
+     *   summary="Cập nhật hồ sơ giảng viên",
      *   security={{"bearerAuth":{}}},
-     *   @OA\Response(response=200, description="OK"),
-     *   @OA\Response(response=404, description="Not Found")
+     *   @OA\RequestBody(
+     *     required=true,
+     *     @OA\JsonContent(
+     *       @OA\Property(property="name", type="string", example="Nguyễn Văn A"),
+     *       @OA\Property(property="email", type="string", format="email", example="giangvien@qlgd.test"),
+     *       @OA\Property(property="phone", type="string", example="0901123456"),
+     *       @OA\Property(property="date_of_birth", type="string", format="date", example="1990-05-12"),
+     *       @OA\Property(property="gender", type="string", example="Nam"),
+     *       @OA\Property(property="department_id", type="integer", nullable=true, example=15),
+     *       @OA\Property(property="faculty_id", type="integer", nullable=true, example=3)
+     *     )
+     *   ),
+     *   @OA\Response(
+     *     response=200,
+     *     description="Cập nhật thành công",
+     *     @OA\JsonContent(
+     *       @OA\Property(property="data", ref="#/components/schemas/LecturerProfile")
+     *     )
+     *   ),
+     *   @OA\Response(
+     *     response=404,
+     *     description="Không tìm thấy hồ sơ giảng viên",
+     *     @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *   )
      * )
      */
     public function update(ProfileUpdateRequest $request)
@@ -99,26 +138,39 @@ class LecturerProfileController extends Controller
 
         $user->load(['lecturer.department.faculty']);
 
-        return response()->json(['data' => new LecturerProfileResource($user)]);
+        return response()->json([
+            'data' => new LecturerProfileResource($user),
+        ]);
     }
 
     /**
      * @OA\Post(
      *   path="/api/lecturer/me/change-password",
-     *   tags={"Lecturer"},
-     *   summary="Đổi mật khẩu",
+     *   operationId="lecturerChangePassword",
+     *   tags={"Lecturer - Hồ sơ"},
+     *   summary="Đổi mật khẩu đăng nhập",
      *   security={{"bearerAuth":{}}},
      *   @OA\RequestBody(
      *     required=true,
      *     @OA\JsonContent(
      *       required={"current_password","password","password_confirmation"},
-     *       @OA\Property(property="current_password", type="string", format="password"),
-     *       @OA\Property(property="password", type="string", format="password"),
-     *       @OA\Property(property="password_confirmation", type="string", format="password")
+     *       @OA\Property(property="current_password", type="string", format="password", example="oldSecret"),
+     *       @OA\Property(property="password", type="string", format="password", example="newSecret123"),
+     *       @OA\Property(property="password_confirmation", type="string", format="password", example="newSecret123")
      *     )
      *   ),
-     *   @OA\Response(response=200, description="OK"),
-     *   @OA\Response(response=422, description="Validation Error")
+     *   @OA\Response(
+     *     response=200,
+     *     description="Đổi mật khẩu thành công",
+     *     @OA\JsonContent(
+     *       @OA\Property(property="message", type="string", example="Đổi mật khẩu thành công.")
+     *     )
+     *   ),
+     *   @OA\Response(
+     *     response=422,
+     *     description="Không hợp lệ",
+     *     @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *   )
      * )
      */
     public function changePassword(PasswordChangeRequest $request)

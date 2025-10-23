@@ -9,9 +9,52 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
+use OpenApi\Annotations as OA;
 
 class LecturerReportController extends Controller
 {
+    /**
+     * @OA\Get(
+     *   path="/api/reports/lecturers/{lecturer}",
+     *   operationId="lecturerReportsShow",
+     *   tags={"Lecturer - Báo cáo"},
+     *   summary="Thống kê tiến độ giảng dạy theo môn học",
+     *   security={{"bearerAuth":{}}},
+     *   @OA\Parameter(name="lecturer", in="path", required=true, @OA\Schema(type="integer", example=7)),
+     *   @OA\Parameter(name="semester", in="query", @OA\Schema(type="string", example="2025-2026 HK1")),
+     *   @OA\Parameter(name="from", in="query", @OA\Schema(type="string", format="date", example="2025-09-01")),
+     *   @OA\Parameter(name="to", in="query", @OA\Schema(type="string", format="date", example="2025-12-31")),
+     *   @OA\Parameter(name="department_id", in="query", @OA\Schema(type="integer")),
+     *   @OA\Parameter(name="faculty_id", in="query", @OA\Schema(type="integer")),
+     *   @OA\Response(
+     *     response=200,
+     *     description="Danh sách thống kê theo môn học",
+     *     @OA\JsonContent(
+     *       @OA\Property(
+     *         property="data",
+     *         type="array",
+     *         @OA\Items(
+     *           type="object",
+     *           @OA\Property(property="subject_id", type="integer", example=12),
+     *           @OA\Property(property="subject_code", type="string", example="CT101"),
+     *           @OA\Property(property="subject_name", type="string", example="Cấu trúc dữ liệu"),
+     *           @OA\Property(property="total_sessions", type="integer", example=30),
+     *           @OA\Property(property="done_sessions", type="integer", example=24),
+     *           @OA\Property(property="canceled_sessions", type="integer", example=1),
+     *           @OA\Property(property="upcoming_sessions", type="integer", example=5),
+     *           @OA\Property(property="total_periods", type="integer", example=60),
+     *           @OA\Property(property="done_periods", type="integer", example=48),
+     *           @OA\Property(property="progress_ratio", type="number", format="float", example=0.8),
+     *           @OA\Property(property="progress_text", type="string", example="24/30 buoi")
+     *         )
+     *       ),
+     *       @OA\Property(property="meta", type="object")
+     *     )
+     *   ),
+     *   @OA\Response(response=401, description="Chưa xác thực", @OA\JsonContent(ref="#/components/schemas/ErrorResponse")),
+     *   @OA\Response(response=403, description="Không có quyền", @OA\JsonContent(ref="#/components/schemas/ErrorResponse"))
+     * )
+     */
     public function show(Request $request, Lecturer $lecturer): JsonResponse
     {
         $user = $request->user();
@@ -116,7 +159,7 @@ class LecturerReportController extends Controller
                 'total_periods' => (int) $row->total_periods,
                 'done_periods' => (int) $row->done_periods,
                 'progress_ratio' => $progressRatio,
-                'progress_text' => sprintf('%d/%d buổi', $doneSessions, $totalSessions),
+                'progress_text' => sprintf('%d/%d buoi', $doneSessions, $totalSessions),
             ];
         })->values();
 
@@ -135,4 +178,3 @@ class LecturerReportController extends Controller
         ]);
     }
 }
-

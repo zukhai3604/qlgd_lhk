@@ -1,14 +1,14 @@
 {
     "openapi": "3.0.0",
     "info": {
-        "title": "QLGD_LHK API",
-        "description": "Tài liệu API hệ thống Quản lý Lịch giảng dạy",
+        "title": "QLGD API",
+        "description": "Tài liệu OpenAPI cho hệ thống Quản lý Giảng dạy.",
         "version": "1.0.0"
     },
     "servers": [
         {
             "url": "http://localhost:8888",
-            "description": "Local (Laradock Nginx 8888)"
+            "description": "Máy chủ API"
         }
     ],
     "paths": {
@@ -18,7 +18,7 @@
                     "Admin - Users"
                 ],
                 "summary": "Danh sách người dùng",
-                "operationId": "2979f0297ab881ad0b8b86ee613f077b",
+                "operationId": "adminUsersIndex",
                 "parameters": [
                     {
                         "name": "page",
@@ -30,7 +30,7 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Danh sách phân trang",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -50,8 +50,8 @@
                 "tags": [
                     "Admin - Users"
                 ],
-                "summary": "Tạo người dùng",
-                "operationId": "7601d6cfa9768b3857d0e58d45eb618b",
+                "summary": "Tạo người dùng mới",
+                "operationId": "adminUsersStore",
                 "requestBody": {
                     "required": true,
                     "content": {
@@ -65,19 +65,30 @@
                                 ],
                                 "properties": {
                                     "name": {
-                                        "type": "string"
+                                        "type": "string",
+                                        "example": "Nguyễn Văn A"
                                     },
                                     "email": {
                                         "type": "string",
-                                        "format": "email"
+                                        "format": "email",
+                                        "example": "admin@qlgd.test"
                                     },
                                     "password": {
                                         "type": "string",
-                                        "format": "password"
+                                        "format": "password",
+                                        "example": "secret123"
                                     },
                                     "role": {
                                         "type": "string",
                                         "example": "GIANG_VIEN"
+                                    },
+                                    "phone": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "is_active": {
+                                        "type": "boolean",
+                                        "example": true
                                     }
                                 },
                                 "type": "object"
@@ -87,11 +98,21 @@
                 },
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "Tạo thành công",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/User"
+                                    "$ref": "#/components/schemas/UserResource"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Dữ liệu không hợp lệ",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
                                 }
                             }
                         }
@@ -110,7 +131,7 @@
                     "Admin - Users"
                 ],
                 "summary": "Chi tiết người dùng",
-                "operationId": "bc1bd7b0a9c5c03d14165e230c9b74a1",
+                "operationId": "adminUsersShow",
                 "parameters": [
                     {
                         "name": "id",
@@ -123,21 +144,21 @@
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Thông tin người dùng",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/User"
+                                    "$ref": "#/components/schemas/UserResource"
                                 }
                             }
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Không tìm thấy",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/Error"
+                                    "$ref": "#/components/schemas/ErrorResponse"
                                 }
                             }
                         }
@@ -154,7 +175,7 @@
                     "Admin - Users"
                 ],
                 "summary": "Cập nhật người dùng",
-                "operationId": "a13246ab4f01cf3913b77f7d4520bbd7",
+                "operationId": "adminUsersUpdate",
                 "parameters": [
                     {
                         "name": "id",
@@ -179,6 +200,14 @@
                                     },
                                     "role": {
                                         "type": "string"
+                                    },
+                                    "phone": {
+                                        "type": "string",
+                                        "nullable": true
+                                    },
+                                    "is_active": {
+                                        "type": "boolean",
+                                        "nullable": true
                                     }
                                 },
                                 "type": "object"
@@ -188,11 +217,11 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Cập nhật thành công",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/User"
+                                    "$ref": "#/components/schemas/UserResource"
                                 }
                             }
                         }
@@ -208,8 +237,8 @@
                 "tags": [
                     "Admin - Users"
                 ],
-                "summary": "Xoá người dùng",
-                "operationId": "edba4ea5d13c283794da36b1eb31b2fd",
+                "summary": "Xóa người dùng",
+                "operationId": "adminUsersDestroy",
                 "parameters": [
                     {
                         "name": "id",
@@ -222,7 +251,292 @@
                 ],
                 "responses": {
                     "204": {
-                        "description": "No Content"
+                        "description": "Đã xóa"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/login": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Đăng nhập và lấy access token",
+                "operationId": "authLogin",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "giangvien@qlgd.test"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "example": "secret123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Đăng nhập thành công",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "token": {
+                                            "type": "string",
+                                            "example": "1|P3nY..."
+                                        },
+                                        "user": {
+                                            "$ref": "#/components/schemas/UserResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Sai thông tin đăng nhập",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Dữ liệu không hợp lệ",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/me": {
+            "get": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Thông tin người dùng hiện tại",
+                "operationId": "authMe",
+                "responses": {
+                    "200": {
+                        "description": "Thông tin tài khoản",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserResource"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Chưa xác thực",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/logout": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Đăng xuất và thu hồi token hiện tại",
+                "operationId": "authLogout",
+                "responses": {
+                    "204": {
+                        "description": "Đăng xuất thành công"
+                    },
+                    "401": {
+                        "description": "Chưa xác thực",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/departments": {
+            "get": {
+                "tags": [
+                    "Danh mục"
+                ],
+                "summary": "Danh sách bộ môn",
+                "operationId": "listDepartments",
+                "parameters": [
+                    {
+                        "name": "faculty_id",
+                        "in": "query",
+                        "description": "Lọc theo khoa",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "example": 1
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Danh sách bộ môn",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 10
+                                                    },
+                                                    "code": {
+                                                        "type": "string",
+                                                        "example": "HTTT"
+                                                    },
+                                                    "name": {
+                                                        "type": "string",
+                                                        "example": "Bộ môn Hệ thống Thông tin"
+                                                    },
+                                                    "faculty": {
+                                                        "properties": {
+                                                            "id": {
+                                                                "type": "integer",
+                                                                "example": 1
+                                                            },
+                                                            "code": {
+                                                                "type": "string",
+                                                                "example": "CNTT"
+                                                            },
+                                                            "name": {
+                                                                "type": "string",
+                                                                "example": "Khoa Công nghệ Thông tin"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Chưa xác thực",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/faculties": {
+            "get": {
+                "tags": [
+                    "Danh mục"
+                ],
+                "summary": "Danh sách khoa",
+                "operationId": "listFaculties",
+                "responses": {
+                    "200": {
+                        "description": "Danh sách khoa",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "id": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "code": {
+                                                        "type": "string",
+                                                        "example": "CNTT"
+                                                    },
+                                                    "name": {
+                                                        "type": "string",
+                                                        "example": "Khoa Công nghệ Thông tin"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Chưa xác thực",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -237,11 +551,11 @@
                 "tags": [
                     "System"
                 ],
-                "summary": "Health check",
+                "summary": "Kiểm tra tình trạng dịch vụ",
                 "operationId": "9b09e89d95cbd4cd0db9600a14f9495e",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Dịch vụ hoạt động bình thường",
                         "content": {
                             "application/json": {
                                 "schema": {
@@ -252,7 +566,8 @@
                                         },
                                         "time": {
                                             "type": "string",
-                                            "format": "date-time"
+                                            "format": "date-time",
+                                            "example": "2025-10-22T13:45:00+07:00"
                                         }
                                     },
                                     "type": "object"
@@ -268,18 +583,19 @@
                 "tags": [
                     "System"
                 ],
-                "summary": "Ping",
+                "summary": "Ping thử kết nối",
                 "operationId": "758e3599c49c580b671a8364c3eb5cef",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Trả về dấu thời gian hiện tại",
                         "content": {
                             "application/json": {
                                 "schema": {
                                     "properties": {
                                         "pong": {
                                             "type": "string",
-                                            "format": "date-time"
+                                            "format": "date-time",
+                                            "example": "2025-10-22T13:45:00+07:00"
                                         }
                                     },
                                     "type": "object"
@@ -293,19 +609,83 @@
         "/api/lecturer/sessions/{id}/attendance": {
             "get": {
                 "tags": [
-                    "Lecturer"
+                    "Lecturer - Điểm danh"
                 ],
-                "summary": "Xem điểm danh",
-                "operationId": "0108fa2d22b070d272408ef7884efdb4",
+                "summary": "Xem danh sách điểm danh cho một buổi dạy",
+                "operationId": "lecturerAttendanceShow",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 345
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "OK"
+                        "description": "Danh sách điểm danh",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "student_id": {
+                                                        "type": "integer",
+                                                        "example": 1001
+                                                    },
+                                                    "student_name": {
+                                                        "type": "string",
+                                                        "example": "Trần Thị B"
+                                                    },
+                                                    "status": {
+                                                        "type": "string",
+                                                        "example": "PRESENT"
+                                                    },
+                                                    "note": {
+                                                        "type": "string",
+                                                        "example": "Nghỉ có phép",
+                                                        "nullable": true
+                                                    },
+                                                    "marked_at": {
+                                                        "type": "string",
+                                                        "format": "date-time",
+                                                        "example": "2025-10-21T07:00:00+07:00"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "403": {
-                        "description": "Forbidden"
+                        "description": "Không có quyền truy cập",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
                     },
                     "404": {
-                        "description": "Not Found"
+                        "description": "Không tìm thấy buổi dạy",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -316,22 +696,447 @@
             },
             "post": {
                 "tags": [
-                    "Lecturer"
+                    "Lecturer - Điểm danh"
                 ],
-                "summary": "Tạo/cập nhật điểm danh",
-                "operationId": "6d36a5e2efa21d6c9fbe3ea4e3c66b02",
+                "summary": "Tạo hoặc cập nhật điểm danh",
+                "operationId": "lecturerAttendanceStore",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 345
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "records"
+                                ],
+                                "properties": {
+                                    "records": {
+                                        "type": "array",
+                                        "items": {
+                                            "$ref": "#/components/schemas/AttendancePayloadItem"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
                 "responses": {
                     "200": {
-                        "description": "OK"
+                        "description": "Lưu điểm danh thành công",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Đã lưu điểm danh"
+                                        },
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "student_id": {
+                                                        "type": "integer"
+                                                    },
+                                                    "status": {
+                                                        "type": "string"
+                                                    },
+                                                    "note": {
+                                                        "type": "string",
+                                                        "nullable": true
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "403": {
-                        "description": "Forbidden"
+                        "description": "Không có quyền truy cập",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
                     },
                     "404": {
-                        "description": "Not Found"
+                        "description": "Không tìm thấy buổi dạy",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
                     },
                     "422": {
-                        "description": "Unprocessable Entity"
+                        "description": "Dữ liệu không hợp lệ",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/lecturer/leave-requests": {
+            "get": {
+                "tags": [
+                    "Lecturer - Nghỉ dạy"
+                ],
+                "summary": "Danh sách đơn xin nghỉ của giảng viên",
+                "operationId": "lecturerLeaveIndex",
+                "parameters": [
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "description": "Lọc theo trạng thái (PENDING, APPROVED, REJECTED, CANCELED)",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Danh sách phân trang",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/LeaveRequestResource"
+                                            }
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/PaginationMeta"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Lecturer - Nghỉ dạy"
+                ],
+                "summary": "Tạo đơn xin nghỉ dạy",
+                "operationId": "lecturerLeaveStore",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "schedule_id",
+                                    "reason"
+                                ],
+                                "properties": {
+                                    "schedule_id": {
+                                        "type": "integer",
+                                        "example": 345
+                                    },
+                                    "reason": {
+                                        "type": "string",
+                                        "example": "Ốm đột xuất"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Tạo đơn nghỉ thành công",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/LeaveRequestResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Không có quyền",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Không tìm thấy lịch dạy",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Dữ liệu không hợp lệ",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/lecturer/leave-requests/{id}": {
+            "get": {
+                "tags": [
+                    "Lecturer - Nghỉ dạy"
+                ],
+                "summary": "Chi tiết đơn nghỉ",
+                "operationId": "lecturerLeaveShow",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 100
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Thông tin đơn nghỉ",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/LeaveRequestResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Không có quyền",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Không tìm thấy",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Lecturer - Nghỉ dạy"
+                ],
+                "summary": "Hủy đơn nghỉ",
+                "operationId": "lecturerLeaveDestroy",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 100
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Đã hủy"
+                    },
+                    "403": {
+                        "description": "Không có quyền",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Không tìm thấy",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Chỉ hủy được đơn ở trạng thái PENDING",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "Lecturer - Nghỉ dạy"
+                ],
+                "summary": "Chỉnh sửa đơn nghỉ (khi còn PENDING)",
+                "operationId": "lecturerLeaveUpdate",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 100
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "reason": {
+                                        "type": "string",
+                                        "example": "Có công tác gấp"
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "example": "Đính kèm giấy xác nhận",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Cập nhật thành công",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/LeaveRequestResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Không có quyền",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Không tìm thấy",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Không thể chỉnh sửa đơn đã xử lý",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -344,13 +1149,35 @@
         "/api/lecturer/me/profile": {
             "get": {
                 "tags": [
-                    "Lecturer"
+                    "Lecturer - Hồ sơ"
                 ],
-                "summary": "Hồ sơ giảng viên",
-                "operationId": "ef93b4bc3c2b694394cd421fbe9154cc",
+                "summary": "Lấy thông tin hồ sơ giảng viên",
+                "operationId": "lecturerProfileShow",
                 "responses": {
                     "200": {
-                        "description": "OK"
+                        "description": "Thông tin hồ sơ",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/LecturerProfile"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Chưa xác thực",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -361,16 +1188,1004 @@
             },
             "patch": {
                 "tags": [
-                    "Lecturer"
+                    "Lecturer - Hồ sơ"
                 ],
-                "summary": "Cập nhật hồ sơ",
-                "operationId": "0f1f1b34768557e74d1b71fbded9e7fe",
+                "summary": "Cập nhật hồ sơ giảng viên",
+                "operationId": "lecturerProfileUpdate",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Nguyễn Văn A"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "giangvien@qlgd.test"
+                                    },
+                                    "phone": {
+                                        "type": "string",
+                                        "example": "0901123456"
+                                    },
+                                    "date_of_birth": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "1990-05-12"
+                                    },
+                                    "gender": {
+                                        "type": "string",
+                                        "example": "Nam"
+                                    },
+                                    "department_id": {
+                                        "type": "integer",
+                                        "example": 15,
+                                        "nullable": true
+                                    },
+                                    "faculty_id": {
+                                        "type": "integer",
+                                        "example": 3,
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
                 "responses": {
                     "200": {
-                        "description": "OK"
+                        "description": "Cập nhật thành công",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/LecturerProfile"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "404": {
-                        "description": "Not Found"
+                        "description": "Không tìm thấy hồ sơ giảng viên",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/lecturer/me/change-password": {
+            "post": {
+                "tags": [
+                    "Lecturer - Hồ sơ"
+                ],
+                "summary": "Đổi mật khẩu đăng nhập",
+                "operationId": "lecturerChangePassword",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "current_password",
+                                    "password",
+                                    "password_confirmation"
+                                ],
+                                "properties": {
+                                    "current_password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "oldSecret"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "newSecret123"
+                                    },
+                                    "password_confirmation": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "newSecret123"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Đổi mật khẩu thành công",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "message": {
+                                            "type": "string",
+                                            "example": "Đổi mật khẩu thành công."
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Không hợp lệ",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/reports/lecturers/{lecturer}": {
+            "get": {
+                "tags": [
+                    "Lecturer - Báo cáo"
+                ],
+                "summary": "Thống kê tiến độ giảng dạy theo môn học",
+                "operationId": "lecturerReportsShow",
+                "parameters": [
+                    {
+                        "name": "lecturer",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 7
+                        }
+                    },
+                    {
+                        "name": "semester",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "example": "2025-2026 HK1"
+                        }
+                    },
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "date",
+                            "example": "2025-09-01"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "schema": {
+                            "type": "string",
+                            "format": "date",
+                            "example": "2025-12-31"
+                        }
+                    },
+                    {
+                        "name": "department_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "faculty_id",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Danh sách thống kê theo môn học",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "properties": {
+                                                    "subject_id": {
+                                                        "type": "integer",
+                                                        "example": 12
+                                                    },
+                                                    "subject_code": {
+                                                        "type": "string",
+                                                        "example": "CT101"
+                                                    },
+                                                    "subject_name": {
+                                                        "type": "string",
+                                                        "example": "Cấu trúc dữ liệu"
+                                                    },
+                                                    "total_sessions": {
+                                                        "type": "integer",
+                                                        "example": 30
+                                                    },
+                                                    "done_sessions": {
+                                                        "type": "integer",
+                                                        "example": 24
+                                                    },
+                                                    "canceled_sessions": {
+                                                        "type": "integer",
+                                                        "example": 1
+                                                    },
+                                                    "upcoming_sessions": {
+                                                        "type": "integer",
+                                                        "example": 5
+                                                    },
+                                                    "total_periods": {
+                                                        "type": "integer",
+                                                        "example": 60
+                                                    },
+                                                    "done_periods": {
+                                                        "type": "integer",
+                                                        "example": 48
+                                                    },
+                                                    "progress_ratio": {
+                                                        "type": "number",
+                                                        "format": "float",
+                                                        "example": 0.8
+                                                    },
+                                                    "progress_text": {
+                                                        "type": "string",
+                                                        "example": "24/30 buoi"
+                                                    }
+                                                },
+                                                "type": "object"
+                                            }
+                                        },
+                                        "meta": {
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Chưa xác thực",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Không có quyền",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/lecturer/makeup-requests": {
+            "get": {
+                "tags": [
+                    "Lecturer - Dạy bù"
+                ],
+                "summary": "Danh sách đề xuất dạy bù",
+                "operationId": "lecturerMakeupIndex",
+                "responses": {
+                    "200": {
+                        "description": "Danh sách phân trang",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/MakeupRequestResource"
+                                            }
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/PaginationMeta"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Lecturer - Dạy bù"
+                ],
+                "summary": "Đề xuất buổi dạy bù",
+                "operationId": "lecturerMakeupStore",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "leave_request_id",
+                                    "suggested_date",
+                                    "timeslot_id"
+                                ],
+                                "properties": {
+                                    "leave_request_id": {
+                                        "type": "integer",
+                                        "example": 100
+                                    },
+                                    "suggested_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2025-10-28"
+                                    },
+                                    "timeslot_id": {
+                                        "type": "integer",
+                                        "example": 4
+                                    },
+                                    "room_id": {
+                                        "type": "integer",
+                                        "example": 12,
+                                        "nullable": true
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "example": "Ưu tiên phòng lab",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Tạo đề xuất dạy bù thành công",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/MakeupRequestResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Không có quyền",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Không tìm thấy đơn nghỉ",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Dữ liệu không hợp lệ",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/lecturer/makeup-requests/{id}": {
+            "get": {
+                "tags": [
+                    "Lecturer - Dạy bù"
+                ],
+                "summary": "Chi tiết đề xuất dạy bù",
+                "operationId": "lecturerMakeupShow",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 200
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Chi tiết đề xuất",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/MakeupRequestResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Không có quyền",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Không tìm thấy",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Lecturer - Dạy bù"
+                ],
+                "summary": "Hủy đề xuất dạy bù",
+                "operationId": "lecturerMakeupDestroy",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 200
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Đã hủy"
+                    },
+                    "403": {
+                        "description": "Không có quyền",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Không tìm thấy",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Chỉ hủy khi PENDING",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "patch": {
+                "tags": [
+                    "Lecturer - Dạy bù"
+                ],
+                "summary": "Chỉnh sửa đề xuất dạy bù (khi còn PENDING)",
+                "operationId": "lecturerMakeupUpdate",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 200
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "suggested_date": {
+                                        "type": "string",
+                                        "format": "date",
+                                        "example": "2025-10-30"
+                                    },
+                                    "timeslot_id": {
+                                        "type": "integer",
+                                        "example": 5
+                                    },
+                                    "room_id": {
+                                        "type": "integer",
+                                        "example": 9,
+                                        "nullable": true
+                                    },
+                                    "note": {
+                                        "type": "string",
+                                        "example": "Đề xuất phòng đa năng",
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Cập nhật thành công",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/MakeupRequestResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Không có quyền",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Không tìm thấy",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "422": {
+                        "description": "Chỉ chỉnh sửa khi PENDING",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/lecturer/notifications": {
+            "get": {
+                "tags": [
+                    "Lecturer - Thông báo"
+                ],
+                "summary": "Danh sách thông báo của giảng viên",
+                "operationId": "lecturerNotificationsIndex",
+                "parameters": [
+                    {
+                        "name": "is_read",
+                        "in": "query",
+                        "description": "Lọc theo trạng thái đã đọc (true/false)",
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Danh sách phân trang",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/NotificationResource"
+                                            }
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/PaginationMeta"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/lecturer/notifications/{id}": {
+            "get": {
+                "tags": [
+                    "Lecturer - Thông báo"
+                ],
+                "summary": "Xem chi tiết thông báo",
+                "operationId": "lecturerNotificationsShow",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 501
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Thông báo",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/NotificationResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Không có quyền",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Không tìm thấy",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Lecturer - Thông báo"
+                ],
+                "summary": "Xóa thông báo",
+                "operationId": "lecturerNotificationsDestroy",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 501
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Đã xóa"
+                    },
+                    "403": {
+                        "description": "Không có quyền",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Không tìm thấy",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/lecturer/notifications/{id}/read": {
+            "post": {
+                "tags": [
+                    "Lecturer - Thông báo"
+                ],
+                "summary": "Đánh dấu đã đọc thông báo",
+                "operationId": "lecturerNotificationsMarkRead",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 501
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Đánh dấu đã đọc thành công",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/NotificationResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Không có quyền",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Không tìm thấy",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/lecturer/schedule": {
+            "get": {
+                "tags": [
+                    "Lecturer - Lịch dạy"
+                ],
+                "summary": "Lấy lịch dạy trong tuần",
+                "operationId": "lecturerScheduleIndex",
+                "parameters": [
+                    {
+                        "name": "semester_id",
+                        "in": "query",
+                        "description": "Mã học kỳ (ví dụ 2025-2026 HK1)",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "week",
+                        "in": "query",
+                        "description": "Ngày bất kỳ trong tuần muốn lấy (YYYY-MM-DD)",
+                        "required": false,
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Danh sách buổi dạy theo tuần",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/ScheduleItem"
+                                            }
+                                        },
+                                        "filters": {
+                                            "properties": {
+                                                "semesters": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "value": {
+                                                                "type": "string"
+                                                            },
+                                                            "label": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "weeks": {
+                                                    "type": "array",
+                                                    "items": {
+                                                        "properties": {
+                                                            "value": {
+                                                                "type": "string"
+                                                            },
+                                                            "label": {
+                                                                "type": "string"
+                                                            },
+                                                            "start": {
+                                                                "type": "string"
+                                                            },
+                                                            "end": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "type": "object"
+                                                    }
+                                                },
+                                                "selected_semester": {
+                                                    "type": "string",
+                                                    "nullable": true
+                                                },
+                                                "selected_week": {
+                                                    "type": "string",
+                                                    "nullable": true
+                                                },
+                                                "week_start": {
+                                                    "type": "string",
+                                                    "nullable": true
+                                                },
+                                                "week_end": {
+                                                    "type": "string",
+                                                    "nullable": true
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Không phải giảng viên",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -383,13 +2198,63 @@
         "/api/lecturer/stats/teaching-hours": {
             "get": {
                 "tags": [
-                    "Lecturer"
+                    "Lecturer - Thống kê"
                 ],
-                "summary": "Thống kê giờ giảng",
-                "operationId": "fd19814aebd8bc8024163c6b9bcc2c55",
+                "summary": "Thống kê số buổi và giờ giảng đã hoàn thành",
+                "operationId": "lecturerStatsTeachingHours",
+                "parameters": [
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "description": "Ngày bắt đầu (YYYY-MM-DD)",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "description": "Ngày kết thúc (YYYY-MM-DD)",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "OK"
+                        "description": "Thống kê tổng quan",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "total_sessions_done": {
+                                                    "type": "integer",
+                                                    "example": 48
+                                                },
+                                                "total_hours": {
+                                                    "type": "number",
+                                                    "format": "float",
+                                                    "example": 120.5
+                                                },
+                                                "by_status": {
+                                                    "type": "object",
+                                                    "additionalProperties": {
+                                                        "description": "Số buổi theo từng trạng thái",
+                                                        "type": "integer"
+                                                    }
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -402,16 +2267,78 @@
         "/api/lecturer/sessions": {
             "get": {
                 "tags": [
-                    "Lecturer"
+                    "Lecturer - Buổi dạy"
                 ],
-                "summary": "Danh sách buổi dạy",
-                "operationId": "10556aeda1e473de3d9589cfcedbe2ca",
+                "summary": "Danh sách buổi dạy của giảng viên",
+                "operationId": "lecturerSessionsIndex",
+                "parameters": [
+                    {
+                        "name": "date",
+                        "in": "query",
+                        "description": "Lọc theo ngày cụ thể (YYYY-MM-DD)",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "from",
+                        "in": "query",
+                        "description": "Ngày bắt đầu (YYYY-MM-DD)",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "to",
+                        "in": "query",
+                        "description": "Ngày kết thúc (YYYY-MM-DD)",
+                        "schema": {
+                            "type": "string",
+                            "format": "date"
+                        }
+                    },
+                    {
+                        "name": "status",
+                        "in": "query",
+                        "description": "Trạng thái buổi dạy (PLANNED, TEACHING, DONE...)",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "OK"
+                        "description": "Danh sách phân trang",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/components/schemas/TeachingSessionResource"
+                                            }
+                                        },
+                                        "meta": {
+                                            "$ref": "#/components/schemas/PaginationMeta"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "403": {
-                        "description": "Forbidden"
+                        "description": "Không có quyền truy cập",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -424,19 +2351,56 @@
         "/api/lecturer/sessions/{id}": {
             "get": {
                 "tags": [
-                    "Lecturer"
+                    "Lecturer - Buổi dạy"
                 ],
-                "summary": "Chi tiết buổi dạy",
-                "operationId": "d6ade59eeafb80391da2b5fea049429e",
+                "summary": "Chi tiết một buổi dạy",
+                "operationId": "lecturerSessionsShow",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 345
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "OK"
+                        "description": "Thông tin buổi dạy",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/TeachingSessionResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "403": {
-                        "description": "Forbidden"
+                        "description": "Không có quyền truy cập",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
                     },
                     "404": {
-                        "description": "Not Found"
+                        "description": "Không tìm thấy",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -447,22 +2411,87 @@
             },
             "patch": {
                 "tags": [
-                    "Lecturer"
+                    "Lecturer - Buổi dạy"
                 ],
-                "summary": "Cập nhật buổi dạy (note/room khi PLANNED)",
-                "operationId": "dd7d9610c3369c3d044014b14659076e",
+                "summary": "Cập nhật thông tin buổi dạy (khi còn trạng thái PLANNED)",
+                "operationId": "lecturerSessionsUpdate",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 345
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "note": {
+                                        "type": "string",
+                                        "example": "Chuẩn bị bài thực hành"
+                                    },
+                                    "room_id": {
+                                        "type": "integer",
+                                        "example": 12,
+                                        "nullable": true
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
                 "responses": {
                     "200": {
-                        "description": "OK"
+                        "description": "Cập nhật thành công",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/components/schemas/TeachingSessionResource"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "403": {
-                        "description": "Forbidden"
+                        "description": "Không có quyền truy cập",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
                     },
                     "404": {
-                        "description": "Not Found"
+                        "description": "Không tìm thấy",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
                     },
                     "422": {
-                        "description": "Unprocessable Entity"
+                        "description": "Trạng thái không cho phép cập nhật",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -475,22 +2504,76 @@
         "/api/lecturer/sessions/{id}/start": {
             "post": {
                 "tags": [
-                    "Lecturer"
+                    "Lecturer - Buổi dạy"
                 ],
-                "summary": "Start session",
-                "operationId": "5fb21e09c02b36e8934e3231974ff2dd",
+                "summary": "Bắt đầu buổi dạy",
+                "operationId": "lecturerSessionStart",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 345
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "OK"
+                        "description": "Bắt đầu buổi dạy thành công",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 345
+                                                },
+                                                "status": {
+                                                    "type": "string",
+                                                    "example": "TEACHING"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "403": {
-                        "description": "Forbidden"
+                        "description": "Không có quyền truy cập",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
                     },
                     "404": {
-                        "description": "Not Found"
+                        "description": "Không tìm thấy buổi dạy",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
                     },
                     "422": {
-                        "description": "Unprocessable Entity"
+                        "description": "Trạng thái không hợp lệ để bắt đầu",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -503,22 +2586,76 @@
         "/api/lecturer/sessions/{id}/finish": {
             "post": {
                 "tags": [
-                    "Lecturer"
+                    "Lecturer - Buổi dạy"
                 ],
-                "summary": "Finish session",
-                "operationId": "e8a88ba10ed080e7b6aa95f4fd6c329f",
+                "summary": "Kết thúc buổi dạy",
+                "operationId": "lecturerSessionFinish",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "example": 345
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
-                        "description": "OK"
+                        "description": "Hoàn tất buổi dạy",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "data": {
+                                            "properties": {
+                                                "id": {
+                                                    "type": "integer",
+                                                    "example": 345
+                                                },
+                                                "status": {
+                                                    "type": "string",
+                                                    "example": "DONE"
+                                                }
+                                            },
+                                            "type": "object"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
                     },
                     "403": {
-                        "description": "Forbidden"
+                        "description": "Không có quyền truy cập",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
                     },
                     "404": {
-                        "description": "Not Found"
+                        "description": "Không tìm thấy buổi dạy",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
                     },
                     "422": {
-                        "description": "Unprocessable Entity"
+                        "description": "Chưa điểm danh hoặc trạng thái không cho phép hoàn tất",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
+                                }
+                            }
+                        }
                     }
                 },
                 "security": [
@@ -605,7 +2742,7 @@
                 "tags": [
                     "Lecturer - Schedule"
                 ],
-                "summary": "Lịch dạy theo tuần",
+                "summary": "Lich day theo tuan",
                 "operationId": "029087001ed6cc663ecacfb04d74f87c",
                 "parameters": [
                     {
@@ -621,6 +2758,9 @@
                 "responses": {
                     "200": {
                         "description": "OK"
+                    },
+                    "403": {
+                        "description": "Forbidden"
                     }
                 },
                 "security": [
@@ -635,7 +2775,7 @@
                 "tags": [
                     "Lecturer - Schedule"
                 ],
-                "summary": "Chi tiết buổi học",
+                "summary": "Chi tiet buoi hoc",
                 "operationId": "bb9f9cde07efeb91b586cce62978b962",
                 "parameters": [
                     {
@@ -652,14 +2792,7 @@
                         "description": "OK"
                     },
                     "404": {
-                        "description": "Not Found",
-                        "content": {
-                            "application/json": {
-                                "schema": {
-                                    "$ref": "#/components/schemas/Error"
-                                }
-                            }
-                        }
+                        "description": "Not Found"
                     }
                 },
                 "security": [
@@ -674,8 +2807,8 @@
                 "tags": [
                     "Training Department - Approvals"
                 ],
-                "summary": "Phê duyệt đơn nghỉ",
-                "operationId": "fea8bc34e63160073fb93b07487545fa",
+                "summary": "Phê duyệt / từ chối đơn nghỉ dạy",
+                "operationId": "trainingApproveLeave",
                 "parameters": [
                     {
                         "name": "leave",
@@ -696,12 +2829,13 @@
                                 ],
                                 "properties": {
                                     "status": {
-                                        "description": "APPROVED|REJECTED",
+                                        "description": "APPROVED hoặc REJECTED",
                                         "type": "string",
                                         "example": "APPROVED"
                                     },
                                     "note": {
                                         "type": "string",
+                                        "example": "Đã sắp xếp giảng viên thay thế",
                                         "nullable": true
                                     }
                                 },
@@ -712,24 +2846,31 @@
                 },
                 "responses": {
                     "200": {
-                        "description": "OK"
-                    },
-                    "403": {
-                        "description": "Forbidden",
+                        "description": "Cập nhật trạng thái đơn nghỉ",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/Error"
+                                    "$ref": "#/components/schemas/LeaveRequestResource"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Không có quyền",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ErrorResponse"
                                 }
                             }
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Không tìm thấy",
                         "content": {
                             "application/json": {
                                 "schema": {
-                                    "$ref": "#/components/schemas/Error"
+                                    "$ref": "#/components/schemas/ErrorResponse"
                                 }
                             }
                         }
@@ -745,36 +2886,64 @@
     },
     "components": {
         "schemas": {
-            "User": {
-                "properties": {
-                    "id": {
-                        "type": "integer",
-                        "example": 1
-                    },
-                    "name": {
-                        "type": "string",
-                        "example": "Nguyen Van A"
-                    },
-                    "email": {
-                        "type": "string",
-                        "format": "email",
-                        "example": "lecturer@tlu.edu.vn"
-                    },
-                    "role": {
-                        "type": "string",
-                        "example": "GIANG_VIEN"
-                    }
-                },
-                "type": "object"
-            },
-            "Error": {
+            "ErrorResponse": {
                 "properties": {
                     "message": {
-                        "type": "string"
+                        "type": "string",
+                        "example": "Thông tin xác thực không hợp lệ."
                     },
                     "errors": {
                         "type": "object",
                         "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "UserResource": {
+                "required": [
+                    "id",
+                    "name",
+                    "email",
+                    "role"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 12
+                    },
+                    "name": {
+                        "type": "string",
+                        "example": "Nguyễn Văn A"
+                    },
+                    "email": {
+                        "type": "string",
+                        "format": "email",
+                        "example": "giangvien@qlgd.test"
+                    },
+                    "role": {
+                        "type": "string",
+                        "example": "GIANG_VIEN"
+                    },
+                    "is_active": {
+                        "type": "boolean",
+                        "example": true
+                    }
+                },
+                "type": "object"
+            },
+            "PaginationMeta": {
+                "properties": {
+                    "current_page": {
+                        "type": "integer",
+                        "example": 1
+                    },
+                    "per_page": {
+                        "type": "integer",
+                        "example": 15
+                    },
+                    "total": {
+                        "type": "integer",
+                        "example": 120
                     }
                 },
                 "type": "object"
@@ -784,14 +2953,363 @@
                     "data": {
                         "type": "array",
                         "items": {
-                            "$ref": "#/components/schemas/User"
+                            "$ref": "#/components/schemas/UserResource"
                         }
                     },
                     "links": {
                         "type": "object"
                     },
                     "meta": {
+                        "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                },
+                "type": "object"
+            },
+            "ScheduleItem": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 345
+                    },
+                    "session_date": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2025-10-21"
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "PLANNED"
+                    },
+                    "start_time": {
+                        "type": "string",
+                        "example": "07:00"
+                    },
+                    "end_time": {
+                        "type": "string",
+                        "example": "08:45"
+                    },
+                    "assignment": {
+                        "properties": {
+                            "semester_label": {
+                                "type": "string",
+                                "example": "2025-2026 HK1"
+                            },
+                            "subject": {
+                                "properties": {
+                                    "id": {
+                                        "type": "integer",
+                                        "example": 50
+                                    },
+                                    "code": {
+                                        "type": "string",
+                                        "example": "CT101"
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Cấu trúc dữ liệu"
+                                    }
+                                },
+                                "type": "object"
+                            },
+                            "classUnit": {
+                                "properties": {
+                                    "id": {
+                                        "type": "integer",
+                                        "example": 88
+                                    },
+                                    "code": {
+                                        "type": "string",
+                                        "example": "LHP01"
+                                    },
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Lớp HP 01"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        },
                         "type": "object"
+                    },
+                    "room": {
+                        "properties": {
+                            "id": {
+                                "type": "integer",
+                                "example": 12
+                            },
+                            "code": {
+                                "type": "string",
+                                "example": "B3-201"
+                            },
+                            "name": {
+                                "type": "string",
+                                "example": "Phòng B3-201"
+                            }
+                        },
+                        "type": "object",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "LecturerProfile": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 7
+                    },
+                    "user_id": {
+                        "type": "integer",
+                        "example": 12
+                    },
+                    "full_name": {
+                        "type": "string",
+                        "example": "Nguyễn Văn A"
+                    },
+                    "date_of_birth": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "1990-05-12",
+                        "nullable": true
+                    },
+                    "gender": {
+                        "type": "string",
+                        "example": "Nam",
+                        "nullable": true
+                    },
+                    "phone": {
+                        "type": "string",
+                        "example": "0901123456",
+                        "nullable": true
+                    },
+                    "email": {
+                        "type": "string",
+                        "example": "giangvien@qlgd.test"
+                    },
+                    "department": {
+                        "type": "string",
+                        "example": "Bộ môn Hệ thống Thông tin",
+                        "nullable": true
+                    },
+                    "faculty": {
+                        "type": "string",
+                        "example": "Khoa Công nghệ Thông tin",
+                        "nullable": true
+                    },
+                    "avatar_url": {
+                        "type": "string",
+                        "example": "https://cdn.qlgd.test/avatars/12.png",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "LeaveRequestResource": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 100
+                    },
+                    "schedule_id": {
+                        "type": "integer",
+                        "example": 345
+                    },
+                    "lecturer_id": {
+                        "type": "integer",
+                        "example": 7
+                    },
+                    "reason": {
+                        "type": "string",
+                        "example": "Ốm đột xuất"
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "PENDING"
+                    },
+                    "approved_by": {
+                        "type": "integer",
+                        "example": 2,
+                        "nullable": true
+                    },
+                    "approved_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "note": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "schedule": {
+                        "$ref": "#/components/schemas/ScheduleItem"
+                    }
+                },
+                "type": "object"
+            },
+            "MakeupRequestResource": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 200
+                    },
+                    "leave_request_id": {
+                        "type": "integer",
+                        "example": 100
+                    },
+                    "suggested_date": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2025-10-28"
+                    },
+                    "timeslot_id": {
+                        "type": "integer",
+                        "example": 4
+                    },
+                    "room_id": {
+                        "type": "integer",
+                        "example": 8,
+                        "nullable": true
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "PENDING"
+                    },
+                    "note": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "decided_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "nullable": true
+                    },
+                    "decided_by": {
+                        "type": "integer",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "NotificationResource": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 501
+                    },
+                    "type": {
+                        "type": "string",
+                        "example": "LEAVE_RESPONSE"
+                    },
+                    "title": {
+                        "type": "string",
+                        "example": "Đơn nghỉ đã được duyệt"
+                    },
+                    "body": {
+                        "type": "string",
+                        "example": "Phòng Đào tạo đã duyệt đơn nghỉ ngày 21/10."
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "UNREAD"
+                    },
+                    "created_at": {
+                        "type": "string",
+                        "format": "date-time",
+                        "example": "2025-10-20T14:00:00+07:00"
+                    }
+                },
+                "type": "object"
+            },
+            "TeachingSessionResource": {
+                "properties": {
+                    "id": {
+                        "type": "integer",
+                        "example": 345
+                    },
+                    "session_date": {
+                        "type": "string",
+                        "format": "date",
+                        "example": "2025-10-21"
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "PLANNED"
+                    },
+                    "note": {
+                        "type": "string",
+                        "nullable": true
+                    },
+                    "start_time": {
+                        "type": "string",
+                        "example": "07:00"
+                    },
+                    "end_time": {
+                        "type": "string",
+                        "example": "08:45"
+                    },
+                    "attendance_locked": {
+                        "type": "boolean",
+                        "example": false
+                    },
+                    "assignment": {
+                        "properties": {
+                            "semester_label": {
+                                "type": "string",
+                                "example": "2025-2026 HK1"
+                            },
+                            "subject_name": {
+                                "type": "string",
+                                "example": "Cấu trúc dữ liệu"
+                            },
+                            "class_name": {
+                                "type": "string",
+                                "example": "Lớp HP 01"
+                            }
+                        },
+                        "type": "object"
+                    }
+                },
+                "type": "object"
+            },
+            "AttendancePayloadItem": {
+                "required": [
+                    "student_id",
+                    "status"
+                ],
+                "properties": {
+                    "student_id": {
+                        "type": "integer",
+                        "example": 1001
+                    },
+                    "status": {
+                        "type": "string",
+                        "example": "PRESENT"
+                    },
+                    "note": {
+                        "type": "string",
+                        "nullable": true
+                    }
+                },
+                "type": "object"
+            },
+            "TeachingStat": {
+                "properties": {
+                    "total_hours": {
+                        "type": "number",
+                        "format": "float",
+                        "example": 120.5
+                    },
+                    "total_sessions": {
+                        "type": "integer",
+                        "example": 48
+                    },
+                    "year": {
+                        "type": "string",
+                        "example": "2025-2026"
+                    },
+                    "semester": {
+                        "type": "string",
+                        "example": "HK1"
                     }
                 },
                 "type": "object"
@@ -800,16 +3318,16 @@
         "securitySchemes": {
             "bearerAuth": {
                 "type": "http",
-                "description": "Use: Bearer {token}",
+                "scheme": "bearer",
                 "bearerFormat": "JWT",
-                "scheme": "bearer"
+                "description": "Enter the access token returned after login (omit the Bearer prefix)."
             }
         }
     },
     "tags": [
         {
             "name": "Admin - Users",
-            "description": "Quản lý người dùng (ADMIN)"
+            "description": "Quản lý tài khoản người dùng (vai trò ADMIN)"
         },
         {
             "name": "Lecturer - Profile",
@@ -821,19 +3339,64 @@
         },
         {
             "name": "Lecturer - Schedule",
-            "description": "Lịch dạy"
+            "description": "Lich day"
         },
         {
             "name": "Training Department - Approvals",
-            "description": "Phê duyệt (DAO_TAO)"
+            "description": "Phê duyệt đơn của phòng Đào tạo (vai trò DAO_TAO)"
+        },
+        {
+            "name": "Auth",
+            "description": "Auth"
+        },
+        {
+            "name": "Danh mục",
+            "description": "Danh mục"
         },
         {
             "name": "System",
             "description": "System"
         },
         {
-            "name": "Lecturer",
-            "description": "Lecturer"
+            "name": "Lecturer - Điểm danh",
+            "description": "Lecturer - Điểm danh"
+        },
+        {
+            "name": "Lecturer - Nghỉ dạy",
+            "description": "Lecturer - Nghỉ dạy"
+        },
+        {
+            "name": "Lecturer - Hồ sơ",
+            "description": "Lecturer - Hồ sơ"
+        },
+        {
+            "name": "Lecturer - Báo cáo",
+            "description": "Lecturer - Báo cáo"
+        },
+        {
+            "name": "Lecturer - Dạy bù",
+            "description": "Lecturer - Dạy bù"
+        },
+        {
+            "name": "Lecturer - Thông báo",
+            "description": "Lecturer - Thông báo"
+        },
+        {
+            "name": "Lecturer - Lịch dạy",
+            "description": "Lecturer - Lịch dạy"
+        },
+        {
+            "name": "Lecturer - Thống kê",
+            "description": "Lecturer - Thống kê"
+        },
+        {
+            "name": "Lecturer - Buổi dạy",
+            "description": "Lecturer - Buổi dạy"
+        }
+    ],
+    "security": [
+        {
+            "bearerAuth": []
         }
     ]
 }

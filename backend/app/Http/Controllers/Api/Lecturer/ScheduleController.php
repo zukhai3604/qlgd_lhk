@@ -9,9 +9,73 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use OpenApi\Annotations as OA;
 
 class ScheduleController extends Controller
 {
+    /**
+     * @OA\Get(
+     *   path="/api/lecturer/schedule",
+     *   operationId="lecturerScheduleIndex",
+     *   tags={"Lecturer - Lịch dạy"},
+     *   summary="Lấy lịch dạy trong tuần",
+     *   security={{"bearerAuth":{}}},
+     *   @OA\Parameter(
+     *     name="semester_id",
+     *     in="query",
+     *     description="Mã học kỳ (ví dụ 2025-2026 HK1)",
+     *     required=false,
+     *     @OA\Schema(type="string")
+     *   ),
+     *   @OA\Parameter(
+     *     name="week",
+     *     in="query",
+     *     description="Ngày bất kỳ trong tuần muốn lấy (YYYY-MM-DD)",
+     *     required=false,
+     *     @OA\Schema(type="string", format="date")
+     *   ),
+     *   @OA\Response(
+     *     response=200,
+     *     description="Danh sách buổi dạy theo tuần",
+     *     @OA\JsonContent(
+     *       @OA\Property(property="data", type="array", @OA\Items(ref="#/components/schemas/ScheduleItem")),
+     *       @OA\Property(
+     *         property="filters",
+     *         type="object",
+     *         @OA\Property(
+     *           property="semesters",
+     *           type="array",
+     *           @OA\Items(
+     *             type="object",
+     *             @OA\Property(property="value", type="string"),
+     *             @OA\Property(property="label", type="string")
+     *           )
+     *         ),
+     *         @OA\Property(
+     *           property="weeks",
+     *           type="array",
+     *           @OA\Items(
+     *             type="object",
+     *             @OA\Property(property="value", type="string"),
+     *             @OA\Property(property="label", type="string"),
+     *             @OA\Property(property="start", type="string"),
+     *             @OA\Property(property="end", type="string")
+     *           )
+     *         ),
+     *         @OA\Property(property="selected_semester", type="string", nullable=true),
+     *         @OA\Property(property="selected_week", type="string", nullable=true),
+     *         @OA\Property(property="week_start", type="string", nullable=true),
+     *         @OA\Property(property="week_end", type="string", nullable=true)
+     *       )
+     *     )
+     *   ),
+     *   @OA\Response(
+     *     response=403,
+     *     description="Không phải giảng viên",
+     *     @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *   )
+     * )
+     */
     public function index(Request $request): JsonResponse
     {
         $lecturerId = optional($request->user()->lecturer)->id;

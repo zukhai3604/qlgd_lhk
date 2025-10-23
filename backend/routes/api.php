@@ -25,7 +25,6 @@ use App\Http\Controllers\API\Lecturer\AttendanceController as ApiAttendanceContr
 use App\Http\Controllers\API\Lecturer\LeaveRequestController as ApiLeaveRequestController;
 use App\Http\Controllers\API\Lecturer\MakeupRequestController as ApiMakeupRequestController;
 use App\Http\Controllers\API\Lecturer\NotificationController as ApiNotificationController;
-use App\Http\Controllers\API\Lecturer\OfficeHourController as ApiOfficeHourController;
 use App\Http\Controllers\API\Lecturer\StatsController as ApiStatsController;
 
 /*
@@ -108,7 +107,6 @@ Route::prefix('lecturer')->middleware(['auth:sanctum','ensure.active','role:GIAN
     Route::post('notifications/{id}/read', [ApiNotificationController::class, 'markRead']);
     Route::delete('notifications/{id}', [ApiNotificationController::class, 'destroy']);
 
-    Route::apiResource('office-hours', ApiOfficeHourController::class)->except(['create','edit']);
 
     Route::get('stats/teaching-hours', [ApiStatsController::class, 'teachingHours']);
 });
