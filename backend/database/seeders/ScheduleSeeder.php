@@ -11,12 +11,20 @@ use Carbon\Carbon;
 
 class ScheduleSeeder extends Seeder
 {
-    private array $assignmentMap = [];
-    private array $timeslotCache = [];
-    private array $usedPeriods = [];
-    private array $rooms = [];
+    private Carbon $startDate;
+    private int $weeks = 8;
+    private Carbon $pivotDate;
+
+    private array $roomIds = [];
     private int $roomIndex = 0;
+    private array $timeslotCache = [];
+
+    private array $globalSlotPool = [];
+    private array $takenGlobalTimes = [];
+    private array $lecturerTimes = [];
+
     private int $pastCounter = 0;
+
     private array $cancelNotes = [
         'Huy do hop giao ban',
         'Huy do bao tri phong hoc',
@@ -24,73 +32,74 @@ class ScheduleSeeder extends Seeder
         'Huy vi giang vien cong tac',
     ];
 
+    public function __construct()
+    {
+        $this->startDate = Carbon::create(2025, 11, 1)->startOfWeek(Carbon::MONDAY);
+        $this->pivotDate = Carbon::create(2025, 10, 22)->startOfDay();
+    }
+
     public function run(): void
     {
-        $this->loadAssignments();
-        $this->loadRooms();
-
-        if (empty($this->assignmentMap) || empty($this->rooms)) {
+        $assignments = Assignment::with(['subject', 'lecturer.user'])->get();
+        if ($assignments->isEmpty()) {
+            $this->command?->warn('ScheduleSeeder: khong tim thay assignment nao.');
             return;
         }
 
-        $startDate = Carbon::create(2025, 9, 1); // Monday
-        $weeks = 8;
-        $pivot = Carbon::create(2025, 10, 22);
+        $this->roomIds = Room::orderBy('code')->pluck('id')->all();
+        if (empty($this->roomIds)) {
+            $this->command?->warn('ScheduleSeeder: khong co phong hoc kha dung.');
+            return;
+        }
 
-        $patterns = [
-            'CNW' => [
-                ['day' => Carbon::MONDAY, 'session' => 'morning'],
-                ['day' => Carbon::THURSDAY, 'session' => 'afternoon'],
-            ],
-            'CTDL' => [
-                ['day' => Carbon::TUESDAY, 'session' => 'afternoon'],
-                ['day' => Carbon::FRIDAY, 'session' => 'morning'],
-            ],
-            'CSDL' => [
-                ['day' => Carbon::WEDNESDAY, 'session' => 'morning'],
-                ['day' => Carbon::SATURDAY, 'session' => 'afternoon'],
-            ],
-        ];
+        $this->ensureGlobalSlotPool();
 
-        for ($week = 0; $week < $weeks; $week++) {
-            foreach ($patterns as $subjectCode => $slots) {
-                $assignmentId = $this->assignmentMap[$subjectCode] ?? null;
-                if (!$assignmentId) {
-                    $this->command?->warn("ScheduleSeeder: missing assignment for {$subjectCode}");
-                    continue;
-                }
+        foreach ($assignments as $assignment) {
+            $lecturer = $assignment->lecturer;
+            if (!$lecturer || !$assignment->subject) {
+                $this->command?->warn(sprintf(
+                    'ScheduleSeeder: bo qua assignment #%d vi thieu giang vien hoac mon hoc.',
+                    $assignment->id
+                ));
+                continue;
+            }
 
-                foreach ($slots as $slotIndex => $slot) {
-                    $date = (clone $startDate)
-                        ->addWeeks($week)
-                        ->addDays($this->dayOffset($slot['day']));
+            try {
+                $slot = $this->reserveSlotPairForAssignment($lecturer->id);
+            } catch (\RuntimeException $e) {
+                $this->command?->warn($e->getMessage());
+                continue;
+            }
 
-                    $dateKey = $date->format('Y-m-d');
-                    $periodStart = $this->pickPeriodStart($dateKey, $slot['session'], $week, $slotIndex);
-                    $timeslotId = $this->resolveTimeslotId($slot['day'], $periodStart);
+            $day = $slot['day'];
+            $startPeriod = $slot['start_period'];
+
+            for ($week = 0; $week < $this->weeks; $week++) {
+                $date = $this->dateForWeek($week, $day);
+                [$status, $note] = $this->statusForDate($date);
+                $roomId = $this->nextRoomId();
+
+                for ($offset = 0; $offset < 2; $offset++) {
+                    $period = $startPeriod + $offset;
+                    $timeslotId = $this->resolveTimeslotId($day, $period);
 
                     if (!$timeslotId) {
                         $this->command?->warn(sprintf(
-                            'ScheduleSeeder: timeslot not found for day %d period %d',
-                            $slot['day'],
-                            $periodStart
+                            'ScheduleSeeder: khong tim thay timeslot cho day=%d period=%d.',
+                            $day,
+                            $period
                         ));
                         continue;
                     }
 
-                    $status = $date->lt($pivot) ? $this->statusForPast() : 'PLANNED';
-                    $note = $status === 'CANCELED'
-                        ? $this->cancelNotes[$this->pastCounter % count($this->cancelNotes)]
-                        : null;
-
                     Schedule::updateOrCreate(
                         [
-                            'assignment_id' => $assignmentId,
-                            'session_date' => $dateKey,
+                            'assignment_id' => $assignment->id,
+                            'session_date' => $date->toDateString(),
                             'timeslot_id' => $timeslotId,
                         ],
                         [
-                            'room_id' => $this->nextRoomId(),
+                            'room_id' => $roomId,
                             'status' => $status,
                             'note' => $note,
                             'makeup_of_id' => null,
@@ -101,76 +110,102 @@ class ScheduleSeeder extends Seeder
         }
     }
 
-    private function loadAssignments(): void
+    private function reserveSlotPairForAssignment(int $lecturerId): array
     {
-        $assignments = Assignment::with('subject')
-            ->whereHas('subject', function ($q) {
-                $q->whereIn('code', ['CNW', 'CTDL', 'CSDL']);
-            })
-            ->get();
+        foreach ($this->globalSlotPool as $index => $slot) {
+            if (!$this->canUseSlotPair($lecturerId, $slot)) {
+                continue;
+            }
 
-        foreach ($assignments as $assignment) {
-            $code = $assignment->subject?->code;
-            if ($code) {
-                $this->assignmentMap[$code] = $assignment->id;
+            $this->markSlotPair($lecturerId, $slot);
+            unset($this->globalSlotPool[$index]);
+            $this->globalSlotPool = array_values($this->globalSlotPool);
+
+            return $slot;
+        }
+
+        throw new \RuntimeException("ScheduleSeeder: khong du khung thoi gian cho giang vien #{$lecturerId}.");
+    }
+
+    private function canUseSlotPair(int $lecturerId, array $slot): bool
+    {
+        $day = $slot['day'];
+        $start = $slot['start_period'];
+        $second = $start + 1;
+
+        if ($second > 12) {
+            return false;
+        }
+
+        if (($this->takenGlobalTimes[$day][$start] ?? false) ||
+            ($this->takenGlobalTimes[$day][$second] ?? false)) {
+            return false;
+        }
+
+        if (($this->lecturerTimes[$lecturerId][$day][$start] ?? false) ||
+            ($this->lecturerTimes[$lecturerId][$day][$second] ?? false)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    private function markSlotPair(int $lecturerId, array $slot): void
+    {
+        $day = $slot['day'];
+        $start = $slot['start_period'];
+        $second = $start + 1;
+
+        $this->takenGlobalTimes[$day][$start] = true;
+        $this->takenGlobalTimes[$day][$second] = true;
+
+        $this->lecturerTimes[$lecturerId][$day][$start] = true;
+        $this->lecturerTimes[$lecturerId][$day][$second] = true;
+    }
+
+    private function ensureGlobalSlotPool(): void
+    {
+        if (!empty($this->globalSlotPool)) {
+            return;
+        }
+
+        $days = [
+            Carbon::MONDAY,
+            Carbon::TUESDAY,
+            Carbon::WEDNESDAY,
+            Carbon::THURSDAY,
+            Carbon::FRIDAY,
+            Carbon::SATURDAY,
+        ];
+
+        foreach ($days as $day) {
+            foreach (range(1, 11) as $start) {
+                $this->globalSlotPool[] = [
+                    'day' => $day,
+                    'start_period' => $start,
+                ];
             }
         }
+
+        shuffle($this->globalSlotPool);
     }
 
-    private function loadRooms(): void
-    {
-        $this->rooms = Room::whereIn('code', $this->roomCodes())
-            ->orderBy('code')
-            ->pluck('id')
-            ->toArray();
-
-        if (empty($this->rooms)) {
-            $this->command?->warn('ScheduleSeeder: no rooms found for codes A101-A120.');
-        }
-    }
-
-    private function roomCodes(): array
-    {
-        return array_map(fn ($number) => 'A' . $number, range(101, 120));
-    }
-
-    private function nextRoomId(): int
-    {
-        $roomId = $this->rooms[$this->roomIndex % count($this->rooms)];
-        $this->roomIndex++;
-        return $roomId;
-    }
-
-    private function pickPeriodStart(string $dateKey, string $session, int $weekIndex, int $slotIndex): int
-    {
-        $pool = $session === 'morning'
-            ? [1, 2, 3, 4, 5, 6]
-            : [7, 8, 9, 10, 11, 12];
-
-        $used = $this->usedPeriods[$dateKey][$session] ?? [];
-        $count = count($pool);
-
-        for ($i = 0; $i < $count; $i++) {
-            $candidate = $pool[($weekIndex + $slotIndex + $i) % $count];
-            if (!in_array($candidate, $used, true)) {
-                $this->usedPeriods[$dateKey][$session][] = $candidate;
-                return $candidate;
-            }
-        }
-
-        throw new \RuntimeException("Unable to pick period for {$dateKey} {$session}");
-    }
-
-    private function resolveTimeslotId(int $carbonDay, int $periodStart): ?int
+    private function resolveTimeslotId(int $carbonDay, int $period): ?int
     {
         $timeslotDay = $carbonDay + 1; // Carbon Monday=1 -> timeslot day 2
-        $code = sprintf('T%d_CA%d', $timeslotDay, $periodStart);
+        $code = sprintf('T%d_CA%d', $timeslotDay, $period);
 
         if (!array_key_exists($code, $this->timeslotCache)) {
             $this->timeslotCache[$code] = Timeslot::where('code', $code)->value('id');
         }
 
         return $this->timeslotCache[$code];
+    }
+
+    private function dateForWeek(int $week, int $carbonDay): Carbon
+    {
+        $weekStart = (clone $this->startDate)->addWeeks($week);
+        return $weekStart->copy()->startOfWeek(Carbon::MONDAY)->addDays($this->dayOffset($carbonDay));
     }
 
     private function dayOffset(int $carbonDay): int
@@ -188,10 +223,23 @@ class ScheduleSeeder extends Seeder
         return $map[$carbonDay] ?? 0;
     }
 
-    private function statusForPast(): string
+    private function nextRoomId(): int
     {
-        $this->pastCounter++;
-        return $this->pastCounter % 7 === 0 ? 'CANCELED' : 'DONE';
+        $roomId = $this->roomIds[$this->roomIndex % count($this->roomIds)];
+        $this->roomIndex++;
+        return $roomId;
+    }
+
+    private function statusForDate(Carbon $date): array
+    {
+        if ($date->lt($this->pivotDate)) {
+            $this->pastCounter++;
+            if ($this->pastCounter % 7 === 0) {
+                return ['CANCELED', $this->cancelNotes[array_rand($this->cancelNotes)]];
+            }
+            return ['DONE', null];
+        }
+
+        return ['PLANNED', null];
     }
 }
-

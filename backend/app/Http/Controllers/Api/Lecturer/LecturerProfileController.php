@@ -87,20 +87,19 @@ class LecturerProfileController extends Controller
         }
 
         $data = $request->validated();
-        $userPayload = [];
-        $lecturerPayload = [];
 
-        foreach (['name', 'email', 'phone', 'date_of_birth', 'gender'] as $field) {
+        $userPayload = [];
+        foreach (['name', 'email', 'phone'] as $field) {
             if (array_key_exists($field, $data)) {
                 $userPayload[$field] = $data[$field];
             }
         }
 
-        if (!empty($data['date_of_birth'])) {
+        $lecturerPayload = [];
+        if (array_key_exists('date_of_birth', $data)) {
             $lecturerPayload['date_of_birth'] = $data['date_of_birth'];
         }
-
-        if (!empty($data['gender'])) {
+        if (array_key_exists('gender', $data)) {
             $lecturerPayload['gender'] = $data['gender'];
         }
 
@@ -110,22 +109,33 @@ class LecturerProfileController extends Controller
                 ? Department::with('faculty')->find($data['department_id'])
                 : null;
             $lecturerPayload['department_id'] = $department?->id;
+
+            if (!$department) {
+                $lecturerPayload['department_name'] = null;
+                if (!array_key_exists('faculty', $data) && !array_key_exists('faculty_id', $data)) {
+                    $lecturerPayload['faculty_name'] = null;
+                }
+            }
         }
 
         if ($department) {
-            $userPayload['department'] = $department->name;
-            $userPayload['faculty'] = $department->faculty?->name;
+            $lecturerPayload['department_name'] = $department->name;
+            $lecturerPayload['faculty_name'] = $department->faculty?->name;
         }
 
         if (!$department && array_key_exists('department', $data)) {
-            $userPayload['department'] = $data['department'];
+            $lecturerPayload['department_name'] = $data['department'] ?: null;
         }
 
         if (array_key_exists('faculty', $data)) {
-            $userPayload['faculty'] = $data['faculty'];
+            $lecturerPayload['faculty_name'] = $data['faculty'] ?: null;
         } elseif (array_key_exists('faculty_id', $data) && !$department) {
             $faculty = $data['faculty_id'] ? Faculty::find($data['faculty_id']) : null;
-            $userPayload['faculty'] = $faculty?->name;
+            $lecturerPayload['faculty_name'] = $faculty?->name;
+        }
+
+        if (array_key_exists('department_id', $data) && !$department && !array_key_exists('department', $data)) {
+            $lecturerPayload['department_name'] = $lecturerPayload['department_name'] ?? null;
         }
 
         if (!empty($userPayload)) {

@@ -14,17 +14,10 @@ return new class extends Migration
         Schema::create('users', function (Blueprint $table) {
             $table->id();
 
-            // ===== Thông tin cá nhân =====
+            // ===== Thông tin tài khoản (tối thiểu) =====
             $table->string('name', 150);
-            $table->date('date_of_birth')->nullable();
-            $table->enum('gender', ['Nam', 'Nữ', 'Khác'])->nullable();
             $table->string('phone', 30)->nullable();
             $table->string('email', 190)->unique();
-            $table->string('avatar', 255)->nullable();
-
-            // ===== Học thuật / nghề nghiệp =====
-            $table->string('department', 100)->nullable(); // Bộ môn
-            $table->string('faculty', 100)->nullable();    // Khoa
 
             // ===== Đăng nhập & phân quyền =====
             $table->string('password');
@@ -39,7 +32,6 @@ return new class extends Migration
 
             // ===== Index =====
             $table->index('role');
-            $table->index('faculty');
         });
     }
 

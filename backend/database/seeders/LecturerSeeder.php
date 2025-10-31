@@ -11,39 +11,30 @@ class LecturerSeeder extends Seeder
 {
     public function run(): void
     {
-        $departmentMap = [
-            'nguyenvanan@tlu.edu.vn' => 'CNPM',
-            'tranthibinh@tlu.edu.vn' => 'HTTT',
-            'phamthaison@tlu.edu.vn' => 'KHMT',
+        // Điền sẵn thông tin hồ sơ cho GV demo theo email
+        $profileMap = [
+            'dungkt@tlu.edu.vn' => ['gender' => 'Nam', 'dob' => '1985-01-15', 'dept' => 'CNTT'],
+            'nguyenvanan@tlu.edu.vn' => ['gender' => 'Nam', 'dob' => '1990-05-20', 'dept' => 'CNPM'],
+            'tranthibinh@tlu.edu.vn' => ['gender' => 'Nữ', 'dob' => '1991-02-10', 'dept' => 'HTTT'],
+            'phamthaison@tlu.edu.vn' => ['gender' => 'Nam', 'dob' => '1987-03-05', 'dept' => 'KHMT'],
         ];
 
-        foreach ($departmentMap as $email => $departmentCode) {
-            $user = User::where('email', $email)->first();
-            if (!$user) {
-                continue;
-            }
-
-            $department = Department::where('code', $departmentCode)->first()
-                ?? Department::first();
-
-            if (!$department) {
-                continue;
-            }
+        $users = User::where('role', 'GIANG_VIEN')->get(['id','email']);
+        foreach ($users as $user) {
+            $p = $profileMap[$user->email] ?? null;
+            $dept = $p ? Department::with('faculty')->where('code', $p['dept'])->first() : null;
 
             Lecturer::updateOrCreate(
                 ['user_id' => $user->id],
                 [
-                    'gender' => $user->gender ?? 'Nam',
-                    'date_of_birth' => $user->date_of_birth ?? '1990-01-01',
-                    'department_id' => $department->id,
-                    'avatar_url' => $user->avatar ?? null,
+                    'gender' => $p['gender'] ?? null,
+                    'date_of_birth' => $p['dob'] ?? null,
+                    'department_id' => $dept?->id,
+                    'department_name' => $dept?->name,
+                    'faculty_name' => $dept?->faculty?->name,
+                    'avatar_url' => null,
                 ]
             );
-
-            $user->department = $department->name;
-            $user->faculty = $department->faculty?->name;
-            $user->save();
         }
     }
 }
-

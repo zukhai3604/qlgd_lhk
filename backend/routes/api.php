@@ -5,12 +5,14 @@ use Illuminate\Support\Facades\Route;
 // Controllers
 use App\Http\Controllers\API\AuthController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\ProfileController as AdminProfileController;
 use App\Http\Controllers\Lecturer\ScheduleController;
 use App\Http\Controllers\Lecturer\LeaveController;
 use App\Http\Controllers\Lecturer\ProfileController;
 use App\Http\Controllers\Lecturer\ReportController;
 use App\Http\Controllers\Lecturer\MaterialController;
 use App\Http\Controllers\TrainingDepartment\ApprovalController;
+use App\Http\Controllers\TrainingDepartment\ProfileController as TDProfileController;
 use App\Http\Controllers\Api\HealthController; // <- THASM DANG NAY (Chu y: Api, khong phai API)
 use App\Http\Controllers\Api\FacultyController as ApiFacultyController;
 use App\Http\Controllers\Api\DepartmentController as ApiDepartmentController;
@@ -46,10 +48,14 @@ Route::middleware(['auth:sanctum', 'ensure.active'])->group(function () {
     Route::get('/departments', [ApiDepartmentController::class, 'index']);
 
     Route::middleware('role:ADMIN')->prefix('admin')->group(function () {
+        Route::get('me/profile', [AdminProfileController::class, 'show']);
+        Route::patch('me/profile', [AdminProfileController::class, 'update']);
         Route::apiResource('users', UserController::class);
     });
 
     Route::middleware('role:DAO_TAO')->prefix('training_department')->group(function () {
+        Route::get('me/profile', [TDProfileController::class, 'show']);
+        Route::patch('me/profile', [TDProfileController::class, 'update']);
         Route::post('approvals/leave/{leave}', [ApprovalController::class, 'approveLeave']);
     });
 

@@ -8,6 +8,8 @@ use App\Http\Requests\Lecturer\LeaveRequestUpdateRequest;
 use App\Http\Resources\Lecturer\LeaveRequestResource;
 use App\Models\LeaveRequest;
 use App\Models\Schedule;
+use App\Models\Notification;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use OpenApi\Annotations as OA;
 
@@ -102,7 +104,7 @@ class LeaveRequestController extends Controller
         $lecturerId = optional($request->user()->lecturer)->id;
         $data = $request->validated();
 
-        $schedule = Schedule::with('assignment')->find($data['schedule_id']);
+        $schedule = Schedule::with(['assignment', 'timeslot'])->find($data['schedule_id']);
         if (!$schedule) {
             return response()->json(['message' => 'Không tìm thấy lịch dạy'], 404);
         }
@@ -111,12 +113,58 @@ class LeaveRequestController extends Controller
             return response()->json(['message' => 'Không có quyền'], 403);
         }
 
+        $sessionDate = $schedule->session_date instanceof Carbon
+            ? $schedule->session_date->copy()
+            : Carbon::parse($schedule->session_date);
+
+        $sessionStart = $schedule->timeslot && $schedule->timeslot->start_time
+            ? $sessionDate->copy()->setTimeFromTimeString($schedule->timeslot->start_time)
+            : $sessionDate->copy()->startOfDay();
+
+        $now = Carbon::now();
+
+        if ($sessionStart->lte($now->endOfDay())) {
+            return response()->json([
+                'message' => 'Chỉ được xin nghỉ cho các buổi diễn ra sau ngày hôm nay.',
+            ], 422);
+        }
+
         $leave = new LeaveRequest();
         $leave->schedule_id = $schedule->id;
         $leave->lecturer_id = $lecturerId;
         $leave->reason = $data['reason'];
         $leave->status = 'PENDING';
         $leave->save();
+
+        // Tạo thông báo cho chính giảng viên về việc đã gửi đơn xin nghỉ
+        try {
+            $user = $request->user();
+            $subjectName = optional($schedule->assignment?->subject)->name ?? optional($schedule->assignment?->subject)->code;
+            $className = optional($schedule->assignment?->classUnit)->name ?? optional($schedule->assignment?->classUnit)->code;
+            $date = optional($schedule->session_date)->format('Y-m-d');
+            $start = $schedule->timeslot?->start_time;
+            $end = $schedule->timeslot?->end_time;
+
+            $title = 'Đã gửi đơn xin nghỉ';
+            $body = trim(implode(' ', array_filter([
+                $subjectName ? "Môn: $subjectName" : null,
+                $className ? "Lớp: $className" : null,
+                $date ? "Ngày: $date" : null,
+                $start && $end ? "Ca: $start - $end" : null,
+            ])));
+
+            Notification::create([
+                'from_user_id' => $user->id,
+                'to_user_id'   => $user->id,
+                'title'        => $title,
+                'body'         => $body,
+                'type'         => 'LEAVE_REQUEST',
+                'status'       => 'UNREAD',
+                'created_at'   => now(),
+            ]);
+        } catch (\Throwable $e) {
+            // fail-safe: không chặn luồng nếu tạo thông báo lỗi
+        }
 
         return response()->json(['data' => new LeaveRequestResource($leave)], 201);
     }

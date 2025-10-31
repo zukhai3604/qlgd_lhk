@@ -10,15 +10,18 @@ class LecturerProfileResource extends JsonResource
     {
         $user = $this->resource;
         $lecturer = $user->lecturer;
+        $departmentRelation = $lecturer?->department;
+        $facultyRelation = $departmentRelation?->faculty;
+
         return [
             'id' => $user->id,
             'name' => $user->name,
             'email' => $user->email,
             'phone' => $user->phone,
-            'date_of_birth' => optional($user->date_of_birth)->format('Y-m-d'),
-            'gender' => $user->gender,
-            'department' => $user->department,
-            'faculty' => $user->faculty,
+            'date_of_birth' => optional($lecturer?->date_of_birth)->format('Y-m-d'),
+            'gender' => $lecturer?->gender,
+            'department' => $departmentRelation?->name ?? $lecturer?->department_name,
+            'faculty' => $facultyRelation?->name ?? $lecturer?->faculty_name,
             'role' => $user->role,
             'avatar_url' => $user->avatar_url ?? null,
             'lecturer' => $lecturer ? [
@@ -26,14 +29,16 @@ class LecturerProfileResource extends JsonResource
                 'gender' => $lecturer->gender,
                 'date_of_birth' => optional($lecturer->date_of_birth)->format('Y-m-d'),
                 'department_id' => $lecturer->department_id,
-                'department' => $lecturer->department ? [
-                    'id' => $lecturer->department->id,
-                    'code' => $lecturer->department->code,
-                    'name' => $lecturer->department->name,
-                    'faculty' => $lecturer->department->faculty ? [
-                        'id' => $lecturer->department->faculty->id,
-                        'code' => $lecturer->department->faculty->code,
-                        'name' => $lecturer->department->faculty->name,
+                'department_name' => $lecturer->department_name,
+                'faculty_name' => $lecturer->faculty_name,
+                'department' => $departmentRelation ? [
+                    'id' => $departmentRelation->id,
+                    'code' => $departmentRelation->code,
+                    'name' => $departmentRelation->name,
+                    'faculty' => $facultyRelation ? [
+                        'id' => $facultyRelation->id,
+                        'code' => $facultyRelation->code,
+                        'name' => $facultyRelation->name,
                     ] : null,
                 ] : null,
             ] : null,

@@ -8,6 +8,7 @@ use App\Http\Requests\Lecturer\MakeupRequestUpdateRequest;
 use App\Http\Resources\Lecturer\MakeupRequestResource;
 use App\Models\LeaveRequest;
 use App\Models\MakeupRequest;
+use App\Models\Notification;
 use Illuminate\Http\Request;
 use OpenApi\Annotations as OA;
 
@@ -93,6 +94,30 @@ class MakeupRequestController extends Controller
         $makeup = new MakeupRequest($data);
         $makeup->status = 'PENDING';
         $makeup->save();
+
+        // Tạo thông báo cho giảng viên về việc đã gửi đề xuất dạy bù
+        try {
+            $user = $request->user();
+            $title = 'Đã gửi đề xuất dạy bù';
+            $date = $data['suggested_date'] ?? null;
+            $slot = isset($data['timeslot_id']) ? ('Ca: ' . $data['timeslot_id']) : null; // có thể map tên ca nếu cần
+            $body = trim(implode(' ', array_filter([
+                $date ? "Ngày dạy bù: $date" : null,
+                $slot,
+            ])));
+
+            Notification::create([
+                'from_user_id' => $user->id,
+                'to_user_id'   => $user->id,
+                'title'        => $title,
+                'body'         => $body,
+                'type'         => 'MAKEUP_REQUEST',
+                'status'       => 'UNREAD',
+                'created_at'   => now(),
+            ]);
+        } catch (\Throwable $e) {
+            // fail-safe
+        }
 
         return response()->json(['data' => new MakeupRequestResource($makeup)], 201);
     }
