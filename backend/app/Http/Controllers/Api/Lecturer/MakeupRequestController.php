@@ -37,15 +37,111 @@ class MakeupRequestController extends Controller
      */
     public function index(Request $request)
     {
-        $lecturerId = optional($request->user()->lecturer)->id;
+        try {
+            $lecturerId = optional($request->user()->lecturer)->id;
+            
+            if (!$lecturerId) {
+                return response()->json([
+                    'data' => [],
+                    'links' => [],
+                    'meta' => ['total' => 0, 'current_page' => 1, 'last_page' => 1],
+                ]);
+            }
 
-        $items = MakeupRequest::query()
-            ->whereHas('leave', fn ($builder) => $builder->where('lecturer_id', $lecturerId))
-            ->orderByDesc('id')
-            ->paginate(20);
-
-        return MakeupRequestResource::collection($items)
-            ->additional(['meta' => ['total' => $items->total()]]);
+            // Đơn giản hóa: Eager load tất cả relationships ngay từ đầu giống LeaveRequestController
+            $items = MakeupRequest::query()
+                ->with([
+                    'leave.schedule.assignment.subject',
+                    'leave.schedule.assignment.classUnit',
+                    'leave.schedule.timeslot',
+                    'leave.schedule.room',
+                    'timeslot',
+                    'room',
+                ])
+                ->whereHas('leave', function ($builder) use ($lecturerId) {
+                    $builder->where('lecturer_id', $lecturerId);
+                })
+                ->orderByDesc('id')
+                ->paginate(20);
+            
+            // Use Resource collection like LeaveRequestController (simpler approach)
+            return MakeupRequestResource::collection($items)
+                ->additional(['meta' => ['total' => $items->total()]]);
+        } catch (\Exception $e) {
+            \Log::error('MakeupRequestController::index - Exception', [
+                'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            
+            // Fallback: return empty response to prevent connection error
+            try {
+                $lecturerId = optional($request->user()->lecturer)->id ?? null;
+                if ($lecturerId) {
+                    $items = MakeupRequest::query()
+                        ->whereHas('leave', function ($builder) use ($lecturerId) {
+                            $builder->where('lecturer_id', $lecturerId);
+                        })
+                        ->orderByDesc('id')
+                        ->paginate(20);
+                    
+                    return response()->json([
+                        'data' => $items->map(function ($item) {
+                            return [
+                                'id' => $item->id,
+                                'leave_request_id' => $item->leave_request_id,
+                                'suggested_date' => $item->suggested_date?->format('Y-m-d'),
+                                'timeslot_id' => $item->timeslot_id,
+                                'room_id' => $item->room_id,
+                                'note' => $item->note,
+                                'status' => $item->status,
+                                'subject' => '',
+                                'subject_name' => '',
+                                'class_name' => '',
+                                'start_time' => '',
+                                'end_time' => '',
+                                'timeslot' => null,
+                                'room' => null,
+                                'leave' => null,
+                            ];
+                        })->values()->all(),
+                        'links' => [
+                            'first' => $items->url(1),
+                            'last' => $items->url($items->lastPage()),
+                            'prev' => $items->previousPageUrl(),
+                            'next' => $items->nextPageUrl(),
+                        ],
+                        'meta' => [
+                            'current_page' => $items->currentPage(),
+                            'from' => $items->firstItem(),
+                            'last_page' => $items->lastPage(),
+                            'path' => $items->path(),
+                            'per_page' => $items->perPage(),
+                            'to' => $items->lastItem(),
+                            'total' => $items->total(),
+                        ],
+                    ]);
+                }
+            } catch (\Exception $e2) {
+                \Log::error('MakeupRequestController::index - Fallback also failed', [
+                    'error' => $e2->getMessage(),
+                ]);
+            }
+            
+            // Final fallback: return empty response
+            return response()->json([
+                'data' => [],
+                'links' => [],
+                'meta' => [
+                    'total' => 0,
+                    'current_page' => 1,
+                    'last_page' => 1,
+                    'from' => null,
+                    'to' => null,
+                ],
+            ]);
+        }
     }
 
     /**

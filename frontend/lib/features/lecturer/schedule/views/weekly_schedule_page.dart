@@ -1,12 +1,10 @@
-// ignore_for_file: deprecated_member_use
-
+﻿// ignore_for_file: deprecated_member_use
 import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-
+import 'package:qlgd_lhk/common/widgets/tlu_app_bar.dart';
 import '../models/schedule_item.dart';
 import '../providers/weekly_schedule_provider.dart';
 
@@ -34,7 +32,6 @@ const double _dayColumnWidth = 132;
 const double _timelineWidth = 108;
 const double _headerHeight = 68;
 const double _headerGap = 12;
-
 final double _gridHeight = _periods.length * kRowHeight;
 
 const List<Color> _palette = [
@@ -144,7 +141,6 @@ typedef DayTapCallback = void Function(DateTime day, List<ScheduleItem> events);
 
 class WeeklySchedulePage extends ConsumerStatefulWidget {
   const WeeklySchedulePage({super.key});
-
   @override
   ConsumerState<WeeklySchedulePage> createState() => _WeeklySchedulePageState();
 }
@@ -162,7 +158,6 @@ class _WeeklySchedulePageState extends ConsumerState<WeeklySchedulePage> {
   @override
   Widget build(BuildContext context) {
     final asyncValue = ref.watch(weeklyScheduleProvider(_query));
-
     asyncValue.whenData((value) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
@@ -214,7 +209,7 @@ class _WeeklySchedulePageState extends ConsumerState<WeeklySchedulePage> {
     });
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Lịch giảng dạy')),
+      appBar: const TluAppBar(),
       body: asyncValue.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => _ErrorView(
@@ -262,7 +257,7 @@ class _WeeklySchedulePageState extends ConsumerState<WeeklySchedulePage> {
                 ],
                 const SizedBox(height: 16),
                 _DropdownFilter(
-                  label: 'Hoc ky',
+                  label: 'Học kỳ',
                   value: _semesterId,
                   options: data.semesters,
                   onChanged: (value) {
@@ -280,7 +275,7 @@ class _WeeklySchedulePageState extends ConsumerState<WeeklySchedulePage> {
                 ),
                 const SizedBox(height: 12),
                 _DropdownFilter(
-                  label: 'Tuan',
+                  label: 'Tuần',
                   value: _weekValue,
                   options: data.weeks,
                   onChanged: (value) {
@@ -508,7 +503,6 @@ class _TimelineGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-
     return SizedBox(
       height: _gridHeight + _headerHeight + _headerGap,
       child: SingleChildScrollView(
@@ -543,7 +537,6 @@ class _TimelineColumn extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-
     return SizedBox(
       width: _timelineWidth,
       child: Column(
@@ -606,7 +599,6 @@ class _DayColumn extends StatelessWidget {
     final dateLabel = DateFormat('dd', 'vi').format(day);
     final dowLabel = DateFormat.E('vi').format(day).toUpperCase();
     final isToday = DateUtils.isSameDay(day, DateTime.now());
-
     final eventsForDay = events;
 
     return Padding(
@@ -721,7 +713,6 @@ class _EventBlock extends StatelessWidget {
     final exactPeriod = _detectPeriodExact(start, end);
     var startIndex = exactPeriod ?? _nearestStartIndex(start);
     var endIndex = exactPeriod ?? _nearestEndIndex(end);
-
     startIndex = startIndex.clamp(1, _periods.length);
     endIndex = endIndex.clamp(startIndex, _periods.length);
 
@@ -793,7 +784,6 @@ class _EventBlock extends StatelessWidget {
 class _ErrorView extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
-
   const _ErrorView({
     required this.message,
     required this.onRetry,

@@ -28,6 +28,9 @@ class DatabaseSeeder extends Seeder
             ScheduleSeeder::class,
 
             NotificationSeeder::class,
+            
+            // Seeder dữ liệu dày đặc để test
+            ComprehensiveTestDataSeeder::class,
         ]);
     }
 }

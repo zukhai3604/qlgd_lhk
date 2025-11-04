@@ -1,12 +1,10 @@
-// ignore_for_file: deprecated_member_use
-
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import 'package:qlgd_lhk/common/providers/auth_state_provider.dart';
-// ✅ service thật của lịch giảng dạy
+// service thật của lịch giảng dạy
 import 'package:qlgd_lhk/features/lecturer/schedule/service.dart';
 
 class LecturerHomePage extends ConsumerStatefulWidget {
@@ -23,6 +21,7 @@ class _LecturerHomePageState extends ConsumerState<LecturerHomePage> {
   String? error;
   List<Map<String, dynamic>> todaySchedule = [];
   Map<String, dynamic> stats = {};
+  bool _showAllSessions = false; // Để track xem có expand danh sách không
 
   @override
   void initState() {
@@ -36,7 +35,7 @@ class _LecturerHomePageState extends ConsumerState<LecturerHomePage> {
       error = null;
     });
     try {
-      // === CÙNG NGUỒN VỚI MÀN LỊCH ===
+      // === CỘNG NGUỒN VỚI MÓN LỊCH ===
       final today = DateTime.now();
       final iso = DateFormat('yyyy-MM-dd').format(today);
       final scheduleRes = await _svc.getWeek(date: iso);
@@ -54,17 +53,14 @@ class _LecturerHomePageState extends ConsumerState<LecturerHomePage> {
       todaySchedule = list.where((x) => isSameDay(x['date'])).toList();
 
       // sắp theo start_time (chuỗi HH:mm:ss -> safe so sánh chuỗi)
-      todaySchedule.sort((a, b) => (a['start_time'] ?? '')
-          .toString()
-          .compareTo((b['start_time'] ?? '').toString()));
+      todaySchedule.sort((a, b) =>
+          (a['start_time'] ?? '').toString().compareTo((b['start_time'] ?? '').toString()));
+
+      // Gộp các tiết liền kề nhau của cùng môn học
+      todaySchedule = _groupConsecutiveSessions(todaySchedule);
 
       // số liệu (tùy backend sau này, tạm đặt placeholder)
-      stats = {
-        'taught': 10,
-        'remaining': 34,
-        'leave_count': 0,
-        'makeup_count': 2
-      };
+      stats = {'taught': 10, 'remaining': 34, 'leave_count': 0, 'makeup_count': 2};
     } catch (e) {
       error = 'Không tải được dữ liệu: $e';
     } finally {
@@ -74,7 +70,10 @@ class _LecturerHomePageState extends ConsumerState<LecturerHomePage> {
 
   void _openDetail(Map<String, dynamic> s) {
     final id = s['id'];
-    if (id != null) context.push('/schedule/$id');
+    if (id != null) {
+      // Truyền session data qua extra để detail page có thể hiển thị thông tin đã gộp
+      context.push('/schedule/$id', extra: s);
+    }
   }
 
   @override
@@ -116,26 +115,35 @@ class _LecturerHomePageState extends ConsumerState<LecturerHomePage> {
         children: [
           _buildHeader(lecturerName, cs, textTheme),
           const SizedBox(height: 24),
+
           _buildSectionHeader('Thống kê nhanh', _buildSemesterDropdown(cs)),
           const SizedBox(height: 12),
           _buildStatsGrid(),
           const SizedBox(height: 24),
+
           _buildSectionHeader('Công cụ', null),
           const SizedBox(height: 12),
           _buildToolsGrid(),
           const SizedBox(height: 24),
+
           _buildSectionHeader(
             'Lịch giảng dạy hôm nay',
             Text(_formatDate(DateTime.now()), style: textTheme.bodyMedium),
           ),
           const SizedBox(height: 12),
           _buildTodayScheduleList(cs, textTheme),
+
           const SizedBox(height: 8),
-          if (todaySchedule.isNotEmpty)
+          if (todaySchedule.length > 3)
             Center(
-              child: TextButton(
-                onPressed: () => context.go('/schedule'),
-                child: const Text('xem thêm'),
+              child: TextButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _showAllSessions = !_showAllSessions;
+                  });
+                },
+                icon: Icon(_showAllSessions ? Icons.expand_less : Icons.expand_more),
+                label: Text(_showAllSessions ? 'Thu gọn' : 'Xem thêm (${todaySchedule.length - 3} buổi)'),
               ),
             ),
         ],
@@ -176,13 +184,10 @@ class _LecturerHomePageState extends ConsumerState<LecturerHomePage> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                CircleAvatar(
+                const CircleAvatar(
                   radius: 26,
                   backgroundColor: Colors.white,
-                  child: Icon(
-                    Icons.person_outline,
-                    color: cs.primary,
-                  ),
+                  backgroundImage: AssetImage('assets/images/penguin.png'),
                 ),
               ],
             ),
@@ -224,10 +229,10 @@ class _LecturerHomePageState extends ConsumerState<LecturerHomePage> {
       items: const ['Học kỳ I 2025', 'Học kỳ II 2024']
           .map<DropdownMenuItem<String>>(
             (String value) => DropdownMenuItem<String>(
-              value: value,
-              child: Text(value),
-            ),
-          )
+          value: value,
+          child: Text(value),
+        ),
+      )
           .toList(),
     );
   }
@@ -317,7 +322,8 @@ class _LecturerHomePageState extends ConsumerState<LecturerHomePage> {
         _buildToolButton(
           label: 'Đăng ký dạy bù',
           icon: Icons.add_task,
-          onTap: () => context.go('/makeup-request'),
+          // ✅ Đường dẫn mới (thay cho /makeup-request)
+          onTap: () => context.go('/lecturer/makeup'),
           color: Colors.orange,
         ),
       ],
@@ -375,10 +381,15 @@ class _LecturerHomePageState extends ConsumerState<LecturerHomePage> {
         ),
       );
     }
+    
+    // Nếu có trên 3 buổi và chưa expand, chỉ hiển thị 3 buổi đầu
+    final sessionsToShow = todaySchedule.length > 3 && !_showAllSessions
+        ? todaySchedule.take(3).toList()
+        : todaySchedule;
+    
     return Column(
-      children: todaySchedule
-          .map((s) => _buildScheduleCard(s, cs, textTheme))
-          .toList(),
+      children:
+      sessionsToShow.map((s) => _buildScheduleCard(s, cs, textTheme)).toList(),
     );
   }
 
@@ -386,7 +397,11 @@ class _LecturerHomePageState extends ConsumerState<LecturerHomePage> {
       Map<String, dynamic> s, ColorScheme cs, TextTheme textTheme) {
     final subject = (s['subject'] ?? 'Môn học').toString();
     final className = (s['class_name'] ?? 'Lớp').toString();
-    final room = (s['room'] ?? '-').toString();
+    final r = s['room'];
+    final room = (r is Map
+        ? (r['name']?.toString() ?? r['code']?.toString() ?? '-')
+        : r?.toString() ?? '-')
+        .trim();
     final start = (s['start_time'] ?? '--:--').toString().substring(0, 5);
     final end = (s['end_time'] ?? '--:--').toString().substring(0, 5);
     final status = (s['status'] ?? 'PLANNED').toString();
@@ -425,9 +440,13 @@ class _LecturerHomePageState extends ConsumerState<LecturerHomePage> {
                 ),
               ),
               const SizedBox(width: 8),
-              Text(statusInfo.text,
-                  style: TextStyle(
-                      color: statusInfo.color, fontWeight: FontWeight.bold)),
+              Text(
+                statusInfo.text,
+                style: TextStyle(
+                  color: statusInfo.color,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ],
           ),
         ),
@@ -444,13 +463,9 @@ class _LecturerHomePageState extends ConsumerState<LecturerHomePage> {
         return (color: cs.primary, text: 'Đang dạy', icon: Icons.schedule);
       case 'CANCELED':
         return (color: Colors.red, text: 'Đã hủy', icon: Icons.cancel);
-      // PLANNED và mọi trạng thái khác trong hôm nay: coi là sắp tới
+    // PLANNED và mọi trạng thái khác trong hôm nay: coi là sắp tới
       default:
-        return (
-          color: cs.primary,
-          text: 'Sắp tới',
-          icon: Icons.access_time_filled
-        );
+        return (color: cs.primary, text: 'Sắp tới', icon: Icons.access_time_filled);
     }
   }
 
@@ -465,5 +480,132 @@ class _LecturerHomePageState extends ConsumerState<LecturerHomePage> {
       7: 'Chủ Nhật'
     };
     return 'Thứ ${dow[date.weekday]}, ngày ${DateFormat('dd/MM/yyyy').format(date)}';
+    // Ví dụ: "Thứ Hai, ngày 01/11/2025"
+  }
+
+  /// Gộp các tiết liền kề nhau của cùng môn học thành 1 buổi
+  List<Map<String, dynamic>> _groupConsecutiveSessions(List<Map<String, dynamic>> sessions) {
+    if (sessions.isEmpty) return [];
+
+    // Sắp xếp theo thời gian bắt đầu
+    final sorted = List<Map<String, dynamic>>.from(sessions);
+    sorted.sort((a, b) {
+      final startA = (a['start_time'] ?? '').toString();
+      final startB = (b['start_time'] ?? '').toString();
+      return startA.compareTo(startB);
+    });
+
+    final result = <Map<String, dynamic>>[];
+    final processed = <int>{};
+
+    for (int i = 0; i < sorted.length; i++) {
+      if (processed.contains(i)) continue;
+
+      final current = sorted[i];
+      final subject = (current['subject'] ?? 'Môn học').toString();
+      final className = (current['class_name'] ?? 'Lớp').toString();
+      
+      // Extract room
+      final r = current['room'];
+      final room = (r is Map
+          ? (r['name']?.toString() ?? r['code']?.toString() ?? '-')
+          : r?.toString() ?? '-')
+          .trim();
+      
+      // Tìm các tiết liền kề có cùng subject, class, room
+      final group = <Map<String, dynamic>>[current];
+      final groupIndices = <int>[i];
+      
+      for (int j = i + 1; j < sorted.length; j++) {
+        if (processed.contains(j)) continue;
+        
+        final next = sorted[j];
+        final nextSubject = (next['subject'] ?? 'Môn học').toString();
+        final nextClassName = (next['class_name'] ?? 'Lớp').toString();
+        
+        // Extract room
+        final nextR = next['room'];
+        final nextRoom = (nextR is Map
+            ? (nextR['name']?.toString() ?? nextR['code']?.toString() ?? '-')
+            : nextR?.toString() ?? '-')
+            .trim();
+        
+        // Kiểm tra cùng môn, lớp, phòng
+        if (subject != nextSubject || 
+            className != nextClassName || 
+            room != nextRoom) {
+          break;
+        }
+        
+        // Kiểm tra liền kề (end_time của tiết trước gần start_time của tiết sau <= 10 phút)
+        final lastEndStr = (group.last['end_time'] ?? '--:--').toString();
+        final nextStartStr = (next['start_time'] ?? '--:--').toString();
+        
+        final lastEnd = _parseTimeToMinutes(lastEndStr);
+        final nextStart = _parseTimeToMinutes(nextStartStr);
+        
+        if (lastEnd == null || nextStart == null) break;
+        
+        // Nếu gap <= 10 phút, coi là liền kề
+        final gap = nextStart - lastEnd;
+        if (gap <= 10 && gap >= 0) {
+          group.add(next);
+          groupIndices.add(j);
+        } else {
+          break;
+        }
+      }
+      
+      // Đánh dấu đã xử lý
+      for (final idx in groupIndices) {
+        processed.add(idx);
+      }
+      
+      // Nếu chỉ có 1 tiết, giữ nguyên
+      if (group.length == 1) {
+        result.add(current);
+      } else {
+        // Gộp thành 1 buổi: lấy start_time từ tiết đầu, end_time từ tiết cuối
+        final first = group.first;
+        final last = group.last;
+        
+        final merged = Map<String, dynamic>.from(first);
+        
+        // Lấy start_time từ tiết đầu
+        final startTime = (first['start_time'] ?? '--:--').toString();
+        
+        // Lấy end_time từ tiết cuối
+        final endTime = (last['end_time'] ?? '--:--').toString();
+        
+        // Cập nhật thời gian
+        merged['start_time'] = startTime;
+        merged['end_time'] = endTime;
+        
+        // Lưu danh sách các session IDs gốc để có thể xử lý khi cần
+        final sessionIds = group
+            .map((s) {
+              final id = s['id'];
+              return id != null ? int.tryParse('$id') : null;
+            })
+            .whereType<int>()
+            .toList();
+        merged['_grouped_session_ids'] = sessionIds;
+        
+        result.add(merged);
+      }
+    }
+
+    return result;
+  }
+
+  /// Parse thời gian HH:mm:ss hoặc HH:mm thành số phút (ví dụ: "15:40:00" -> 940, "15:40" -> 940)
+  int? _parseTimeToMinutes(String timeStr) {
+    if (timeStr.isEmpty || timeStr == '--:--') return null;
+    final parts = timeStr.split(':');
+    if (parts.length < 2) return null;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return null;
+    return hour * 60 + minute;
   }
 }

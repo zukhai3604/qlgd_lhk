@@ -1,0 +1,41 @@
+﻿import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
+class TluAppBar extends StatelessWidget implements PreferredSizeWidget {
+  const TluAppBar({super.key, this.onBack, this.title = 'TRƯỜNG ĐẠI HỌC THỦY LỢI'});
+
+  final VoidCallback? onBack;
+  final String title;
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
+  @override
+  Widget build(BuildContext context) {
+    return AppBar(
+      leading: IconButton(
+        icon: const Icon(Icons.arrow_back),
+        onPressed: onBack ?? () {
+          final nav = Navigator.of(context);
+          if (nav.canPop()) {
+            nav.pop();
+          } else {
+            context.go('/home');
+          }
+        },
+      ),
+      centerTitle: true,
+      elevation: 0,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      title: Text(
+        title,
+        style: TextStyle(
+          color: Colors.blue.shade700,
+          fontWeight: FontWeight.w800,
+          fontSize: 14,
+          letterSpacing: .2,
+        ),
+      ),
+    );
+  }
+}

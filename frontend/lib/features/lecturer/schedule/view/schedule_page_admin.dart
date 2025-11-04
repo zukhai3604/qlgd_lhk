@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:qlgd_lhk/common/widgets/tlu_app_bar.dart';
 
 class SchedulePageAdmin extends StatelessWidget {
   const SchedulePageAdmin({super.key});
@@ -6,8 +7,10 @@ class SchedulePageAdmin extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Admin Schedule')),
+      appBar: const TluAppBar(),
       body: const Center(child: Text('Schedule content for Admin')),
     );
   }
 }
+
+

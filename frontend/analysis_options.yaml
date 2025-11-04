@@ -26,3 +26,15 @@ linter:
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options
+
+# Exclude backup / restored / temporary folders created during repo edits
+# so the analyzer focuses on the actual `lib/` sources.
+analyzer:
+  exclude:
+    - "lib_bak_**/**"
+    - "lib_backup_**/**"
+    - "lib_backup_failed_recovery_**/**"
+    - "lib_from_zip/**"
+    - "lib_restored/**"
+    - "**/*.bak"
+    - "**/*.backup.dart"

@@ -1,4 +1,4 @@
-import 'package:dio/dio.dart';
+﻿import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -69,6 +69,10 @@ class LoginViewModel extends StateNotifier<LoginState> {
   // Maps the backend string to our standardized Role enum
   Role _mapBackendRole(String? raw) {
     switch ((raw ?? '').toUpperCase().trim()) {
+      case 'DAO_TAO':
+        return Role.DAO_TAO;
+      case 'GIANG_VIEN':
+        return Role.GIANG_VIEN;
       case 'ADMIN':
         return Role.ADMIN;
       case 'TRAINING_DEPARTMENT': // <-- Sửa để khớp với backend Laravel
@@ -117,7 +121,7 @@ class LoginViewModel extends StateNotifier<LoginState> {
       final msg = _extractMessage(e.response?.data) ??
           ((e.response?.statusCode == 401 || e.response?.statusCode == 422)
               ? 'Sai tài khoản hoặc mật khẩu'
-              : 'Đăng nhập thất bại. Vui lòng thử lại.');
+              : 'Đang nhập thất bại. Vui lòng thử lại.');
       state = state.copyWith(isLoggingIn: false, errorMessage: msg);
     } catch (e) {
       state = state.copyWith(
@@ -131,9 +135,9 @@ class LoginViewModel extends StateNotifier<LoginState> {
     const mePaths = ['/api/me', '/auth/me', '/me', '/api/user'];
     final res = await _getMeFlexible(mePaths);
 
-    // GỘP VÀO ĐÂY: Dòng print để kiểm tra lỗi
+    // GỘP VÀO ĐÂY: Dùng print để kiểm tra lỗi
     debugPrint(
-        '👤 /api/me response -> Status: ${res.statusCode}, Data: ${res.data}');
+        'ĐÃ /api/me response -> Status: ${res.statusCode}, Data: ${res.data}');
 
     Map<String, dynamic> m;
     if (res.data is Map && (res.data['data'] is Map)) {

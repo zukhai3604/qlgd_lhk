@@ -1,0 +1,50 @@
+﻿// ignore_for_file: prefer_const_constructors, use_key_in_widget_constructors
+
+import 'package:flutter/material.dart';
+import 'package:qlgd_lhk/common/widgets/tlu_app_bar.dart';
+
+class LecturerReportPage extends StatelessWidget {
+  const LecturerReportPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(appBar: const TluAppBar(),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: const [
+            ReportRow(subject: 'CÃ´ng nghá»‡ Web', done: 16, total: 30),
+            ReportRow(subject: 'Ná»n táº£ng Web', done: 12, total: 30),
+            ReportRow(subject: 'Mobile Dev', done: 15, total: 30),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class ReportRow extends StatelessWidget {
+  final String subject;
+  final int done;
+  final int total;
+  const ReportRow(
+      {required this.subject, required this.done, required this.total});
+
+  @override
+  Widget build(BuildContext context) {
+    final ratio = done / total;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('$subject ($done/$total buá»•i)'),
+          LinearProgressIndicator(value: ratio),
+        ],
+      ),
+    );
+  }
+}
+
+
+

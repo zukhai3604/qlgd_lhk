@@ -1,4 +1,4 @@
-import 'package:dio/dio.dart';
+﻿import 'package:dio/dio.dart';
 import '../../../core/api_client.dart';
 
 class LecturerScheduleService {
@@ -18,7 +18,7 @@ class LecturerScheduleService {
     } else if (raw is List) {
       list = List.from(raw);
     } else if (raw is Map) {
-      // single object → wrap
+      // single object ? wrap
       list = [raw];
     } else {
       throw Exception('Unexpected response type for week schedule');
@@ -87,6 +87,71 @@ class LecturerScheduleService {
     return Map<String, dynamic>.from(data);
   }
 
+  // ===== List canceled sessions (for makeup) =====
+  Future<List<Map<String, dynamic>>> listCanceledSessions({
+    String? from,
+    String? to,
+    int page = 1,
+  }) async {
+    final res = await _dio.get(
+      '/api/lecturer/sessions',
+      queryParameters: {
+        'status': 'CANCELED',
+        if (from != null) 'from': from,
+        if (to != null) 'to': to,
+        'page': page,
+      },
+    );
+
+    final src = res.data;
+    final List raw = src is Map ? (src['data'] ?? const []) : (src as List? ?? const []);
+
+    String? onlyDate(dynamic v) {
+      if (v == null) return null;
+      final s = v.toString();
+      return s.contains(' ') ? s.split(' ').first : s;
+    }
+
+    String? hhmm(dynamic v) {
+      if (v == null) return null;
+      final s = v.toString();
+      return s.length >= 5 ? s.substring(0, 5) : s;
+    }
+
+    String roomLabel(dynamic value) {
+      if (value is Map) {
+        final code = value['code']?.toString();
+        final name = value['name']?.toString();
+        if (code != null && code.isNotEmpty) return code;
+        return name ?? '';
+      }
+      return value?.toString() ?? '';
+    }
+
+    return raw.map<Map<String, dynamic>>((e) {
+      final m = Map<String, dynamic>.from(e as Map);
+      final subj = m['subject'] is Map ? Map<String, dynamic>.from(m['subject']) : null;
+      final cu = m['class_unit'] is Map ? Map<String, dynamic>.from(m['class_unit']) : null;
+      final timeslot = m['timeslot'] is Map ? Map<String, dynamic>.from(m['timeslot']) : null;
+
+      final date = onlyDate(m['date'] ?? m['session_date']);
+      final start = hhmm(m['start_time'] ?? timeslot?['start_time']);
+      final end = hhmm(m['end_time'] ?? timeslot?['end_time']);
+
+      return <String, dynamic>{
+        'id': m['id'],
+        'date': date,
+        'subject': subj?['name'] ?? subj?['code'] ?? m['subject']?.toString() ?? '',
+        'class_name': cu?['name'] ?? cu?['code'] ?? '',
+        'room': roomLabel(m['room']),
+        'start_time': start,
+        'end_time': end,
+        'status': m['status'] ?? 'CANCELED',
+        'note': m['note'],
+      };
+    }).toList();
+  }
+
   // ===== Materials =====
   Future<List<Map<String, dynamic>>> listMaterials(int id) async {
     final res = await _dio.get('/api/lecturer/schedule/$id/materials');
@@ -95,21 +160,21 @@ class LecturerScheduleService {
     return list.map((e) => Map<String, dynamic>.from(e)).toList();
   }
 
-  // UI mới đang gọi getMaterials -> alias về listMaterials
+  // UI m?i dang g?i getMaterials -> alias v? listMaterials
   Future<List<Map<String, dynamic>>> getMaterials(int sessionId) =>
       listMaterials(sessionId);
 
-  // Thêm nội dung/tài liệu (UI mới dùng)
+  // Th�m n?i dung/t�i li?u (UI m?i d�ng)
   Future<void> addMaterial(int sessionId, String title) async {
     await _dio.post('/api/lecturer/schedule/$sessionId/materials', data: {
       'title': title,
-      // Nếu BE của bạn bắt buộc file_url thì thêm ở đây:
+      // N?u BE c?a b?n b?t bu?c file_url th� th�m ? d�y:
       // 'file_url': 'https://example.com',
     });
   }
 
   // ===== Report =====
-  // UI mới gọi kiểu đặt tên:
+  // UI m?i g?i ki?u d?t t�n:
   // submitReport(sessionId: 1, status: 'done', note: '...', content: '...')
   Future<void> submitReport({
     required int sessionId,
@@ -134,9 +199,9 @@ class LecturerScheduleService {
     await _dio.post('/api/lecturer/schedule/$sessionId/report', data: body);
   }
 
-  // Giữ tương thích với code cũ của bạn:
+  // Gi? tuong th�ch v?i code cu c?a b?n:
   // submitReport(id, content: '...', issues: '...', nextPlan: '...')
-  @Deprecated('Dùng submitReport({...}) với tham số đặt tên')
+  @Deprecated('D�ng submitReport({...}) v?i tham s? d?t t�n')
   Future<void> submitReportLegacy(
     int id, {
     required String content,
@@ -150,4 +215,87 @@ class LecturerScheduleService {
       nextPlan: nextPlan,
     );
   }
+
+  // ===== Upcoming sessions for leave =====
+  Future<List<Map<String, dynamic>>> listUpcomingSessions({
+    DateTime? from,
+    DateTime? to,
+    int page = 1,
+  }) async {
+    final fromStr = (from ?? DateTime.now()).toIso8601String().substring(0, 10);
+    final toStr = (to ?? DateTime.now().add(const Duration(days: 30)))
+        .toIso8601String()
+        .substring(0, 10);
+
+    String? onlyDate(dynamic v) {
+      if (v == null) return null;
+      final s = v.toString();
+      return s.contains(' ') ? s.split(' ').first : s;
+    }
+
+    String? hhmm(dynamic v) {
+      if (v == null) return null;
+      final s = v.toString();
+      return s.length >= 5 ? s.substring(0, 5) : s;
+    }
+
+    String roomLabel(dynamic value) {
+      if (value is Map) {
+        final code = value['code']?.toString();
+        final name = value['name']?.toString();
+        if (code != null && code.isNotEmpty) return code;
+        return name ?? '';
+      }
+      return value?.toString() ?? '';
+    }
+
+    // Fetch với per_page=100 để lấy nhiều items trong 1 request (nhanh hơn)
+    final res = await _dio.get(
+      '/api/lecturer/sessions',
+      queryParameters: {
+        'status': 'PLANNED',
+        'from': fromStr,
+        'to': toStr,
+        'page': 1,
+        'per_page': 100, // Request nhiều items để giảm số requests
+      },
+    );
+
+    final src = res.data;
+    final List raw = src is Map ? (src['data'] ?? const []) : (src as List? ?? const []);
+
+    return raw.map<Map<String, dynamic>>((e) {
+      final m = Map<String, dynamic>.from(e as Map);
+      final subj = m['subject'] is Map ? Map<String, dynamic>.from(m['subject']) : null;
+      final cu = m['class_unit'] is Map ? Map<String, dynamic>.from(m['class_unit']) : null;
+      final timeslot = m['timeslot'] is Map ? Map<String, dynamic>.from(m['timeslot']) : null;
+      final room = m['room'] is Map ? Map<String, dynamic>.from(m['room']) : null;
+
+      final date = onlyDate(m['date'] ?? m['session_date']);
+      final start = hhmm(m['start_time'] ?? timeslot?['start_time']);
+      final end = hhmm(m['end_time'] ?? timeslot?['end_time']);
+
+      // Giữ lại structure gốc để logic extract hoạt động đúng
+      return <String, dynamic>{
+        'id': m['id'],
+        'date': date,
+        'session_date': date,
+        // Normalized (flat) fields
+        'subject': subj?['name'] ?? subj?['code'] ?? m['subject']?.toString() ?? '',
+        'class_name': cu?['name'] ?? cu?['code'] ?? '',
+        'room': roomLabel(m['room']),
+        'start_time': start,
+        'end_time': end,
+        'status': m['status'] ?? 'PLANNED',
+        'note': m['note'],
+        // Giữ lại nested structure gốc để logic extract có thể dùng
+        'timeslot': timeslot != null ? Map<String, dynamic>.from(timeslot) : null,
+        'subject_nested': subj, // Giữ lại subject Map gốc
+        'class_unit': cu, // Giữ lại class_unit Map gốc (camelCase)
+        'classUnit': cu, // Cũng giữ camelCase variant
+        'room_nested': room, // Giữ lại room Map gốc
+      };
+    }).toList();
+  }
 }
+

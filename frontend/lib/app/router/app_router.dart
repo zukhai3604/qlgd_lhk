@@ -7,17 +7,33 @@ import 'package:go_router/go_router.dart';
 import 'package:qlgd_lhk/common/providers/auth_state_provider.dart';
 import 'package:qlgd_lhk/common/providers/role_provider.dart';
 import 'package:qlgd_lhk/features/auth/view/login_page.dart';
+
+// --- LECTURER CORE ---
 import 'package:qlgd_lhk/features/lecturer/account/lecturer_account_page.dart';
 import 'package:qlgd_lhk/features/lecturer/home/lecturer_home_page.dart';
-import 'package:qlgd_lhk/features/lecturer/leave/lecturer_choose_session_page.dart';
-import 'package:qlgd_lhk/features/lecturer/leave/lecturer_leave_page.dart';
-import 'package:qlgd_lhk/features/lecturer/makeup/lecturer_makeup_page.dart';
+import 'package:qlgd_lhk/features/lecturer/notifications/lecturer_notifications_page.dart';
 import 'package:qlgd_lhk/features/lecturer/report/lecturer_report_page.dart';
+import 'package:qlgd_lhk/features/lecturer/schedule/detail_page.dart';
 import 'package:qlgd_lhk/features/lecturer/schedule/models/schedule_item.dart';
 import 'package:qlgd_lhk/features/lecturer/schedule/views/class_detail_page.dart';
 import 'package:qlgd_lhk/features/lecturer/schedule/views/weekly_schedule_page.dart';
 import 'package:qlgd_lhk/features/lecturer/widgets/bottom_nav.dart';
 import 'package:qlgd_lhk/services/profile_service.dart';
+
+// --- LEAVE ---
+// 👉 BỎ alias để dùng trực tiếp tên class, tránh lỗi Method not found
+import 'package:qlgd_lhk/features/lecturer/leave/lecturer_choose_session_page.dart';
+import 'package:qlgd_lhk/features/lecturer/leave/lecturer_leave_page.dart';
+import 'package:qlgd_lhk/features/lecturer/leave/lecturer_leave_history_page.dart';
+
+// --- MAKEUP (luồng mới) ---
+// 👉 GIỮ alias cho module makeup
+import 'package:qlgd_lhk/features/lecturer/makeup/lecturer_choose_session_page.dart'
+    as makeup_pages;
+import 'package:qlgd_lhk/features/lecturer/makeup/lecturer_makeup_page.dart';
+import 'package:qlgd_lhk/features/lecturer/makeup/lecturer_makeup_history_page.dart';
+
+// ======================= Bootstrap Auth =======================
 
 class AuthBootstrapResult {
   const AuthBootstrapResult({required this.isLoggedIn});
@@ -40,19 +56,22 @@ final authBootstrapProvider = FutureProvider<AuthBootstrapResult>((ref) async {
             profile['data']?['role'])
         ?.toString();
     final role = _mapBackendRole(roleRaw);
+
     final idRaw = profile['id'] ?? profile['user']?['id'];
-    final name =
-        (profile['name'] ?? profile['full_name'] ?? profile['user']?['name'])
-            ?.toString();
-    final email = (profile['email'] ?? profile['user']?['email'])?.toString();
+    final name = (profile['name'] ??
+            profile['full_name'] ??
+            profile['user']?['name'])
+        ?.toString();
+    final email =
+        (profile['email'] ?? profile['user']?['email'])?.toString();
 
     ref.read(authStateProvider.notifier).login(
-          token,
-          role,
-          id: int.tryParse(idRaw?.toString() ?? '') ?? 0,
-          name: name,
-          email: email,
-        );
+      token,
+      role,
+      id: int.tryParse(idRaw?.toString() ?? '') ?? 0,
+      name: name,
+      email: email,
+    );
 
     return const AuthBootstrapResult(isLoggedIn: true);
   } on DioException catch (e) {
@@ -74,6 +93,8 @@ class _RouterNotifier extends ChangeNotifier {
   final Ref ref;
 }
 
+// ======================= Router =======================
+
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
   final notifier = _RouterNotifier(ref);
@@ -92,6 +113,7 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state, child) =>
             LecturerBottomNavShell(child: child),
         routes: [
+          // ---------- Core ----------
           GoRoute(
             path: '/home',
             name: 'lecturer_home',
@@ -101,6 +123,27 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/schedule',
             name: 'lecturer_schedule',
             builder: (context, state) => const WeeklySchedulePage(),
+          ),
+          GoRoute(
+            path: '/schedule/:id',
+            name: 'lecturer_schedule_detail',
+            builder: (context, state) {
+              final idStr = state.pathParameters['id'];
+              final id = int.tryParse(idStr ?? '');
+              if (id == null) {
+                return const Scaffold(
+                  body: Center(child: Text('Invalid schedule id')),
+                );
+              }
+              // Nhận session data từ extra nếu có (để hiển thị thông tin đã gộp)
+              final sessionData = state.extra is Map<String, dynamic>
+                  ? state.extra as Map<String, dynamic>
+                  : null;
+              return LecturerScheduleDetailPage(
+                sessionId: id,
+                sessionData: sessionData,
+              );
+            },
           ),
           GoRoute(
             path: '/schedule/class/:id',
@@ -121,65 +164,114 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const LecturerAccountPage(),
           ),
           GoRoute(
-            path: '/leave/choose',
-            name: 'leave_choose_session',
-            builder: (context, state) => const LecturerChooseSessionPage(),
+            path: '/account/edit',
+            name: 'account_edit',
+            builder: (context, state) =>
+                const LecturerAccountPage(initialSheet: AccountSheet.edit),
           ),
           GoRoute(
-            path: '/leave/form',
-            name: 'leave_form',
-            builder: (context, state) => LecturerLeavePage(
-              session: state.extra! as Map<String, dynamic>,
+            path: '/account/change-password',
+            name: 'account_change_password',
+            builder: (context, state) => const LecturerAccountPage(
+              initialSheet: AccountSheet.changePassword,
             ),
+          ),
+          GoRoute(
+            path: '/notifications',
+            name: 'lecturer_notifications',
+            builder: (context, state) => const LecturerNotificationsPage(),
           ),
           GoRoute(
             path: '/report',
             name: 'lecturer_report',
             builder: (context, state) => const LecturerReportPage(),
           ),
+
+          // ---------- Leave ----------
           GoRoute(
-            path: '/makeup-request',
-            name: 'lecturer_makeup_request',
-            builder: (context, state) => const LecturerMakeupPage(),
+            path: '/leave/choose',
+            name: 'leave_choose_session',
+            // Trang chọn buổi học sắp tới để xin nghỉ
+            builder: (context, state) => const LecturerChooseSessionPage(),
+          ),
+          GoRoute(
+            path: '/leave/form',
+            name: 'leave_form',
+            builder: (context, state) {
+              final extra = state.extra;
+              if (extra is! Map<String, dynamic>) {
+                return const Scaffold(
+                  body: Center(child: Text('Lỗi: Thiếu dữ liệu buổi xin nghỉ.')),
+                );
+              }
+              return LecturerLeavePage(session: extra);
+            },
+          ),
+          GoRoute(
+            path: '/leave/history',
+            name: 'leave_history',
+            builder: (context, state) => const LecturerLeaveHistoryPage(),
+          ),
+
+          // ---------- Makeup (luồng mới) ----------
+          // Aliases để tránh 404 khi điều hướng /lecturer/makeup hoặc /makeup
+          GoRoute(
+            path: '/lecturer/makeup',
+            name: 'lecturer_makeup_landing',
+            redirect: (context, state) => '/makeup/choose-leave',
+          ),
+          GoRoute(
+            path: '/makeup',
+            name: 'makeup_landing',
+            redirect: (context, state) => '/makeup/choose-leave',
+          ),
+
+          GoRoute(
+            // Bước 1: Chọn đơn nghỉ đã duyệt
+            path: '/makeup/choose-leave',
+            name: 'makeup_choose_leave',
+            builder: (context, state) =>
+                const makeup_pages.ChooseApprovedLeavePage(),
+          ),
+          GoRoute(
+            // Bước 2: Form dạy bù (nhận buổi gốc/schedule từ bước 1)
+            path: '/makeup/form',
+            name: 'makeup_form',
+            builder: (context, state) {
+              final session = state.extra;
+              if (session is! Map<String, dynamic>) {
+                return const Scaffold(
+                  body: Center(child: Text('Lỗi: Không có dữ liệu buổi gốc.')),
+                );
+              }
+              return LecturerMakeupPage(contextData: session);
+            },
+          ),
+          GoRoute(
+            // Lịch sử dạy bù
+            path: '/makeup/history',
+            name: 'makeup_history',
+            builder: (context, state) => const LecturerMakeupHistoryPage(),
           ),
         ],
       ),
     ],
     redirect: (BuildContext context, GoRouterState state) {
       final bootstrap = ref.watch(authBootstrapProvider);
-      if (bootstrap.isLoading) {
-        return null;
-      }
-
-      if (bootstrap.hasError) {
-        if (authState == null) {
-          return '/login';
-        }
-      }
+      if (bootstrap.isLoading) return null;
+      if (bootstrap.hasError && authState == null) return '/login';
 
       final isLoggedIn = authState != null;
       final atLogin = state.matchedLocation == '/login';
 
-      if (!isLoggedIn) {
-        return atLogin ? null : '/login';
-      }
-
-      if (atLogin) {
-        switch (authState!.role) {
-          case Role.ADMIN:
-            return '/users';
-          case Role.DAO_TAO:
-            return '/schedule/editor';
-          case Role.GIANG_VIEN:
-          case Role.UNKNOWN:
-            return '/home';
-        }
-      }
-
+      if (!isLoggedIn) return atLogin ? null : '/login';
+      if (atLogin) return '/home';
       return null;
     },
   );
 });
+
+// ======================= Helpers =======================
 
 Role _mapBackendRole(String? raw) {
   switch ((raw ?? '').toUpperCase().trim()) {

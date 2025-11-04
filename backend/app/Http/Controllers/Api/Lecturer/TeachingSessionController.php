@@ -85,7 +85,9 @@ class TeachingSessionController extends Controller
             $query->where('status', $status);
         }
 
-        $items = $query->orderBy('session_date')->paginate(20);
+        // Tăng per_page để giảm số requests (tối đa 100)
+        $perPage = min((int)($request->query('per_page') ?: 20), 100);
+        $items = $query->orderBy('session_date')->paginate($perPage);
 
         return TeachingSessionResource::collection($items)
             ->additional(['meta' => ['total' => $items->total()]]);

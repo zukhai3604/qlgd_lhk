@@ -13,14 +13,15 @@ class TimeslotSeeder extends Seeder
         // --- Sinh 15 tiết trong ngày theo quy tắc 50' + 5', ngoại lệ 12:25→12:55 và 18:20→18:50
         $dailySlots = $this->generateDailySlots(15);
 
-        // 2=Mon ... 7=Sat (nếu cần CN thì thêm 8 với prefix 'CN')
+        // 1=Sun, 2=Mon ... 7=Sat
         $daysOfWeek = [
-            ['day' => 2, 'prefix' => 'T2'],
-            ['day' => 3, 'prefix' => 'T3'],
-            ['day' => 4, 'prefix' => 'T4'],
-            ['day' => 5, 'prefix' => 'T5'],
-            ['day' => 6, 'prefix' => 'T6'],
-            ['day' => 7, 'prefix' => 'T7'],
+            ['day' => 1, 'prefix' => 'T1'], // Chủ nhật
+            ['day' => 2, 'prefix' => 'T2'], // Thứ 2
+            ['day' => 3, 'prefix' => 'T3'], // Thứ 3
+            ['day' => 4, 'prefix' => 'T4'], // Thứ 4
+            ['day' => 5, 'prefix' => 'T5'], // Thứ 5
+            ['day' => 6, 'prefix' => 'T6'], // Thứ 6
+            ['day' => 7, 'prefix' => 'T7'], // Thứ 7
         ];
 
         foreach ($daysOfWeek as $dayInfo) {

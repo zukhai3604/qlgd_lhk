@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:qlgd_lhk/common/widgets/tlu_app_bar.dart';
 
 class AttendancePage extends StatelessWidget {
   const AttendancePage({super.key});
@@ -6,8 +7,10 @@ class AttendancePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Attendance')),
+      appBar: const TluAppBar(),
       body: const Center(child: Text('Attendance Page')),
     );
   }
 }
+
+

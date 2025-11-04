@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:qlgd_lhk/common/widgets/tlu_app_bar.dart';
 
 class SchedulePageLecturer extends StatelessWidget {
   const SchedulePageLecturer({super.key});
@@ -6,8 +7,10 @@ class SchedulePageLecturer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Lecturer Schedule')),
+      appBar: const TluAppBar(),
       body: const Center(child: Text('Schedule content for Lecturer')),
     );
   }
 }
+
+

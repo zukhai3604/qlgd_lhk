@@ -1,11 +1,18 @@
-// ignore_for_file: deprecated_member_use
+﻿// ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
 import 'service.dart';
+import 'package:qlgd_lhk/common/widgets/tlu_app_bar.dart';
 
 class LecturerScheduleDetailPage extends StatefulWidget {
   final int sessionId;
-  const LecturerScheduleDetailPage({super.key, required this.sessionId});
+  final Map<String, dynamic>? sessionData; // Session data đã gộp từ home page
+  
+  const LecturerScheduleDetailPage({
+    super.key,
+    required this.sessionId,
+    this.sessionData,
+  });
 
   @override
   State<LecturerScheduleDetailPage> createState() =>
@@ -91,12 +98,14 @@ class _LecturerScheduleDetailPageState
 
   Future<void> _saveReport() async {
     await _svc.submitReport(
-        sessionId: widget.sessionId,
-        status: _statusValue,
-        note: _noteCtrl.text);
+      sessionId: widget.sessionId,
+      status: _statusValue,
+      note: _noteCtrl.text,
+    );
     if (!mounted) return;
-    ScaffoldMessenger.of(context)
-        .showSnackBar(const SnackBar(content: Text('Đã lưu báo cáo buổi học')));
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Đã lưu báo cáo buổi học')),
+    );
   }
 
   @override
@@ -104,15 +113,21 @@ class _LecturerScheduleDetailPageState
     final theme = Theme.of(context);
 
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        appBar: const TluAppBar(),
+        body: const Center(child: CircularProgressIndicator()),
+      );
     }
     if (_error != null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Chi tiết buổi học')),
+        appBar: const TluAppBar(),
         body: Center(
-            child: Text('Không tải được dữ liệu.\n$_error',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.red))),
+          child: Text(
+            'Không tải được dữ liệu.\n$_error',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.red),
+          ),
+        ),
       );
     }
 
@@ -146,23 +161,38 @@ class _LecturerScheduleDetailPageState
     final dateOnly = rawDate.contains(' ') ? rawDate.split(' ').first : rawDate;
     final date = _fmtDate(dateOnly);
 
-    // Time
-    final ts = _detail['timeslot'];
-    final start = _hhmm(_detail['start_time'] ??
-        _detail['start'] ??
-        (ts is Map ? ts['start_time'] : null));
-    final end = _hhmm(_detail['end_time'] ??
-        _detail['end'] ??
-        (ts is Map ? ts['end_time'] : null));
+    // Time - Nếu có sessionData đã gộp từ home page, ưu tiên dùng thời gian đã gộp
+    String start = '';
+    String end = '';
+    
+    if (widget.sessionData != null) {
+      // Nếu có session data đã gộp, dùng thời gian đã gộp (cả buổi)
+      final mergedStart = widget.sessionData!['start_time'];
+      final mergedEnd = widget.sessionData!['end_time'];
+      if (mergedStart != null) start = _hhmm(mergedStart);
+      if (mergedEnd != null) end = _hhmm(mergedEnd);
+    }
+    
+    // Nếu không có hoặc thiếu, lấy từ detail API (cho trường hợp load trực tiếp từ URL)
+    if (start.isEmpty || end.isEmpty) {
+      final ts = _detail['timeslot'];
+      start = _hhmm(_detail['start_time'] ??
+          _detail['start'] ??
+          (ts is Map ? ts['start_time'] : null));
+      end = _hhmm(_detail['end_time'] ??
+          _detail['end'] ??
+          (ts is Map ? ts['end_time'] : null));
+    }
 
     // Room
     final r = _detail['room'];
-    final room =
-        (r is Map ? (r['name'] ?? r['code'] ?? '') : (r ?? '')).toString();
+    final room = (r is Map
+            ? (r['name']?.toString() ?? r['code']?.toString() ?? '')
+            : r?.toString() ?? '')
+        .trim();
 
     return Scaffold(
-      appBar: AppBar(
-          title: const Text('Chi tiết buổi học'), leading: const BackButton()),
+      appBar: const TluAppBar(),
       body: SafeArea(
         child: Column(
           children: [
@@ -172,9 +202,11 @@ class _LecturerScheduleDetailPageState
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                   children: [
-                    Text('$subject - $className',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w600)),
+                    Text(
+                      '$subject - $className',
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w600),
+                    ),
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
@@ -190,57 +222,77 @@ class _LecturerScheduleDetailPageState
                     _kv('Ngày', date.isEmpty ? '-' : date),
                     _kv('Phòng', room.isEmpty ? '-' : room),
                     const SizedBox(height: 12),
-                    Text('Nội dung bài học',
-                        style: theme.textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w600)),
+                    Text(
+                      'Nội dung bài học',
+                      style: theme.textTheme.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w600),
+                    ),
                     const SizedBox(height: 8),
                     if (_materials.isEmpty)
-                      _materialTile(theme,
-                          title: 'Chưa có nội dung', disabled: true)
+                      _materialTile(
+                        theme,
+                        title: 'Chưa có nội dung',
+                        disabled: true,
+                      )
                     else
-                      ..._materials.map((m) => _materialTile(
-                            theme,
-                            title: (m['title'] ?? '').toString(),
-                            subtitle: (m['uploaded_at'] ?? '').toString(),
-                            url: (m['file_url'] ?? '').toString(),
-                          )),
-                    const SizedBox(height: 8),
-                    Row(children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _newMaterialCtrl,
-                          decoration: InputDecoration(
-                            prefixIcon: const Icon(Icons.add),
-                            hintText: 'Thêm nội dung bài học',
-                            border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12)),
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 12),
-                          ),
+                      ..._materials.map(
+                        (m) => _materialTile(
+                          theme,
+                          title: (m['title'] ?? '').toString(),
+                          subtitle: (m['uploaded_at'] ?? '').toString(),
+                          url: (m['file_url'] ?? '').toString(),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      FilledButton(
-                          onPressed: _addMaterial, child: const Text('Thêm')),
-                    ]),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _newMaterialCtrl,
+                            decoration: InputDecoration(
+                              prefixIcon: const Icon(Icons.add),
+                              hintText: 'Thêm nội dung bài học',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        FilledButton(
+                          onPressed: _addMaterial,
+                          child: const Text('Thêm'),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
                       value: _statusValue,
                       decoration: InputDecoration(
                         labelText: 'Trạng thái giảng dạy',
                         border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                       items: const [
                         DropdownMenuItem(
-                            value: 'done', child: Text('Đã hoàn thành')),
+                          value: 'done',
+                          child: Text('Đã hoàn thành'),
+                        ),
                         DropdownMenuItem(
-                            value: 'teaching', child: Text('Đang dạy')),
+                          value: 'teaching',
+                          child: Text('Đang dạy'),
+                        ),
                         DropdownMenuItem(
-                            value: 'canceled', child: Text('Hủy buổi')),
+                          value: 'canceled',
+                          child: Text('Hủy buổi'),
+                        ),
                       ],
-                      onChanged: (v) =>
-                          setState(() => _statusValue = v ?? 'done'),
+                      onChanged: (v) => setState(() => _statusValue = v ?? 'done'),
                     ),
                     const SizedBox(height: 12),
                     TextField(
@@ -250,7 +302,8 @@ class _LecturerScheduleDetailPageState
                         labelText: 'Ghi chú',
                         alignLabelWithHint: true,
                         border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 80),
@@ -264,7 +317,9 @@ class _LecturerScheduleDetailPageState
                 height: 44,
                 width: double.infinity,
                 child: FilledButton(
-                    onPressed: _saveReport, child: const Text('Lưu')),
+                  onPressed: _saveReport,
+                  child: const Text('Lưu'),
+                ),
               ),
             ),
           ],
@@ -275,13 +330,18 @@ class _LecturerScheduleDetailPageState
 
   Widget _kv(String k, String v) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(children: [
-          SizedBox(
+        child: Row(
+          children: [
+            SizedBox(
               width: 145,
-              child: Text('$k:',
-                  style: const TextStyle(fontWeight: FontWeight.w700))),
-          Expanded(child: Text(v)),
-        ]),
+              child: Text(
+                '$k:',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+            Expanded(child: Text(v)),
+          ],
+        ),
       );
 
   Widget _materialTile(

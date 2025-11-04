@@ -47,6 +47,7 @@ class LeaveRequestController extends Controller
         $lecturerId = optional($request->user()->lecturer)->id;
 
         $query = LeaveRequest::query()
+            ->with(['schedule.assignment.subject', 'schedule.assignment.classUnit', 'schedule.timeslot', 'schedule.room'])
             ->where('lecturer_id', $lecturerId)
             ->orderByDesc('id');
 
@@ -311,7 +312,8 @@ class LeaveRequestController extends Controller
             return response()->json(['message' => 'Chỉ hủy đơn khi còn trạng thái PENDING'], 422);
         }
 
-        $leave->delete();
+        $leave->status = 'CANCELED';
+        $leave->save();
 
         return response()->noContent();
     }

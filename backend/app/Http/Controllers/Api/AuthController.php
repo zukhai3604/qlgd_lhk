@@ -5,6 +5,9 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
+use App\Http\Requests\PasswordChangeRequest;
 use OpenApi\Annotations as OA;
 
 class AuthController extends Controller
@@ -89,6 +92,29 @@ class AuthController extends Controller
         return response()->json($user);
     }
 
+    public function updateProfile(Request $request)
+    {
+        $user = $request->user();
+
+        $data = $request->validate([
+            'name' => ['sometimes', 'string', 'max:255'],
+            'email' => [
+                'sometimes',
+                'email',
+                'max:255',
+                Rule::unique('users')->ignore($user->id),
+            ],
+            'phone' => ['sometimes', 'nullable', 'string', 'max:30'],
+        ]);
+
+        $user->fill($data)->save();
+
+        // reload relations if needed
+        $user->load(['lecturer.department.faculty']);
+
+        return response()->json([ 'data' => $user ]);
+    }
+
     /**
      * @OA\Post(
      *   path="/api/logout",
@@ -112,5 +138,19 @@ class AuthController extends Controller
         $request->user()->currentAccessToken()->delete();
 
         return response()->noContent();
+    }
+
+    public function changePassword(PasswordChangeRequest $request)
+    {
+        $data = $request->validated();
+
+        $user = $request->user();
+        $user->forceFill([
+            'password' => Hash::make($data['password']),
+        ])->save();
+
+        return response()->json([
+            'message' => 'Đổi mật khẩu thành công.',
+        ]);
     }
 }

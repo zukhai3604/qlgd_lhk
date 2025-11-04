@@ -16,6 +16,8 @@ use App\Http\Controllers\TrainingDepartment\ProfileController as TDProfileContro
 use App\Http\Controllers\Api\HealthController; // <- THASM DANG NAY (Chu y: Api, khong phai API)
 use App\Http\Controllers\Api\FacultyController as ApiFacultyController;
 use App\Http\Controllers\Api\DepartmentController as ApiDepartmentController;
+use App\Http\Controllers\Api\RoomController as ApiRoomController;
+use App\Http\Controllers\Api\TimeslotController as ApiTimeslotController;
 
 // --- API Lecturer module (Bearer token)
 use App\Http\Controllers\API\Lecturer\LecturerProfileController as ApiLecturerProfileController;
@@ -43,9 +45,14 @@ Route::get('/ping',   [HealthController::class, 'ping']);
 
 Route::middleware(['auth:sanctum', 'ensure.active'])->group(function () {
     Route::get('/me',      [AuthController::class, 'me']);
+    Route::patch('/me/profile', [AuthController::class, 'updateProfile']);
+    Route::post('/me/change-password', [AuthController::class, 'changePassword']);
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/faculties', [ApiFacultyController::class, 'index']);
     Route::get('/departments', [ApiDepartmentController::class, 'index']);
+    Route::get('/rooms', [ApiRoomController::class, 'index']);
+    Route::get('/timeslots', [ApiTimeslotController::class, 'index']);
+    Route::get('/timeslots/by-period', [ApiTimeslotController::class, 'getByPeriod']);
 
     Route::middleware('role:ADMIN')->prefix('admin')->group(function () {
         Route::get('me/profile', [AdminProfileController::class, 'show']);
