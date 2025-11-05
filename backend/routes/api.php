@@ -25,7 +25,7 @@ use App\Http\Controllers\API\Lecturer\LecturerReportController as ApiLecturerRep
 use App\Http\Controllers\API\Lecturer\ScheduleController as ApiLecturerScheduleController;
 use App\Http\Controllers\API\Lecturer\TeachingSessionController as ApiTeachingSessionController;
 use App\Http\Controllers\API\Lecturer\TeachingSessionWorkflowController as ApiTeachingSessionWorkflowController;
-use App\Http\Controllers\API\Lecturer\AttendanceController as ApiAttendanceController;
+use App\Http\Controllers\Api\Lecturer\AttendanceController as ApiAttendanceController;
 use App\Http\Controllers\API\Lecturer\LeaveRequestController as ApiLeaveRequestController;
 use App\Http\Controllers\API\Lecturer\MakeupRequestController as ApiMakeupRequestController;
 use App\Http\Controllers\API\Lecturer\NotificationController as ApiNotificationController;
@@ -99,6 +99,7 @@ Route::prefix('lecturer')->middleware(['auth:sanctum','ensure.active','role:GIAN
     Route::patch('sessions/{id}', [ApiTeachingSessionController::class, 'update']);
     Route::post('sessions/{id}/start', [ApiTeachingSessionWorkflowController::class, 'start']);
     Route::post('sessions/{id}/finish', [ApiTeachingSessionWorkflowController::class, 'finish']);
+    Route::post('sessions/{id}/end', [ApiTeachingSessionWorkflowController::class, 'end']);
 
     Route::get('sessions/{id}/attendance', [ApiAttendanceController::class, 'show']);
     Route::post('sessions/{id}/attendance', [ApiAttendanceController::class, 'store']);

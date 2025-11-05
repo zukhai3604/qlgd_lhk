@@ -42,12 +42,17 @@ return Application::configure(basePath: dirname(__DIR__))
                 $response = ['message' => 'Đã có lỗi xảy ra, vui lòng thử lại sau.'];
                 $statusCode = 500;
 
-                if (config('app.debug')) {
-                    $response['debug'] = [
-                        'message' => $e->getMessage(),
-                        'file'    => $e->getFile(),
-                        'line'    => $e->getLine(),
-                    ];
+                // Wrap logging trong try-catch để tránh crash khi không thể ghi log
+                try {
+                    if (config('app.debug')) {
+                        $response['debug'] = [
+                            'message' => $e->getMessage(),
+                            'file'    => $e->getFile(),
+                            'line'    => $e->getLine(),
+                        ];
+                    }
+                } catch (\Exception $logError) {
+                    // Ignore logging errors - vẫn trả về response
                 }
 
                 if ($e instanceof \Illuminate\Validation\ValidationException) {
@@ -71,7 +76,9 @@ return Application::configure(basePath: dirname(__DIR__))
                     $statusCode = 500;
                 }
 
-                return response()->json($response, $statusCode);
+                return response()->json($response, $statusCode, [
+                    'Content-Type' => 'application/json; charset=utf-8'
+                ]);
             }
         });
     })

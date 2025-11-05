@@ -146,4 +146,80 @@ class TeachingSessionWorkflowController extends Controller
             ],
         ]);
     }
+
+    /**
+     * @OA\Post(
+     *   path="/api/lecturer/sessions/{id}/end",
+     *   operationId="lecturerSessionEnd",
+     *   tags={"Lecturer - Buổi dạy"},
+     *   summary="Kết thúc buổi học",
+     *   description="Kết thúc buổi học: nếu có điểm danh thì đánh dấu DONE, nếu không có điểm danh thì đánh dấu CANCELED",
+     *   security={{"bearerAuth":{}}},
+     *   @OA\Parameter(
+     *     name="id",
+     *     in="path",
+     *     required=true,
+     *     @OA\Schema(type="integer", example=345)
+     *   ),
+     *   @OA\Response(
+     *     response=200,
+     *     description="Kết thúc buổi học thành công",
+     *     @OA\JsonContent(
+     *       @OA\Property(property="data", type="object",
+     *         @OA\Property(property="id", type="integer", example=345),
+     *         @OA\Property(property="status", type="string", example="DONE"),
+     *         @OA\Property(property="has_attendance", type="boolean", example=true)
+     *       )
+     *     )
+     *   ),
+     *   @OA\Response(
+     *     response=403,
+     *     description="Không có quyền truy cập",
+     *     @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *   ),
+     *   @OA\Response(
+     *     response=404,
+     *     description="Không tìm thấy buổi dạy",
+     *     @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *   ),
+     *   @OA\Response(
+     *     response=422,
+     *     description="Trạng thái không cho phép kết thúc",
+     *     @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *   )
+     * )
+     */
+    public function end(Request $request, int $id)
+    {
+        $schedule = Schedule::find($id);
+        if (!$schedule) {
+            return response()->json(['message' => 'Không tìm thấy buổi dạy'], 404);
+        }
+
+        if ($schedule->assignment?->lecturer_id !== optional($request->user()->lecturer)->id) {
+            return response()->json(['message' => 'Không có quyền'], 403);
+        }
+
+        if (!in_array($schedule->status, ['PLANNED', 'TEACHING'], true)) {
+            return response()->json(['message' => 'Chỉ kết thúc khi buổi dạy đang ở trạng thái PLANNED hoặc TEACHING'], 422);
+        }
+
+        $hasAttendance = AttendanceRecord::where('schedule_id', $schedule->id)->exists();
+        
+        if ($hasAttendance) {
+            $schedule->status = 'DONE';
+        } else {
+            $schedule->status = 'CANCELED';
+        }
+        
+        $schedule->save();
+
+        return response()->json([
+            'data' => [
+                'id' => $schedule->id,
+                'status' => $schedule->status,
+                'has_attendance' => $hasAttendance,
+            ],
+        ]);
+    }
 }

@@ -15,7 +15,7 @@ class AttendanceRecordResource extends JsonResource
             'student' => $r->student ? [
                 'id' => $r->student->id,
                 'code' => $r->student->code ?? null,
-                'name' => $r->student->name ?? null,
+                'name' => $r->student->full_name ?? null,
             ] : null,
             'status' => $r->status,
             'note' => $r->note,

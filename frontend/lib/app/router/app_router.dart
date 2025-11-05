@@ -10,28 +10,29 @@ import 'package:qlgd_lhk/features/auth/view/login_page.dart';
 
 // --- LECTURER CORE ---
 import 'package:qlgd_lhk/features/lecturer/account/lecturer_account_page.dart';
-import 'package:qlgd_lhk/features/lecturer/home/lecturer_home_page.dart';
+import 'package:qlgd_lhk/features/lecturer/home/presentation/view/lecturer_home_page.dart';
 import 'package:qlgd_lhk/features/lecturer/notifications/lecturer_notifications_page.dart';
 import 'package:qlgd_lhk/features/lecturer/report/lecturer_report_page.dart';
-import 'package:qlgd_lhk/features/lecturer/schedule/detail_page.dart';
-import 'package:qlgd_lhk/features/lecturer/schedule/models/schedule_item.dart';
-import 'package:qlgd_lhk/features/lecturer/schedule/views/class_detail_page.dart';
-import 'package:qlgd_lhk/features/lecturer/schedule/views/weekly_schedule_page.dart';
+import 'package:qlgd_lhk/features/lecturer/schedule/presentation/view/schedule_detail_page.dart';
+import 'package:qlgd_lhk/features/lecturer/schedule/model/models/schedule_item.dart';
+import 'package:qlgd_lhk/features/lecturer/schedule/presentation/view/class_detail_page.dart';
+import 'package:qlgd_lhk/features/lecturer/schedule/presentation/view/weekly_schedule_page.dart';
 import 'package:qlgd_lhk/features/lecturer/widgets/bottom_nav.dart';
+import 'package:qlgd_lhk/features/lecturer/attendance/attendance_page.dart';
 import 'package:qlgd_lhk/services/profile_service.dart';
 
 // --- LEAVE ---
 // 👉 BỎ alias để dùng trực tiếp tên class, tránh lỗi Method not found
-import 'package:qlgd_lhk/features/lecturer/leave/lecturer_choose_session_page.dart';
-import 'package:qlgd_lhk/features/lecturer/leave/lecturer_leave_page.dart';
-import 'package:qlgd_lhk/features/lecturer/leave/lecturer_leave_history_page.dart';
+import 'package:qlgd_lhk/features/lecturer/leave/presentation/view/leave_page.dart';
+import 'package:qlgd_lhk/features/lecturer/leave/presentation/view/leave_history_page.dart';
+import 'package:qlgd_lhk/features/lecturer/leave/presentation/view/choose_session_page.dart';
 
 // --- MAKEUP (luồng mới) ---
 // 👉 GIỮ alias cho module makeup
-import 'package:qlgd_lhk/features/lecturer/makeup/lecturer_choose_session_page.dart'
+import 'package:qlgd_lhk/features/lecturer/makeup/presentation/view/choose_session_page.dart'
     as makeup_pages;
-import 'package:qlgd_lhk/features/lecturer/makeup/lecturer_makeup_page.dart';
-import 'package:qlgd_lhk/features/lecturer/makeup/lecturer_makeup_history_page.dart';
+import 'package:qlgd_lhk/features/lecturer/makeup/presentation/view/makeup_page.dart';
+import 'package:qlgd_lhk/features/lecturer/makeup/presentation/view/makeup_history_page.dart';
 
 // ======================= Bootstrap Auth =======================
 
@@ -146,6 +147,42 @@ final routerProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
+            path: '/attendance/:id',
+            name: 'lecturer_attendance',
+            builder: (context, state) {
+              final idStr = state.pathParameters['id'];
+              final id = int.tryParse(idStr ?? '');
+              if (id == null) {
+                return const Scaffold(
+                  body: Center(child: Text('Invalid session id')),
+                );
+              }
+              // Nhận subject, class name và groupedSessionIds từ extra nếu có
+              final extra = state.extra is Map<String, dynamic>
+                  ? state.extra as Map<String, dynamic>
+                  : null;
+              
+              // Parse groupedSessionIds từ extra
+              List<int>? groupedSessionIds;
+              if (extra?['groupedSessionIds'] != null) {
+                final groupedIdsRaw = extra!['groupedSessionIds'];
+                if (groupedIdsRaw is List) {
+                  groupedSessionIds = groupedIdsRaw
+                      .map((e) => int.tryParse('$e'))
+                      .whereType<int>()
+                      .toList();
+                }
+              }
+              
+              return LecturerAttendancePage(
+                sessionId: id,
+                subjectName: extra?['subjectName']?.toString(),
+                className: extra?['className']?.toString(),
+                groupedSessionIds: groupedSessionIds,
+              );
+            },
+          ),
+          GoRoute(
             path: '/schedule/class/:id',
             name: 'lecturer_schedule_class_detail',
             builder: (context, state) {
@@ -192,7 +229,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/leave/choose',
             name: 'leave_choose_session',
             // Trang chọn buổi học sắp tới để xin nghỉ
-            builder: (context, state) => const LecturerChooseSessionPage(),
+            builder: (context, state) => const ChooseSessionPage(),
           ),
           GoRoute(
             path: '/leave/form',
@@ -204,13 +241,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                   body: Center(child: Text('Lỗi: Thiếu dữ liệu buổi xin nghỉ.')),
                 );
               }
-              return LecturerLeavePage(session: extra);
+              return LeavePage(session: extra);
             },
           ),
           GoRoute(
             path: '/leave/history',
             name: 'leave_history',
-            builder: (context, state) => const LecturerLeaveHistoryPage(),
+            builder: (context, state) => const LeaveHistoryPage(),
           ),
 
           // ---------- Makeup (luồng mới) ----------
@@ -244,14 +281,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                   body: Center(child: Text('Lỗi: Không có dữ liệu buổi gốc.')),
                 );
               }
-              return LecturerMakeupPage(contextData: session);
+              return MakeupPage(contextData: session);
             },
           ),
           GoRoute(
             // Lịch sử dạy bù
             path: '/makeup/history',
             name: 'makeup_history',
-            builder: (context, state) => const LecturerMakeupHistoryPage(),
+            builder: (context, state) => const MakeupHistoryPage(),
           ),
         ],
       ),

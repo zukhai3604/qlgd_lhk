@@ -1,12 +1,13 @@
 ﻿// ignore_for_file: deprecated_member_use
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'service.dart';
 import 'package:qlgd_lhk/common/widgets/tlu_app_bar.dart';
-import '../attendance/attendance_page.dart';
+import 'package:qlgd_lhk/features/lecturer/schedule/presentation/view_model/schedule_detail_view_model.dart';
+import 'package:qlgd_lhk/features/lecturer/attendance/attendance_page.dart';
 
-class LecturerScheduleDetailPage extends StatefulWidget {
+class LecturerScheduleDetailPage extends ConsumerWidget {
   final int sessionId;
   final Map<String, dynamic>? sessionData; // Session data đã gộp từ home page
   
@@ -17,126 +18,48 @@ class LecturerScheduleDetailPage extends StatefulWidget {
   });
 
   @override
-  State<LecturerScheduleDetailPage> createState() =>
-      _LecturerScheduleDetailPageState();
-}
-
-class _LecturerScheduleDetailPageState
-    extends State<LecturerScheduleDetailPage> {
-  final _svc = LecturerScheduleService();
-
-  bool _loading = true;
-  String? _error;
-
-  Map<String, dynamic> _detail = {};
-  List<Map<String, dynamic>> _materials = [];
-
-  final TextEditingController _newMaterialCtrl = TextEditingController();
-  final TextEditingController _noteCtrl = TextEditingController();
-  String _statusValue = 'done';
-
-  @override
-  void initState() {
-    super.initState();
-    _load();
-  }
-
-  @override
-  void dispose() {
-    _newMaterialCtrl.dispose();
-    _noteCtrl.dispose();
-    super.dispose();
-  }
-
-  Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      final d = await _svc.getDetail(widget.sessionId);
-      final m = await _svc.getMaterials(widget.sessionId);
-
-      final rawStatus = (d['status'] ?? '').toString().toLowerCase();
-      _statusValue = switch (rawStatus) {
-        'done' => 'done',
-        'teaching' => 'teaching',
-        'canceled' || 'cancelled' => 'canceled',
-        _ => 'done',
-      };
-
-      _detail = d;
-      _materials = m;
-
-      final note = (d['note'] ?? '').toString();
-      if (note.isNotEmpty) _noteCtrl.text = note;
-    } catch (e) {
-      _error = e.toString();
-    } finally {
-      if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  String _hhmm(dynamic s) {
-    final str = (s ?? '').toString();
-    return str.length >= 5 ? str.substring(0, 5) : str;
-  }
-
-  String _fmtDate(String? iso) {
-    if (iso == null || iso.isEmpty) return '';
-    final p = iso.split('-');
-    return p.length == 3 ? '${p[2]}/${p[1]}/${p[0]}' : iso;
-  }
-
-  Future<void> _addMaterial() async {
-    final title = _newMaterialCtrl.text.trim();
-    if (title.isEmpty) return;
-    await _svc.addMaterial(widget.sessionId, title);
-    _newMaterialCtrl.clear();
-    final m = await _svc.getMaterials(widget.sessionId);
-    if (!mounted) return;
-    setState(() => _materials = m);
-  }
-
-  Future<void> _saveReport() async {
-    await _svc.submitReport(
-      sessionId: widget.sessionId,
-      status: _statusValue,
-      note: _noteCtrl.text,
-    );
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Đã lưu báo cáo buổi học')),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(scheduleDetailViewModelProvider(sessionId));
+    final viewModel = ref.read(scheduleDetailViewModelProvider(sessionId).notifier);
     final theme = Theme.of(context);
 
-    if (_loading) {
+    if (state.isLoading) {
       return Scaffold(
         appBar: const TluAppBar(),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
-    if (_error != null) {
+    if (state.error != null) {
       return Scaffold(
         appBar: const TluAppBar(),
         body: Center(
-          child: Text(
-            'Không tải được dữ liệu.\n$_error',
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.red),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                'Không tải được dữ liệu.\n${state.error}',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Colors.red),
+              ),
+              const SizedBox(height: 16),
+              FilledButton.icon(
+                onPressed: () => viewModel.refresh(),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Thử lại'),
+              ),
+            ],
           ),
         ),
       );
     }
 
+    final detail = state.detail ?? {};
+    final materials = state.materials;
+
     // ===== Normalize fields for display =====
     // Subject/Class
-    final subjVal = _detail['subject'];
-    final asg = _detail['assignment'];
+    final subjVal = detail['subject'];
+    final asg = detail['assignment'];
     final subjMap = (subjVal is Map)
         ? subjVal
         : (asg is Map && asg['subject'] is Map ? asg['subject'] : null);
@@ -145,19 +68,19 @@ class _LecturerScheduleDetailPageState
             : (subjVal ?? ''))
         .toString();
 
-    final cuVal = _detail['class_unit'] ?? _detail['class'];
+    final cuVal = detail['class_unit'] ?? detail['class'];
     final cuMap = (cuVal is Map)
         ? cuVal
         : (asg is Map && asg['classUnit'] is Map ? asg['classUnit'] : null);
     final className = (cuMap is Map
             ? (cuMap['name'] ?? cuMap['code'])
-            : (_detail['class_name'] ?? ''))
+            : (detail['class_name'] ?? ''))
         .toString();
 
     // Date
-    final rawDate = ((_detail['date'] ??
-                _detail['session_date'] ??
-                _detail['sessionDate']) ??
+    final rawDate = ((detail['date'] ??
+                detail['session_date'] ??
+                detail['sessionDate']) ??
             '')
         .toString();
     final dateOnly = rawDate.contains(' ') ? rawDate.split(' ').first : rawDate;
@@ -167,31 +90,37 @@ class _LecturerScheduleDetailPageState
     String start = '';
     String end = '';
     
-    if (widget.sessionData != null) {
+    if (sessionData != null) {
       // Nếu có session data đã gộp, dùng thời gian đã gộp (cả buổi)
-      final mergedStart = widget.sessionData!['start_time'];
-      final mergedEnd = widget.sessionData!['end_time'];
+      final mergedStart = sessionData!['start_time'];
+      final mergedEnd = sessionData!['end_time'];
       if (mergedStart != null) start = _hhmm(mergedStart);
       if (mergedEnd != null) end = _hhmm(mergedEnd);
     }
     
     // Nếu không có hoặc thiếu, lấy từ detail API (cho trường hợp load trực tiếp từ URL)
     if (start.isEmpty || end.isEmpty) {
-      final ts = _detail['timeslot'];
-      start = _hhmm(_detail['start_time'] ??
-          _detail['start'] ??
+      final ts = detail['timeslot'];
+      start = _hhmm(detail['start_time'] ??
+          detail['start'] ??
           (ts is Map ? ts['start_time'] : null));
-      end = _hhmm(_detail['end_time'] ??
-          _detail['end'] ??
+      end = _hhmm(detail['end_time'] ??
+          detail['end'] ??
           (ts is Map ? ts['end_time'] : null));
     }
 
     // Room
-    final r = _detail['room'];
+    final r = detail['room'];
     final room = (r is Map
             ? (r['name']?.toString() ?? r['code']?.toString() ?? '')
             : r?.toString() ?? '')
         .trim();
+
+    final TextEditingController _newMaterialCtrl = TextEditingController();
+    final TextEditingController _noteCtrl = TextEditingController();
+    if (state.note.isNotEmpty && _noteCtrl.text.isEmpty) {
+      _noteCtrl.text = state.note;
+    }
 
     return Scaffold(
       appBar: const TluAppBar(),
@@ -200,7 +129,7 @@ class _LecturerScheduleDetailPageState
           children: [
             Expanded(
               child: RefreshIndicator(
-                onRefresh: _load,
+                onRefresh: () => viewModel.refresh(),
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                   children: [
@@ -215,10 +144,10 @@ class _LecturerScheduleDetailPageState
                       child: FilledButton.icon(
                         onPressed: () {
                           // Kiểm tra xem có _grouped_session_ids không (buổi học đã được gộp)
-                          final groupedIds = widget.sessionData?['_grouped_session_ids'] as List?;
+                          final groupedIds = sessionData?['_grouped_session_ids'] as List?;
                           
                           context.push(
-                            '/attendance/${widget.sessionId}',
+                            '/attendance/$sessionId',
                             extra: {
                               'subjectName': subject,
                               'className': className,
@@ -242,14 +171,14 @@ class _LecturerScheduleDetailPageState
                           ?.copyWith(fontWeight: FontWeight.w600),
                     ),
                     const SizedBox(height: 8),
-                    if (_materials.isEmpty)
+                    if (materials.isEmpty)
                       _materialTile(
                         theme,
                         title: 'Chưa có nội dung',
                         disabled: true,
                       )
                     else
-                      ..._materials.map(
+                      ...materials.map(
                         (m) => _materialTile(
                           theme,
                           title: (m['title'] ?? '').toString(),
@@ -278,14 +207,21 @@ class _LecturerScheduleDetailPageState
                         ),
                         const SizedBox(width: 8),
                         FilledButton(
-                          onPressed: _addMaterial,
+                          onPressed: () async {
+                            final title = _newMaterialCtrl.text.trim();
+                            if (title.isEmpty) return;
+                            final success = await viewModel.addMaterial(title);
+                            if (success && context.mounted) {
+                              _newMaterialCtrl.clear();
+                            }
+                          },
                           child: const Text('Thêm'),
                         ),
                       ],
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
-                      value: _statusValue,
+                      value: state.status,
                       decoration: InputDecoration(
                         labelText: 'Trạng thái giảng dạy',
                         border: OutlineInputBorder(
@@ -306,7 +242,9 @@ class _LecturerScheduleDetailPageState
                           child: Text('Hủy buổi'),
                         ),
                       ],
-                      onChanged: (v) => setState(() => _statusValue = v ?? 'done'),
+                      onChanged: _canEndLesson(detail) // Chỉ cho phép thay đổi khi chưa kết thúc
+                          ? (v) => viewModel.updateStatus(v ?? 'done')
+                          : null, // Disable khi đã kết thúc
                     ),
                     const SizedBox(height: 12),
                     TextField(
@@ -319,27 +257,149 @@ class _LecturerScheduleDetailPageState
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
+                      onChanged: (v) => viewModel.updateNote(v),
                     ),
                     const SizedBox(height: 80),
                   ],
                 ),
               ),
             ),
+            // Bottom buttons area
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: SizedBox(
-                height: 44,
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _saveReport,
-                  child: const Text('Lưu'),
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // "Kết thúc buổi học" button - chỉ hiển thị khi status là PLANNED hoặc TEACHING
+                  if (_canEndLesson(detail))
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: SizedBox(
+                        height: 44,
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _handleEndLesson(context, viewModel, state),
+                          icon: const Icon(Icons.stop_circle_outlined),
+                          label: const Text('Kết thúc buổi học'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.orange.shade700,
+                            side: BorderSide(color: Colors.orange.shade700, width: 1.5),
+                          ),
+                        ),
+                      ),
+                    ),
+                  // "Lưu" button
+                  SizedBox(
+                    height: 44,
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () async {
+                        final success = await viewModel.submitReport();
+                        if (context.mounted && success) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Đã lưu báo cáo buổi học')),
+                          );
+                        } else if (context.mounted && state.error != null) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Lỗi: ${state.error}'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      },
+                      child: const Text('Lưu'),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  String _hhmm(dynamic s) {
+    final str = (s ?? '').toString();
+    return str.length >= 5 ? str.substring(0, 5) : str;
+  }
+
+  String _fmtDate(String? iso) {
+    if (iso == null || iso.isEmpty) return '';
+    final p = iso.split('-');
+    return p.length == 3 ? '${p[2]}/${p[1]}/${p[0]}' : iso;
+  }
+
+  /// Check xem có thể kết thúc buổi học không (chỉ khi status là PLANNED hoặc TEACHING)
+  bool _canEndLesson(Map<String, dynamic> detail) {
+    final rawStatus = (detail['status'] ?? '').toString().toUpperCase();
+    return rawStatus == 'PLANNED' || rawStatus == 'TEACHING';
+  }
+
+  /// Xử lý logic kết thúc buổi học
+  Future<void> _handleEndLesson(
+    BuildContext context,
+    ScheduleDetailViewModel viewModel,
+    ScheduleDetailState state,
+  ) async {
+    // Nếu không có attendance, hiển thị dialog xác nhận
+    if (state.hasAttendance == false) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Chưa điểm danh sinh viên'),
+          content: const Text(
+            'Bạn chưa điểm danh sinh viên cho buổi học này. '
+            'Nếu kết thúc buổi học, hệ thống sẽ đánh dấu lớp là HUỶ. '
+            'Bạn có chắc chắn muốn kết thúc không?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('Huỷ'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: Colors.red,
+              ),
+              child: const Text('Kết thúc buổi học'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed != true || !context.mounted) {
+        return;
+      }
+    }
+
+    // Gọi API để kết thúc buổi học
+    final success = await viewModel.endLesson(confirmed: true);
+
+    if (!context.mounted) return;
+
+    if (success) {
+      final finalStatus = viewModel.state.status.toLowerCase();
+      final message = finalStatus == 'done'
+          ? 'Buổi học đã được kết thúc (ĐÃ HOÀN THÀNH).'
+          : 'Buổi học đã được kết thúc (ĐÃ HUỶ).';
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: finalStatus == 'done' ? Colors.green : Colors.red,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi: ${viewModel.state.error ?? "Không thể kết thúc buổi học"}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 
   Widget _kv(String k, String v) => Padding(

@@ -31,6 +31,9 @@ class DatabaseSeeder extends Seeder
             
             // Seeder dữ liệu dày đặc để test
             ComprehensiveTestDataSeeder::class,
+            
+            // Seeder điểm danh (sau khi có schedules)
+            AttendanceRecordSeeder::class,
         ]);
     }
 }
