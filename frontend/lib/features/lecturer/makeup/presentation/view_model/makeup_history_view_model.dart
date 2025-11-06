@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:qlgd_lhk/features/lecturer/makeup/model/repositories/makeup_history_repository.dart';
@@ -220,7 +219,6 @@ class MakeupHistoryViewModel extends StateNotifier<MakeupHistoryState> {
       final subject = (current['_normalized_subject'] ?? '').toString();
       final className =
           (current['_normalized_class_name'] ?? '').toString();
-      final room = (current['_normalized_room'] ?? '').toString();
       final date = (current['_normalized_date'] ?? '').toString();
       final status = (current['_normalized_status'] ?? '').toString();
 
@@ -371,8 +369,8 @@ class MakeupHistoryViewModel extends StateNotifier<MakeupHistoryState> {
                 final schedule = leave['schedule'] as Map;
                 if (schedule['timeslot'] is Map) {
                   final timeslot = schedule['timeslot'] as Map;
-                  reqStartTime = timeslot['start_time']?.toString()?.trim();
-                  reqEndTime = timeslot['end_time']?.toString()?.trim();
+                  reqStartTime = timeslot['start_time']?.toString().trim();
+                  reqEndTime = timeslot['end_time']?.toString().trim();
                 }
               }
 
@@ -383,19 +381,19 @@ class MakeupHistoryViewModel extends StateNotifier<MakeupHistoryState> {
                 if (leave['original_time'] is Map) {
                   final origTime = leave['original_time'] as Map;
                   if (reqStartTime == null || reqStartTime.isEmpty) {
-                    reqStartTime = origTime['start_time']?.toString()?.trim();
+                    reqStartTime = origTime['start_time']?.toString().trim();
                   }
                   if (reqEndTime == null || reqEndTime.isEmpty) {
-                    reqEndTime = origTime['end_time']?.toString()?.trim();
+                    reqEndTime = origTime['end_time']?.toString().trim();
                   }
                 }
               }
 
               if (reqStartTime == null || reqStartTime.isEmpty) {
-                reqStartTime = req['original_start_time']?.toString()?.trim();
+                reqStartTime = req['original_start_time']?.toString().trim();
               }
               if (reqEndTime == null || reqEndTime.isEmpty) {
-                reqEndTime = req['original_end_time']?.toString()?.trim();
+                reqEndTime = req['original_end_time']?.toString().trim();
               }
 
               if (reqStartTime != null &&

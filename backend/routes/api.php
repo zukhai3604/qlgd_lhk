@@ -30,6 +30,7 @@ use App\Http\Controllers\API\Lecturer\LeaveRequestController as ApiLeaveRequestC
 use App\Http\Controllers\API\Lecturer\MakeupRequestController as ApiMakeupRequestController;
 use App\Http\Controllers\API\Lecturer\NotificationController as ApiNotificationController;
 use App\Http\Controllers\API\Lecturer\StatsController as ApiStatsController;
+use App\Http\Controllers\Api\Lecturer\LecturerStatsController;
 
 /*
 |--------------------------------------------------------------------------
@@ -123,6 +124,7 @@ Route::prefix('lecturer')->middleware(['auth:sanctum','ensure.active','role:GIAN
 
 
     Route::get('stats/teaching-hours', [ApiStatsController::class, 'teachingHours']);
+    Route::get('stats', [LecturerStatsController::class, 'index']);
 });
 
 Route::prefix('reports')->middleware(['auth:sanctum','ensure.active'])->group(function () {

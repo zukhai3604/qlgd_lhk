@@ -91,7 +91,7 @@ class _LeavePageState extends ConsumerState<LeavePage> {
     final classLine = classLineParts.join(' • ');
 
     return Scaffold(
-      appBar: const TluAppBar(title: 'Đơn xin nghỉ'),
+      appBar: const TluAppBar(),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

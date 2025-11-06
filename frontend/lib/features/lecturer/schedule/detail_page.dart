@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'service.dart';
 import 'package:qlgd_lhk/common/widgets/tlu_app_bar.dart';
-import '../attendance/attendance_page.dart';
 
 class LecturerScheduleDetailPage extends StatefulWidget {
   final int sessionId;
@@ -345,15 +344,20 @@ class _LecturerScheduleDetailPageState
   Widget _kv(String k, String v) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            SizedBox(
-              width: 145,
+            Flexible(
+              flex: 2,
               child: Text(
                 '$k:',
                 style: const TextStyle(fontWeight: FontWeight.w700),
               ),
             ),
-            Expanded(child: Text(v)),
+            const SizedBox(width: 8),
+            Expanded(
+              flex: 3,
+              child: Text(v),
+            ),
           ],
         ),
       );

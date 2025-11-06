@@ -7,7 +7,7 @@ class MakeupDataExtractor {
   /// Extract subject name với nhiều fallback
   static String extractSubject(Map<String, dynamic> item) {
     // Ưu tiên dùng normalized data nếu có
-    String subject = item['_normalized_subject']?.toString()?.trim() ?? '';
+    String subject = item['_normalized_subject']?.toString().trim() ?? '';
     if (subject.isNotEmpty && subject != 'Môn học' && subject != 'null') {
       return subject;
     }
@@ -15,7 +15,7 @@ class MakeupDataExtractor {
     // Fallback 1: Từ subject object
     if (item['subject'] != null) {
       if (item['subject'] is Map) {
-        subject = (item['subject'] as Map)['name']?.toString()?.trim() ?? '';
+        subject = (item['subject'] as Map)['name']?.toString().trim() ?? '';
       } else {
         final subjStr = item['subject'].toString().trim();
         if (subjStr.isNotEmpty && subjStr != 'Môn học' && subjStr != 'null') {
@@ -26,7 +26,7 @@ class MakeupDataExtractor {
 
     // Fallback 2: Từ subject_name
     if (subject.isEmpty || subject == 'Môn học' || subject == 'null') {
-      final subjName = item['subject_name']?.toString()?.trim() ?? '';
+      final subjName = item['subject_name']?.toString().trim() ?? '';
       if (subjName.isNotEmpty && subjName != 'Môn học' && subjName != 'null') {
         subject = subjName;
       }
@@ -43,7 +43,7 @@ class MakeupDataExtractor {
             if (assignment is Map) {
               final subjectObj = assignment['subject'];
               if (subjectObj is Map) {
-                final subjName = subjectObj['name']?.toString()?.trim() ?? '';
+                final subjName = subjectObj['name']?.toString().trim() ?? '';
                 if (subjName.isNotEmpty &&
                     subjName != 'Môn học' &&
                     subjName != 'null') {
@@ -62,19 +62,19 @@ class MakeupDataExtractor {
   /// Extract class name với nhiều fallback
   static String extractClassName(Map<String, dynamic> item) {
     // Ưu tiên dùng normalized data nếu có
-    String className = item['_normalized_class_name']?.toString()?.trim() ?? '';
+    String className = item['_normalized_class_name']?.toString().trim() ?? '';
     if (className.isNotEmpty && className != 'null') {
       return className == 'null' ? '' : className;
     }
 
     // Fallback 1: Từ class_name hoặc class_code
-    final classNm = item['class_name']?.toString()?.trim() ?? '';
-    final classCd = item['class_code']?.toString()?.trim() ?? '';
+    final classNm = item['class_name']?.toString().trim() ?? '';
+    final classCd = item['class_code']?.toString().trim() ?? '';
     className = classNm.isNotEmpty ? classNm : (classCd.isNotEmpty ? classCd : '');
 
     // Fallback 2: Từ class object
     if (className.isEmpty && item['class'] is Map) {
-      className = (item['class'] as Map)['name']?.toString()?.trim() ?? '';
+      className = (item['class'] as Map)['name']?.toString().trim() ?? '';
     }
 
     // Fallback 3: Từ nested leave.schedule.assignment.classUnit
@@ -88,7 +88,7 @@ class MakeupDataExtractor {
             if (assignment is Map) {
               final classUnit = assignment['classUnit'];
               if (classUnit is Map) {
-                className = classUnit['name']?.toString()?.trim() ?? '';
+                className = classUnit['name']?.toString().trim() ?? '';
               }
             }
           }
@@ -102,7 +102,7 @@ class MakeupDataExtractor {
   /// Extract room name với nhiều fallback
   static String extractRoom(Map<String, dynamic> item) {
     // Ưu tiên dùng normalized data nếu có
-    String room = item['_normalized_room']?.toString()?.trim() ?? '';
+    String room = item['_normalized_room']?.toString().trim() ?? '';
     if (room.isNotEmpty && room != 'null') {
       return room == 'null' ? '' : room;
     }
@@ -110,19 +110,19 @@ class MakeupDataExtractor {
     // Fallback 1: Từ room object
     if (item['room'] is Map) {
       final r = item['room'] as Map;
-      room = r['name']?.toString()?.trim() ??
-          r['code']?.toString()?.trim() ??
+      room = r['name']?.toString().trim() ??
+          r['code']?.toString().trim() ??
           '';
     }
 
     // Fallback 2: Từ room_name
     if (room.isEmpty || room == 'null') {
-      room = item['room_name']?.toString()?.trim() ?? '';
+      room = item['room_name']?.toString().trim() ?? '';
     }
 
     // Fallback 3: Từ room string
     if (room.isEmpty || room == 'null') {
-      final roomStr = item['room']?.toString()?.trim() ?? '';
+      final roomStr = item['room']?.toString().trim() ?? '';
       if (roomStr.isNotEmpty && roomStr != 'null') {
         room = roomStr;
       }
@@ -133,8 +133,8 @@ class MakeupDataExtractor {
 
   /// Extract start time và end time
   static ({String startTime, String endTime}) extractTime(Map<String, dynamic> item) {
-    String startTime = item['_normalized_start_time']?.toString()?.trim() ?? '';
-    String endTime = item['_normalized_end_time']?.toString()?.trim() ?? '';
+    String startTime = item['_normalized_start_time']?.toString().trim() ?? '';
+    String endTime = item['_normalized_end_time']?.toString().trim() ?? '';
 
     // Fallback: Từ timeslot object
     if ((startTime.isEmpty || startTime == '--:--' || startTime == 'null') ||
@@ -142,20 +142,20 @@ class MakeupDataExtractor {
       if (item['timeslot'] is Map) {
         final ts = item['timeslot'] as Map;
         if (startTime.isEmpty || startTime == '--:--' || startTime == 'null') {
-          startTime = ts['start_time']?.toString()?.trim() ?? '';
+          startTime = ts['start_time']?.toString().trim() ?? '';
         }
         if (endTime.isEmpty || endTime == '--:--' || endTime == 'null') {
-          endTime = ts['end_time']?.toString()?.trim() ?? '';
+          endTime = ts['end_time']?.toString().trim() ?? '';
         }
       }
     }
 
     // Fallback: Từ start_time và end_time trực tiếp
     if (startTime.isEmpty || startTime == '--:--' || startTime == 'null') {
-      startTime = item['start_time']?.toString()?.trim() ?? '';
+      startTime = item['start_time']?.toString().trim() ?? '';
     }
     if (endTime.isEmpty || endTime == '--:--' || endTime == 'null') {
-      endTime = item['end_time']?.toString()?.trim() ?? '';
+      endTime = item['end_time']?.toString().trim() ?? '';
     }
 
     return (
@@ -203,8 +203,8 @@ class MakeupDataExtractor {
                 final schedule = leave['schedule'] as Map;
                 if (schedule['timeslot'] is Map) {
                   final timeslot = schedule['timeslot'] as Map;
-                  reqStartTime = timeslot['start_time']?.toString()?.trim();
-                  reqEndTime = timeslot['end_time']?.toString()?.trim();
+                  reqStartTime = timeslot['start_time']?.toString().trim();
+                  reqEndTime = timeslot['end_time']?.toString().trim();
                 }
               }
 
@@ -213,10 +213,10 @@ class MakeupDataExtractor {
                 if (leave['original_time'] is Map) {
                   final origTime = leave['original_time'] as Map;
                   if (reqStartTime == null || reqStartTime.isEmpty) {
-                    reqStartTime = origTime['start_time']?.toString()?.trim();
+                    reqStartTime = origTime['start_time']?.toString().trim();
                   }
                   if (reqEndTime == null || reqEndTime.isEmpty) {
-                    reqEndTime = origTime['end_time']?.toString()?.trim();
+                    reqEndTime = origTime['end_time']?.toString().trim();
                   }
                 }
               }
@@ -248,8 +248,8 @@ class MakeupDataExtractor {
       }
     } else {
       // Không grouped: Lấy từ original_start_time và original_end_time
-      originalStartTime = item['original_start_time']?.toString()?.trim() ?? '';
-      originalEndTime = item['original_end_time']?.toString()?.trim() ?? '';
+      originalStartTime = item['original_start_time']?.toString().trim() ?? '';
+      originalEndTime = item['original_end_time']?.toString().trim() ?? '';
 
       if (originalStartTime.isEmpty || originalEndTime.isEmpty) {
         if (item['leave'] is Map) {
@@ -259,10 +259,10 @@ class MakeupDataExtractor {
             if (schedule['timeslot'] is Map) {
               final timeslot = schedule['timeslot'] as Map;
               if (originalStartTime.isEmpty) {
-                originalStartTime = timeslot['start_time']?.toString()?.trim() ?? '';
+                originalStartTime = timeslot['start_time']?.toString().trim() ?? '';
               }
               if (originalEndTime.isEmpty) {
-                originalEndTime = timeslot['end_time']?.toString()?.trim() ?? '';
+                originalEndTime = timeslot['end_time']?.toString().trim() ?? '';
               }
             }
           }
@@ -270,10 +270,10 @@ class MakeupDataExtractor {
             if (leave['original_time'] is Map) {
               final origTime = leave['original_time'] as Map;
               if (originalStartTime.isEmpty) {
-                originalStartTime = origTime['start_time']?.toString()?.trim() ?? '';
+                originalStartTime = origTime['start_time']?.toString().trim() ?? '';
               }
               if (originalEndTime.isEmpty) {
-                originalEndTime = origTime['end_time']?.toString()?.trim() ?? '';
+                originalEndTime = origTime['end_time']?.toString().trim() ?? '';
               }
             }
           }

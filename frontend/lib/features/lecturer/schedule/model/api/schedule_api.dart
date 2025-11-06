@@ -188,6 +188,15 @@ class ScheduleApi {
     });
   }
 
+  /// Upload material với file
+  Future<void> uploadMaterial(int sessionId, String title, String filePath) async {
+    final formData = FormData.fromMap({
+      'title': title,
+      'file': await MultipartFile.fromFile(filePath),
+    });
+    await _dio.post('/api/lecturer/schedule/$sessionId/materials', data: formData);
+  }
+
   // ===== Report =====
   Future<void> submitReport({
     required int sessionId,
@@ -229,6 +238,12 @@ class ScheduleApi {
     final res = await _dio.post('/api/lecturer/sessions/$sessionId/end');
     final data = res.data is Map ? res.data['data'] : res.data;
     return Map<String, dynamic>.from(data);
+  }
+
+  // ===== Stats =====
+  Future<Map<String, dynamic>> getStats() async {
+    final res = await _dio.get('/api/lecturer/stats');
+    return Map<String, dynamic>.from(res.data);
   }
 
   // ===== Upcoming sessions for leave =====

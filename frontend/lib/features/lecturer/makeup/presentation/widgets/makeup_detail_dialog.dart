@@ -212,10 +212,10 @@ class MakeupDetailDialog extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.green.withOpacity(0.1),
+                  color: Colors.green.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: Colors.green.withOpacity(0.3),
+                    color: Colors.green.withValues(alpha: 0.3),
                   ),
                 ),
                 child: const Row(
@@ -238,10 +238,10 @@ class MakeupDetailDialog extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.orange.withOpacity(0.1),
+                  color: Colors.orange.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: Colors.orange.withOpacity(0.3),
+                    color: Colors.orange.withValues(alpha: 0.3),
                   ),
                 ),
                 child: const Row(
@@ -264,10 +264,10 @@ class MakeupDetailDialog extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.red.withOpacity(0.1),
+                  color: Colors.red.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
-                    color: Colors.red.withOpacity(0.3),
+                    color: Colors.red.withValues(alpha: 0.3),
                   ),
                 ),
                 child: const Row(
@@ -361,7 +361,6 @@ class MakeupDetailDialog extends StatelessWidget {
 
       if (!context.mounted) return;
 
-      final state = viewModel.state;
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -374,7 +373,7 @@ class MakeupDetailDialog extends StatelessWidget {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi khi hủy: ${state.error ?? "Không xác định"}')),
+          const SnackBar(content: Text('Lỗi khi hủy đơn đăng ký dạy bù')),
         );
       }
     }

@@ -856,16 +856,15 @@ class _LecturerAccountPageState extends ConsumerState<LecturerAccountPage> {
 
                               for (final ep in endpoints) {
                                 try {
-                                  late Response res;
                                   switch (ep.method) {
                                     case 'PUT':
-                                      res = await dio.put(ep.url, data: payload);
+                                      await dio.put(ep.url, data: payload);
                                       break;
                                     case 'PATCH':
-                                      res = await dio.patch(ep.url, data: payload);
+                                      await dio.patch(ep.url, data: payload);
                                       break;
                                     default:
-                                      res = await dio.post(ep.url, data: payload);
+                                      await dio.post(ep.url, data: payload);
                                   }
 
                                   if (!mounted) return;

@@ -30,22 +30,16 @@ class ChooseSessionPage extends ConsumerWidget {
       body: state.isLoading
           ? const Center(child: CircularProgressIndicator())
           : state.error != null
-              ? _ErrorBox(message: state.error!, onRetry: () => viewModel.refresh())
+              ? _ErrorBox(
+                  message: state.error!,
+                  onRetry: () => viewModel.refresh(),
+                )
               : RefreshIndicator(
                   onRefresh: () => viewModel.refresh(),
                   child: ListView(
                     padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                     children: [
                       const SizedBox(height: 4),
-                      Text(
-                        'Chọn buổi cần nghỉ',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleLarge
-                            ?.copyWith(fontWeight: FontWeight.w800),
-                      ),
-                      const SizedBox(height: 12),
-
                       Align(
                         alignment: Alignment.centerRight,
                         child: FilledButton.icon(
@@ -54,7 +48,9 @@ class ChooseSessionPage extends ConsumerWidget {
                           label: const Text('Lịch sử xin nghỉ'),
                           style: FilledButton.styleFrom(
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 14, vertical: 10),
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
                           ),
                         ),
                       ),
@@ -143,19 +139,20 @@ class SessionItemTile extends StatelessWidget {
 
     final subject = _subjectOf(data);
     final room = _roomOf(data);
+    // Lấy mã lớp (code) thay vì tên lớp
     final className = _pickStr(data, [
-      'assignment.class_unit.name',
       'assignment.class_unit.code',
-      'class_unit.name',
       'class_unit.code',
+      'class_code',
+      'assignment.classUnit.code',
+      'class_unit.name', // fallback nếu không có code
+      'assignment.class_unit.name',
       'class_name',
       'class',
-      'class_code',
       'group_name',
     ]);
     var cohort = _pickStr(data, ['cohort', 'k', 'course', 'batch']);
-    if (cohort.isNotEmpty &&
-        !cohort.toUpperCase().startsWith('K')) {
+    if (cohort.isNotEmpty && !cohort.toUpperCase().startsWith('K')) {
       cohort = 'K$cohort';
     }
     final timeLine = _timeRangeOf(data);
@@ -169,6 +166,41 @@ class SessionItemTile extends StatelessWidget {
 
     final rawStatus = data['status']?.toString().toUpperCase() ?? '';
 
+    // Kiểm tra xem schedule đã qua thời gian chưa (giống home page)
+    bool isPastTime = false;
+    final endTimeStr = _endOfStr(data);
+    if (endTimeStr.isNotEmpty && endTimeStr != '--:--') {
+      try {
+        final now = DateTime.now();
+        DateTime? scheduleDate;
+        
+        // Lấy session_date nếu có
+        final dateStr = _pickStr(data, ['session_date', 'date']).split(' ').first;
+        if (dateStr.isNotEmpty) {
+          scheduleDate = DateTime.tryParse(dateStr);
+        }
+        
+        // Nếu không có session_date, dùng ngày hôm nay
+        scheduleDate ??= DateTime(now.year, now.month, now.day);
+        
+        final endParts = endTimeStr.split(':');
+        if (endParts.length >= 2) {
+          final endHour = int.tryParse(endParts[0]) ?? 0;
+          final endMinute = int.tryParse(endParts[1]) ?? 0;
+          final endDateTime = DateTime(
+            scheduleDate.year,
+            scheduleDate.month,
+            scheduleDate.day,
+            endHour,
+            endMinute,
+          );
+          isPastTime = now.isAfter(endDateTime);
+        }
+      } catch (e) {
+        // Nếu parse lỗi, bỏ qua kiểm tra
+      }
+    }
+
     if (rawStatus == 'DONE' ||
         rawStatus == 'COMPLETED' ||
         stt.label == 'Đã qua') {
@@ -176,11 +208,13 @@ class SessionItemTile extends StatelessWidget {
       statusColor = Colors.green.shade600;
       statusIcon = Icons.check_circle;
       statusText = 'Lớp học đã hoàn thành';
-    } else if (rawStatus == 'CANCELED' || stt.label == 'Huỷ') {
+    } else if (rawStatus == 'CANCELED' || stt.label == 'Huỷ' || isPastTime) {
+      // Nếu status là CANCELED hoặc đã qua thời gian nhưng status vẫn là PLANNED
+      // (theo logic backend, buổi học sẽ bị hủy do không có điểm danh)
       borderColor = Colors.red.shade300;
       statusColor = Colors.red.shade600;
       statusIcon = Icons.cancel;
-      statusText = 'Lớp học đã huỷ';
+      statusText = 'Lớp học bị hủy';
     } else if (rawStatus == 'ONGOING' ||
         rawStatus == 'TEACHING' ||
         stt.label == 'Đang diễn ra') {
@@ -196,8 +230,7 @@ class SessionItemTile extends StatelessWidget {
       statusText = 'Lớp học sắp tới';
     }
 
-    final hasTime =
-        timeLine.isNotEmpty && timeLine != '--:-- - --:--';
+    final hasTime = timeLine.isNotEmpty && timeLine != '--:-- - --:--';
 
     return Card(
       elevation: 0,
@@ -215,12 +248,11 @@ class SessionItemTile extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ===== BÊN TRÁI: Tên môn, phòng, lớp =====
+              // BÊN TRÁI
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Tên môn học (in đậm)
                     Text(
                       subject,
                       style: textTheme.titleLarge?.copyWith(
@@ -231,15 +263,15 @@ class SessionItemTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 8),
-                    // Phòng học
                     if (room.isNotEmpty)
                       Text(
                         'Phòng học: $room',
                         style: textTheme.bodyMedium?.copyWith(
                           color: Colors.grey.shade700,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    // Lớp + khoá
                     if (className.isNotEmpty || cohort.isNotEmpty)
                       Text(
                         'Lớp: ${className.isNotEmpty ? className : ''}'
@@ -247,21 +279,27 @@ class SessionItemTile extends StatelessWidget {
                         style: textTheme.bodyMedium?.copyWith(
                           color: Colors.grey.shade700,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                   ],
                 ),
               ),
 
-              // ===== BÊN PHẢI: Trạng thái + thời gian + hint =====
+              const SizedBox(width: 12),
+
+              // BÊN PHẢI
               SizedBox(
-                height: 80,
+                width: 140,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Hàng trạng thái: text + icon
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 2,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      alignment: WrapAlignment.end,
                       children: [
                         Text(
                           statusText,
@@ -269,8 +307,10 @@ class SessionItemTile extends StatelessWidget {
                             color: statusColor,
                             fontWeight: FontWeight.w500,
                           ),
+                          textAlign: TextAlign.right,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(width: 4),
                         Icon(
                           statusIcon,
                           size: 16,
@@ -278,8 +318,7 @@ class SessionItemTile extends StatelessWidget {
                         ),
                       ],
                     ),
-
-                    // Giờ học (to) nếu có
+                    const SizedBox(height: 6),
                     if (hasTime)
                       Text(
                         timeLine,
@@ -287,19 +326,21 @@ class SessionItemTile extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                           color: Colors.grey.shade900,
                         ),
-                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.right,
                         maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       )
                     else
                       const SizedBox(height: 20),
-
-                    // Hint chọn buổi
+                    const SizedBox(height: 4),
                     Text(
                       'Chạm để chọn buổi này',
                       style: textTheme.bodySmall?.copyWith(
                         color: Colors.grey.shade500,
-                        fontWeight: FontWeight.normal,
                       ),
+                      textAlign: TextAlign.right,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -347,38 +388,36 @@ class SessionItemTile extends StatelessWidget {
   static String _roomOf(Map<String, dynamic> s) {
     if (s['room'] is Map) {
       final r = s['room'] as Map;
-      final code = _pickStr(
-          r, ['code', 'name', 'room_code', 'title', 'label']);
+      final code =
+          _pickStr(r, ['code', 'name', 'room_code', 'title', 'label']);
       if (code.isNotEmpty) return code;
     }
-    if (s['room'] is String &&
-        (s['room'] as String).trim().isNotEmpty) {
+    if (s['room'] is String && (s['room'] as String).trim().isNotEmpty) {
       return (s['room'] as String).trim();
     }
     if (s['assignment'] is Map) {
       final a = s['assignment'] as Map;
       if (a['room'] is Map) {
         final r = a['room'] as Map;
-        final code = _pickStr(
-            r, ['code', 'name', 'room_code', 'title', 'label']);
+        final code =
+            _pickStr(r, ['code', 'name', 'room_code', 'title', 'label']);
         if (code.isNotEmpty) return code;
       }
     }
-    dynamic rooms =
-        s['rooms'] ?? s['classrooms'] ?? s['room_list'];
+    dynamic rooms = s['rooms'] ?? s['classrooms'] ?? s['room_list'];
     if (rooms is List && rooms.isNotEmpty) {
       final first = rooms.first;
       if (first is String && first.trim().isNotEmpty) {
         return first.trim();
       }
       if (first is Map) {
-        final fromList = _pickStr(
-            first, ['code', 'name', 'room_code', 'title', 'label']);
+        final fromList =
+            _pickStr(first, ['code', 'name', 'room_code', 'title', 'label']);
         if (fromList.isNotEmpty) return fromList;
       }
     }
-    final building = _pickStr(
-        s, ['building', 'building.name', 'block', 'block.name']);
+    final building =
+        _pickStr(s, ['building', 'building.name', 'block', 'block.name']);
     final num = _pickStr(
         s, ['room_number', 'roomNo', 'room_no', 'code', 'room_code']);
     if (building.isNotEmpty && num.isNotEmpty) {
@@ -386,36 +425,6 @@ class SessionItemTile extends StatelessWidget {
     }
     if (num.isNotEmpty) return num;
     return '';
-  }
-
-  static String _classLineOf(Map<String, dynamic> s) {
-    final className = _pickStr(s, [
-      'assignment.class_unit.name',
-      'assignment.class_unit.code',
-      'class_unit.name',
-      'class_unit.code',
-      'class_name',
-      'class',
-      'class_code',
-      'group_name',
-    ]);
-    var cohort = _pickStr(s, ['cohort', 'k', 'course', 'batch']);
-    if (cohort.isNotEmpty &&
-        !cohort.toUpperCase().startsWith('K')) {
-      cohort = 'K$cohort';
-    }
-
-    final room = _roomOf(s);
-
-    final leftParts = <String>[];
-    if (className.isNotEmpty) leftParts.add('Lớp: $className');
-    if (cohort.isNotEmpty) leftParts.add(cohort);
-
-    final left = leftParts.join(' - ');
-    final roomPart = room.isEmpty ? '' : ' • Phòng: $room';
-
-    if (left.isEmpty && roomPart.isEmpty) return '';
-    return left + roomPart;
   }
 
   static String _startOfStr(Map<String, dynamic> s) {
@@ -449,8 +458,7 @@ class SessionItemTile extends StatelessWidget {
     return '$st - $et';
   }
 
-  static _StatusChip _statusOf(
-      Map<String, dynamic> s, BuildContext ctx) {
+  static _StatusChip _statusOf(Map<String, dynamic> s, BuildContext ctx) {
     final cs = Theme.of(ctx).colorScheme;
     final raw = s['status']?.toString().toUpperCase();
 
@@ -467,8 +475,7 @@ class SessionItemTile extends StatelessWidget {
           'Đã qua', cs.surfaceVariant, cs.onSurfaceVariant);
     }
     if (raw == 'CANCELED') {
-      return _StatusChip(
-          'Huỷ', cs.errorContainer, cs.onErrorContainer);
+      return _StatusChip('Huỷ', cs.errorContainer, cs.onErrorContainer);
     }
 
     try {
@@ -478,20 +485,31 @@ class SessionItemTile extends StatelessWidget {
       final et = _endOfStr(s).split(':');
       if (date.isNotEmpty && st.isNotEmpty && et.isNotEmpty) {
         final base = DateTime.parse(date);
-        final start = DateTime(base.year, base.month, base.day,
-            int.tryParse(st[0]) ?? 0,
-            (st.length > 1 ? int.tryParse(st[1]) : 0) ?? 0);
-        final end = DateTime(base.year, base.month, base.day,
-            int.tryParse(et[0]) ?? 0,
-            (st.length > 1 ? int.tryParse(et[1]) : 0) ?? 0);
+        final start = DateTime(
+          base.year,
+          base.month,
+          base.day,
+          int.tryParse(st[0]) ?? 0,
+          (st.length > 1 ? int.tryParse(st[1]) : 0) ?? 0,
+        );
+        final end = DateTime(
+          base.year,
+          base.month,
+          base.day,
+          int.tryParse(et[0]) ?? 0,
+          (st.length > 1 ? int.tryParse(et[1]) : 0) ?? 0,
+        );
         final now = DateTime.now();
         if (now.isBefore(start)) {
           return _StatusChip('Sắp tới', cs.primaryContainer,
               cs.onPrimaryContainer);
         }
         if (now.isAfter(end)) {
-          return _StatusChip('Đã qua', cs.surfaceVariant,
-              cs.onSurfaceVariant);
+          return _StatusChip(
+            'Đã qua',
+            cs.surfaceVariant,
+            cs.onSurfaceVariant,
+          );
         }
         return _StatusChip('Đang diễn ra', cs.tertiaryContainer,
             cs.onTertiaryContainer);
@@ -530,19 +548,24 @@ class _ErrorBox extends StatelessWidget {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child:
-            Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.error_outline,
-              size: 48, color: Colors.redAccent),
-          const SizedBox(height: 12),
-          Text(message, textAlign: TextAlign.center),
-          const SizedBox(height: 8),
-          FilledButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Thử lại'),
-          )
-        ]),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline,
+                size: 48, color: Colors.redAccent),
+            const SizedBox(height: 12),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Thử lại'),
+            )
+          ],
+        ),
       ),
     );
   }
@@ -559,8 +582,7 @@ class _EmptyBox extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.event_available,
-              size: 56, color: Colors.grey),
+          const Icon(Icons.event_available, size: 56, color: Colors.grey),
           const SizedBox(height: 8),
           const Text(
             'Không có buổi học nào sắp tới để xin nghỉ.',

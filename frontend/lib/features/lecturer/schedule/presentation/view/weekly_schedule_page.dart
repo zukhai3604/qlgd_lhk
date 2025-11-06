@@ -152,9 +152,6 @@ class _WeeklySchedulePageState extends ConsumerState<WeeklySchedulePage> {
   DateTime? _weekStart;
   DateTime? _weekEnd;
 
-  bool _isSameDay(DateTime a, DateTime b) =>
-      a.year == b.year && a.month == b.month && a.day == b.day;
-
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(weeklyScheduleViewModelProvider);
@@ -302,6 +299,7 @@ class _WeeklySchedulePageState extends ConsumerState<WeeklySchedulePage> {
       );
       map.putIfAbsent(key, () => <ScheduleItem>[]).add(item);
     }
+    // Không gộp ở đây - giữ nguyên để timeline grid hiển thị riêng lẻ
     for (final bucket in map.values) {
       bucket.sort((a, b) => a.startTime.compareTo(b.startTime));
     }
@@ -328,11 +326,121 @@ class _WeeklySchedulePageState extends ConsumerState<WeeklySchedulePage> {
     return '${fmt.format(weekStart)} - ${fmt.format(end)}';
   }
 
+  /// Gộp các tiết liền kề nhau thành 1 buổi
+  List<ScheduleItem> _groupConsecutiveSessions(List<ScheduleItem> sessions) {
+    if (sessions.isEmpty) return [];
+
+    final sorted = List<ScheduleItem>.from(sessions);
+    sorted.sort((a, b) => a.startTime.compareTo(b.startTime));
+
+    final result = <ScheduleItem>[];
+    final processed = <int>{};
+
+    for (int i = 0; i < sorted.length; i++) {
+      if (processed.contains(i)) continue;
+
+      final current = sorted[i];
+      final group = <ScheduleItem>[current];
+      final groupIndices = <int>[i];
+      
+      final currentShift = _getShiftFromScheduleItem(current);
+
+      for (int j = i + 1; j < sorted.length; j++) {
+        if (processed.contains(j)) continue;
+
+        final next = sorted[j];
+
+        // Kiểm tra cùng subject, className, room
+        if (current.subject != next.subject ||
+            current.className != next.className ||
+            current.room != next.room) {
+          break;
+        }
+
+        // Kiểm tra cùng shift (cho phép cả hai null)
+        final nextShift = _getShiftFromScheduleItem(next);
+        if (currentShift != nextShift && !(currentShift == null && nextShift == null)) {
+          break;
+        }
+
+        // Kiểm tra khoảng cách thời gian (gap <= 10 phút giống như makeup)
+        // So sánh với phần tử cuối cùng trong group hiện tại
+        final lastInGroup = group.last;
+        final gap = next.startTime.difference(lastInGroup.endTime).inMinutes;
+
+        if (gap <= 10 && gap >= 0) {
+          group.add(next);
+          groupIndices.add(j);
+        } else {
+          break;
+        }
+      }
+
+      for (final idx in groupIndices) {
+        processed.add(idx);
+      }
+
+      if (group.length == 1) {
+        result.add(current);
+      } else {
+        // Tạo ScheduleItem mới với startTime từ item đầu và endTime từ item cuối
+        final first = group.first;
+        final last = group.last;
+        
+        final mergedRaw = Map<String, dynamic>.from(first.raw);
+        
+        // Lưu danh sách IDs của các sessions đã gộp
+        final groupedIds = group.map((s) => s.id).toList();
+        mergedRaw['_grouped_session_ids'] = groupedIds;
+        
+        result.add(ScheduleItem(
+          id: first.id,
+          subject: first.subject,
+          className: first.className,
+          room: first.room,
+          startTime: first.startTime,
+          endTime: last.endTime,
+          status: first.status,
+          raw: mergedRaw,
+        ));
+      }
+    }
+
+    return result;
+  }
+
+  /// Xác định shift (morning/afternoon/evening) từ ScheduleItem
+  String? _getShiftFromScheduleItem(ScheduleItem item) {
+    final timeslot = item.raw['timeslot'];
+    if (timeslot is Map) {
+      final period = timeslot['period'];
+      if (period != null) {
+        final periodNum = int.tryParse(period.toString());
+        if (periodNum != null) {
+          if (periodNum >= 1 && periodNum <= 6) return 'morning';
+          if (periodNum >= 7 && periodNum <= 12) return 'afternoon';
+          if (periodNum >= 13 && periodNum <= 15) return 'evening';
+        }
+      }
+    }
+
+    // Fallback: tính từ startTime
+    final minutes = item.startTime.hour * 60 + item.startTime.minute;
+    if (minutes >= 420 && minutes < 720) return 'morning'; // 07:00 - 12:00
+    if (minutes >= 720 && minutes < 1080) return 'afternoon'; // 12:00 - 18:00
+    if (minutes >= 1080) return 'evening'; // 18:00+
+    
+    return null;
+  }
+
   void _showDaySchedule(
     BuildContext context,
     DateTime day,
     List<ScheduleItem> events,
   ) {
+    // Gộp các tiết liền kề trước khi hiển thị trong modal
+    final groupedEvents = _groupConsecutiveSessions(events);
+    
     final titleRaw = DateFormat('EEEE, dd/MM/yyyy', 'vi').format(day);
     final title = titleRaw.isEmpty
         ? ''
@@ -342,7 +450,7 @@ class _WeeklySchedulePageState extends ConsumerState<WeeklySchedulePage> {
       context: context,
       showDragHandle: true,
       builder: (ctx) {
-        if (events.isEmpty) {
+        if (groupedEvents.isEmpty) {
           return Padding(
             padding: const EdgeInsets.all(24),
             child: Column(
@@ -366,7 +474,7 @@ class _WeeklySchedulePageState extends ConsumerState<WeeklySchedulePage> {
         }
 
         final sheetMaxHeight = MediaQuery.of(ctx).size.height * .6;
-        final estimatedHeight = events.length * 84.0;
+        final estimatedHeight = groupedEvents.length * 84.0;
         final sheetHeight =
             estimatedHeight.clamp(220.0, sheetMaxHeight).toDouble();
 
@@ -388,7 +496,7 @@ class _WeeklySchedulePageState extends ConsumerState<WeeklySchedulePage> {
                   height: sheetHeight,
                   child: ListView.separated(
                     itemBuilder: (listContext, index) {
-                      final item = events[index];
+                      final item = groupedEvents[index];
                       final color =
                           _seededColor('${item.subject}|${item.className}');
                       final start = _normHHmm(item.startTime);
@@ -424,7 +532,7 @@ class _WeeklySchedulePageState extends ConsumerState<WeeklySchedulePage> {
                       );
                     },
                     separatorBuilder: (_, __) => const Divider(height: 20),
-                    itemCount: events.length,
+                    itemCount: groupedEvents.length,
                   ),
                 ),
               ],

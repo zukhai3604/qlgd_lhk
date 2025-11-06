@@ -5,8 +5,6 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:qlgd_lhk/common/widgets/tlu_app_bar.dart';
 
-// ✅ Import ĐÚNG từ module LEAVE (đừng dùng đường dẫn tương đối)
-import 'package:qlgd_lhk/features/lecturer/leave/model/api/leave_api.dart';
 import 'package:qlgd_lhk/features/lecturer/makeup/model/api/makeup_api.dart';
 
 /// Trang chọn các đơn nghỉ đã được duyệt để đăng ký dạy bù.
@@ -20,7 +18,6 @@ class ChooseApprovedLeavePage extends StatefulWidget {
 }
 
 class _ChooseApprovedLeavePageState extends State<ChooseApprovedLeavePage> {
-  final _leaveApi = LecturerLeaveApi();
   final _makeupApi = LecturerMakeupApi();
 
   bool _loading = true;
@@ -443,7 +440,7 @@ class _ChooseApprovedLeavePageState extends State<ChooseApprovedLeavePage> {
 class _LeaveItemTile extends StatelessWidget {
   final Map<String, dynamic> data;
   final VoidCallback onTap;
-  const _LeaveItemTile({super.key, required this.data, required this.onTap});
+  const _LeaveItemTile({required this.data, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -466,13 +463,19 @@ class _LeaveItemTile extends StatelessWidget {
     final hasTime =
         timeRange.isNotEmpty && timeRange != '--:-- - --:--';
 
+    // Tất cả buổi nghỉ đã được duyệt đều hiển thị màu xanh và text "Buổi nghỉ đã duyệt"
+    final borderColor = Colors.green.shade300;
+    final statusColor = Colors.green.shade700;
+    final statusText = 'Buổi nghỉ đã duyệt';
+    final statusIcon = Icons.check_circle;
+
     return Card(
       elevation: 0,
       margin: const EdgeInsets.only(bottom: 12),
       color: Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.green.shade300, width: 1.5),
+        side: BorderSide(color: borderColor, width: 1.5),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -482,12 +485,11 @@ class _LeaveItemTile extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ===== BÊN TRÁI: Môn, ngày, phòng, lớp =====
+              // BÊN TRÁI
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Tên môn
                     Text(
                       subject,
                       style: tt.titleLarge?.copyWith(
@@ -504,6 +506,8 @@ class _LeaveItemTile extends StatelessWidget {
                         style: tt.bodyMedium?.copyWith(
                           color: Colors.grey.shade700,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     if (room.isNotEmpty && room != '-')
                       Text(
@@ -511,6 +515,8 @@ class _LeaveItemTile extends StatelessWidget {
                         style: tt.bodyMedium?.copyWith(
                           color: Colors.grey.shade700,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     if (className.isNotEmpty || cohort.isNotEmpty)
                       Text(
@@ -519,38 +525,46 @@ class _LeaveItemTile extends StatelessWidget {
                         style: tt.bodyMedium?.copyWith(
                           color: Colors.grey.shade700,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
                   ],
                 ),
               ),
 
-              // ===== BÊN PHẢI: Trạng thái + giờ + hint =====
+              const SizedBox(width: 12),
+
+              // BÊN PHẢI
               SizedBox(
-                height: 80,
+                width: 140,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    // trạng thái
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 2,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      alignment: WrapAlignment.end,
                       children: [
                         Text(
-                          'Buổi đã duyệt nghỉ',
+                          statusText,
                           style: tt.bodySmall?.copyWith(
-                            color: Colors.green.shade700,
+                            color: statusColor,
                             fontWeight: FontWeight.w500,
                           ),
+                          textAlign: TextAlign.right,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(width: 4),
                         Icon(
-                          Icons.check_circle,
+                          statusIcon,
                           size: 16,
-                          color: Colors.green.shade700,
+                          color: statusColor,
                         ),
                       ],
                     ),
-                    // giờ to
+                    const SizedBox(height: 6),
                     if (hasTime)
                       Text(
                         timeRange,
@@ -558,17 +572,21 @@ class _LeaveItemTile extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                           color: Colors.grey.shade900,
                         ),
-                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.right,
                         maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       )
                     else
                       const SizedBox(height: 20),
-                    // hint
+                    const SizedBox(height: 4),
                     Text(
                       'Bấm để đăng ký dạy bù',
                       style: tt.bodySmall?.copyWith(
                         color: Colors.grey.shade500,
                       ),
+                      textAlign: TextAlign.right,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -667,17 +685,17 @@ extension _StringExt on String {
 }
 
 String _classNameOf(Map<String, dynamic> s) {
-  // Ưu tiên từ assignment.classUnit
+  // Ưu tiên code thay vì name
   final a = s['assignment'] as Map?;
   if (a != null) {
-    var v = _pickObj(a['classUnit'] as Map?, ['name', 'code']);
+    var v = _pickObj(a['classUnit'] as Map?, ['code', 'name']); // code trước
     if (v.isNotEmpty) return v;
-    v = _pickObj(a['class_unit'] as Map?, ['name', 'code']);
+    v = _pickObj(a['class_unit'] as Map?, ['code', 'name']); // code trước
     if (v.isNotEmpty) return v;
   }
 
-  // Fallback từ flat fields
-  return _pick(s, ['class_name', 'class', 'class_code', 'group_name']);
+  // Fallback từ flat fields - ưu tiên code
+  return _pick(s, ['class_code', 'class_name', 'class', 'group_name']);
 }
 
 String _cohortOf(Map<String, dynamic> s) {

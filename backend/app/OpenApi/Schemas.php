@@ -49,7 +49,13 @@ use OpenApi\Annotations as OA;
  *   @OA\Property(
  *     property="assignment",
  *     type="object",
- *     @OA\Property(property="semester_label", type="string", example="2025-2026 HK1"),
+ *     @OA\Property(
+ *       property="semester",
+ *       type="object",
+ *       @OA\Property(property="id", type="integer", example=1),
+ *       @OA\Property(property="code", type="string", example="2025-2026 HK1"),
+ *       @OA\Property(property="name", type="string", example="Học kỳ I 2025-2026")
+ *     ),
  *     @OA\Property(
  *       property="subject",
  *       type="object",
@@ -142,7 +148,12 @@ use OpenApi\Annotations as OA;
  *   @OA\Property(
  *     property="assignment",
  *     type="object",
- *     @OA\Property(property="semester_label", type="string", example="2025-2026 HK1"),
+ *     @OA\Property(
+ *       property="semester",
+ *       type="object",
+ *       @OA\Property(property="code", type="string", example="2025-2026 HK1"),
+ *       @OA\Property(property="name", type="string", example="Học kỳ I 2025-2026")
+ *     ),
  *     @OA\Property(property="subject_name", type="string", example="Cấu trúc dữ liệu"),
  *     @OA\Property(property="class_name", type="string", example="Lớp HP 01")
  *   )

@@ -1,0 +1,140 @@
+﻿Analyzing frontend...                                           
+
+   info - Use 'const' for final variables initialized to a constant value - lib\common\constants\env.dart:56:5 - prefer_const_declarations
+   info - 'surfaceVariant' is deprecated and shouldn't be used. Use surfaceContainerHighest instead. This feature was deprecated after v3.18.0-0.1.pre - lib\common\widgets\info_row.dart:79:43 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\common\widgets\info_row.dart:79:58 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\common\widgets\info_row.dart:80:46 - deprecated_member_use
+   info - 'surfaceVariant' is deprecated and shouldn't be used. Use surfaceContainerHighest instead. This feature was deprecated after v3.18.0-0.1.pre - lib\common\widgets\standard_card.dart:54:18 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\common\widgets\standard_card.dart:54:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\common\widgets\standard_card.dart:66:39 - deprecated_member_use
+warning - Unused import: '../constants/app_design.dart' - lib\common\widgets\status_chip.dart:2:8 - unused_import
+   info - Use 'const' with the constructor to improve performance - lib\common\widgets\status_chip.dart:13:7 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\common\widgets\status_chip.dart:16:7 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\common\widgets\status_chip.dart:19:7 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\common\widgets\status_chip.dart:22:7 - prefer_const_constructors
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\common\widgets\status_chip.dart:72:30 - deprecated_member_use
+warning - Unused import: 'package:flutter/foundation.dart' - lib\core\api_client.dart:2:8 - unused_import
+   info - Use 'const' with the constructor to improve performance - lib\features\attendance\view\attendance_page.dart:9:12 - prefer_const_constructors
+warning - Unused import: 'package:go_router/go_router.dart' - lib\features\auth\view\login_page.dart:3:8 - unused_import
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\lecturer\account\lecturer_account_page.dart:508:50 - use_build_context_synchronously
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\lecturer\account\lecturer_account_page.dart:717:23 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\lecturer\account\lecturer_account_page.dart:772:25 - deprecated_member_use
+   info - 'value' is deprecated and shouldn't be used. Use initialValue instead. This will set the initial value for the form field. This feature was deprecated after v3.33.0-1.0.pre - lib\features\lecturer\account\lecturer_account_page.dart:794:25 - deprecated_member_use
+warning - The value of the local variable 'res' isn't used - lib\features\lecturer\account\lecturer_account_page.dart:859:49 - unused_local_variable
+   info - Don't use 'BuildContext's across async gaps, guarded by an unrelated 'mounted' check - lib\features\lecturer\account\lecturer_account_page.dart:872:48 - use_build_context_synchronously
+   info - Don't invoke 'print' in production code - lib\features\lecturer\attendance\attendance_api.dart:34:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\lecturer\attendance\attendance_api.dart:35:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\lecturer\attendance\attendance_api.dart:36:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\lecturer\attendance\attendance_api.dart:37:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\lecturer\attendance\attendance_api.dart:40:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\lecturer\attendance\attendance_api.dart:64:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\lecturer\attendance\attendance_api.dart:65:7 - avoid_print
+warning - Unused import: 'package:go_router/go_router.dart' - lib\features\lecturer\attendance\attendance_page.dart:2:8 - unused_import
+warning - The declaration '_showNoteDialog' isn't referenced - lib\features\lecturer\attendance\attendance_page.dart:222:8 - unused_element
+   info - Use 'const' with the constructor to improve performance - lib\features\lecturer\attendance\attendance_page.dart:269:15 - prefer_const_constructors
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\lecturer\attendance\attendance_page.dart:530:49 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\lecturer\attendance\attendance_page.dart:531:49 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\lecturer\attendance\attendance_page.dart:545:49 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\lecturer\attendance\attendance_page.dart:546:49 - deprecated_member_use
+   info - 'groupValue' is deprecated and shouldn't be used. Use a RadioGroup ancestor to manage group value instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\lecturer\attendance\attendance_page.dart:560:49 - deprecated_member_use
+   info - 'onChanged' is deprecated and shouldn't be used. Use RadioGroup to handle value change instead. This feature was deprecated after v3.32.0-0.0.pre - lib\features\lecturer\attendance\attendance_page.dart:561:49 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\lecturer\attendance\attendance_page.dart:590:49 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\lecturer\home\presentation\view\lecturer_home_page.dart:204:33 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\lecturer\home\presentation\view\lecturer_home_page.dart:286:26 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\lecturer\home\presentation\view\lecturer_home_page.dart:288:45 - deprecated_member_use
+   info - 'surfaceVariant' is deprecated and shouldn't be used. Use surfaceContainerHighest instead. This feature was deprecated after v3.18.0-0.1.pre - lib\features\lecturer\home\presentation\view\lecturer_home_page.dart:317:19 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\lecturer\home\presentation\view\lecturer_home_page.dart:317:34 - deprecated_member_use
+   info - The local variable '_safeTime' starts with an underscore - lib\features\lecturer\home\presentation\view\lecturer_home_page.dart:339:12 - no_leading_underscores_for_local_identifiers
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\lecturer\home\presentation\view\lecturer_home_page.dart:385:32 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\lecturer\home\presentation\view\lecturer_home_page.dart:391:39 - deprecated_member_use
+warning - The operand can't be 'null', so the condition is always 'false' - lib\features\lecturer\home\presentation\view_model\home_view_model.dart:179:21 - unnecessary_null_comparison
+warning - The operand can't be 'null', so the condition is always 'false' - lib\features\lecturer\home\presentation\view_model\home_view_model.dart:179:42 - unnecessary_null_comparison
+   info - The local variable '_startOf' starts with an underscore - lib\features\lecturer\leave\model\repositories\leave_choose_session_repository.dart:32:17 - no_leading_underscores_for_local_identifiers
+warning - Unnecessary type check; the result is always 'true' - lib\features\lecturer\leave\model\repositories\leave_choose_session_repository.dart:92:13 - unnecessary_type_check
+   info - Use 'const' with the constructor to improve performance - lib\features\lecturer\leave\model\repositories\leave_history_repository.dart:76:14 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\lecturer\leave\model\repositories\leave_history_repository.dart:98:16 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\lecturer\leave\model\repositories\leave_repository.dart:43:14 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\lecturer\leave\model\repositories\leave_repository.dart:71:16 - prefer_const_constructors
+warning - The declaration '_classLineOf' isn't referenced - lib\features\lecturer\leave\presentation\view\choose_session_page.dart:391:17 - unused_element
+warning - The value of the local variable 'cs' isn't used - lib\features\lecturer\leave\presentation\view\leave_history_page.dart:112:11 - unused_local_variable
+warning - Unused import: 'package:intl/intl.dart' - lib\features\lecturer\leave\presentation\view_model\leave_history_view_model.dart:2:8 - unused_import
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\lecturer\leave\presentation\widgets\leave_detail_dialog.dart:33:53 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\lecturer\leave\presentation\widgets\leave_detail_dialog.dart:92:39 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\lecturer\leave\presentation\widgets\leave_detail_dialog.dart:94:58 - deprecated_member_use
+warning - The member 'state' can only be used within 'package:state_notifier/state_notifier.dart' or a test - lib\features\lecturer\leave\presentation\widgets\leave_detail_dialog.dart:184:31 - invalid_use_of_visible_for_testing_member
+warning - The member 'state' can only be used within instance members of subclasses of 'StateNotifier' - lib\features\lecturer\leave\presentation\widgets\leave_detail_dialog.dart:184:31 - invalid_use_of_protected_member
+   info - Don't invoke 'print' in production code - lib\features\lecturer\makeup\model\api\makeup_api.dart:28:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\lecturer\makeup\model\api\makeup_api.dart:29:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\lecturer\makeup\model\api\makeup_api.dart:31:9 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\lecturer\makeup\model\api\makeup_api.dart:33:11 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\lecturer\makeup\model\api\makeup_api.dart:38:7 - avoid_print
+   info - Don't invoke 'print' in production code - lib\features\lecturer\makeup\model\api\makeup_api.dart:39:7 - avoid_print
+warning - The stack trace variable 'stackTrace' isn't used and can be removed - lib\features\lecturer\makeup\model\api\makeup_api.dart:132:17 - unused_catch_stack
+   info - Don't invoke 'print' in production code - lib\features\lecturer\makeup\model\api\makeup_api.dart:156:7 - avoid_print
+   info - Use 'const' with the constructor to improve performance - lib\features\lecturer\makeup\model\repositories\makeup_repository.dart:65:14 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\lecturer\makeup\model\repositories\makeup_repository.dart:87:16 - prefer_const_constructors
+warning - The value of the field '_leaveApi' isn't used - lib\features\lecturer\makeup\presentation\view\choose_session_page.dart:23:9 - unused_field
+warning - A value for optional parameter 'key' isn't ever given - lib\features\lecturer\makeup\presentation\view\choose_session_page.dart:446:31 - unused_element_parameter
+warning - The value of the local variable 'cs' isn't used - lib\features\lecturer\makeup\presentation\view\makeup_history_page.dart:112:11 - unused_local_variable
+warning - The stack trace variable 'stackTrace' isn't used and can be removed - lib\features\lecturer\makeup\presentation\view\makeup_page.dart:89:17 - unused_catch_stack
+warning - Unused import: 'package:flutter/material.dart' - lib\features\lecturer\makeup\presentation\view_model\makeup_history_view_model.dart:1:8 - unused_import
+warning - The value of the local variable 'room' isn't used - lib\features\lecturer\makeup\presentation\view_model\makeup_history_view_model.dart:223:13 - unused_local_variable
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\presentation\view_model\makeup_history_view_model.dart:374:68 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\presentation\view_model\makeup_history_view_model.dart:375:64 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\presentation\view_model\makeup_history_view_model.dart:386:70 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\presentation\view_model\makeup_history_view_model.dart:389:66 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\presentation\view_model\makeup_history_view_model.dart:395:70 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\presentation\view_model\makeup_history_view_model.dart:398:66 - invalid_null_aware_operator
+warning - The '!' will have no effect because the receiver can't be null - lib\features\lecturer\makeup\presentation\view_model\makeup_view_model.dart:64:29 - unnecessary_non_null_assertion
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\lecturer\makeup\presentation\widgets\makeup_detail_dialog.dart:215:39 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\lecturer\makeup\presentation\widgets\makeup_detail_dialog.dart:218:41 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\lecturer\makeup\presentation\widgets\makeup_detail_dialog.dart:241:40 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\lecturer\makeup\presentation\widgets\makeup_detail_dialog.dart:244:42 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\lecturer\makeup\presentation\widgets\makeup_detail_dialog.dart:267:37 - deprecated_member_use
+   info - 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss - lib\features\lecturer\makeup\presentation\widgets\makeup_detail_dialog.dart:270:39 - deprecated_member_use
+warning - The member 'state' can only be used within 'package:state_notifier/state_notifier.dart' or a test - lib\features\lecturer\makeup\presentation\widgets\makeup_detail_dialog.dart:364:31 - invalid_use_of_visible_for_testing_member
+warning - The member 'state' can only be used within instance members of subclasses of 'StateNotifier' - lib\features\lecturer\makeup\presentation\widgets\makeup_detail_dialog.dart:364:31 - invalid_use_of_protected_member
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:10:61 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:18:63 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:29:56 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:46:64 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:65:66 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:71:51 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:72:51 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:77:61 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:91:58 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:105:55 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:113:35 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:114:32 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:120:43 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:125:47 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:136:66 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:137:62 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:145:51 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:148:47 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:155:49 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:158:45 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:206:68 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:207:64 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:216:70 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:219:66 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:251:66 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:252:62 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:262:71 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:265:67 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:273:71 - invalid_null_aware_operator
+warning - The receiver can't be 'null' because of short-circuiting, so the null-aware operator '?.' can't be used - lib\features\lecturer\makeup\utils\makeup_data_helpers.dart:276:67 - invalid_null_aware_operator
+warning - Unused import: '../attendance/attendance_page.dart' - lib\features\lecturer\schedule\detail_page.dart:7:8 - unused_import
+   info - Use 'const' with the constructor to improve performance - lib\features\lecturer\schedule\detail_page.dart:118:14 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\lecturer\schedule\presentation\view\schedule_detail_page.dart:43:14 - prefer_const_constructors
+warning - The declaration '_isSameDay' isn't referenced - lib\features\lecturer\schedule\presentation\view\weekly_schedule_page.dart:155:8 - unused_element
+   info - Use 'const' with the constructor to improve performance - lib\features\lecturer\schedule\presentation\view\weekly_schedule_page.dart:186:14 - prefer_const_constructors
+   info - Use 'const' with the constructor to improve performance - lib\features\lecturer\schedule\presentation\view\weekly_schedule_page.dart:204:14 - prefer_const_constructors
+
+flutter : 130 issues found. (ran in 2.0s)
+At C:\Users\KHAI LON\AppData\Local\Temp\ps-script-4f1a63b3-d95a-4169-a7cd-06c631ef649f.ps1:83 char:64
++ ... \New folder (2)\projectcuoiki\frontend"; flutter analyze 2>&1 | Out-F ...
++                                              ~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (130 issues found. (ran in 2.0s):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 

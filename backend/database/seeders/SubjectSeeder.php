@@ -53,7 +53,6 @@ class SubjectSeeder extends Seeder
             Subject::updateOrCreate(
                 ['code' => $payload['code']],
                 $payload + [
-                    'semester_label' => '2025-2026 HK1',
                     'department_id' => $itDepartment->id,
                 ]
             );

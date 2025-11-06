@@ -66,11 +66,15 @@ class HomeViewModel extends StateNotifier<HomeState> {
             success: (statsData) {
               final schedule = scheduleData['schedule'] as List<Map<String, dynamic>>;
               final groupedSchedule = _groupConsecutiveSessions(schedule);
+              
+              // Lấy semester name từ stats nếu có
+              final semesterName = statsData['semester']?['name']?.toString() ?? 'Học kỳ I 2025';
 
               state = state.copyWith(
                 isLoading: false,
                 todaySchedule: groupedSchedule,
                 stats: statsData,
+                selectedSemester: semesterName,
               );
             },
             failure: (error) {
@@ -176,7 +180,7 @@ class HomeViewModel extends StateNotifier<HomeState> {
         final lastEnd = _parseTimeToMinutes(lastEndStr);
         final nextStart = _parseTimeToMinutes(nextStartStr);
 
-        if (lastEnd == null || nextStart == null) break;
+        if (lastEnd == 0 || nextStart == 0) break;
 
         final gap = nextStart - lastEnd;
         if (gap <= 60 && gap >= 0) {

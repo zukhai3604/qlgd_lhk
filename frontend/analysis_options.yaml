@@ -38,3 +38,5 @@ analyzer:
     - "lib_restored/**"
     - "**/*.bak"
     - "**/*.backup.dart"
+    - "**/AppData/**"
+    - "**/History/**"

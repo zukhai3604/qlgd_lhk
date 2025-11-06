@@ -89,12 +89,10 @@ class LeaveChooseSessionRepositoryImpl implements LeaveChooseSessionRepository {
     for (final id in needIds) {
       try {
         final detail = await _scheduleApi.getDetail(id);
-        if (detail is Map) {
-          final idx = list.indexWhere((e) => int.tryParse('${e['id']}') == id);
-          if (idx != -1) {
-            final merged = {...list[idx], ...Map<String, dynamic>.from(detail)};
-            list[idx] = merged;
-          }
+        final idx = list.indexWhere((e) => int.tryParse('${e['id']}') == id);
+        if (idx != -1) {
+          final merged = {...list[idx], ...Map<String, dynamic>.from(detail)};
+          list[idx] = merged;
         }
       } catch (_) {
         // bỏ qua nếu fetch lỗi

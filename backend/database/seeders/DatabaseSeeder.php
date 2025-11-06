@@ -24,6 +24,7 @@ class DatabaseSeeder extends Seeder
             ClassUnitSeeder::class,
             ClassStudentSeeder::class,
 
+            SemesterSeeder::class, // Phải chạy trước AssignmentSeeder
             AssignmentSeeder::class,
             ScheduleSeeder::class,
 

@@ -14,7 +14,6 @@ return new class extends Migration {
             $table->integer('total_sessions');
             $table->integer('theory_hours')->default(0);
             $table->integer('practice_hours')->default(0);
-            $table->string('semester_label',50)->nullable();
             $table->foreignId('department_id')->nullable()->constrained('departments')->nullOnDelete();
             $table->timestamps();
             $table->index('department_id');

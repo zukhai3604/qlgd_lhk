@@ -101,8 +101,11 @@ class ScheduleItem {
 
     final className = json['class_name'] ??
         json['className'] ??
-        json['assignment']?['classUnit']?['name'] ??
         json['assignment']?['classUnit']?['code'] ??
+        json['assignment']?['classUnit']?['name'] ??
+        json['assignment']?['class_unit']?['code'] ??
+        json['assignment']?['class_unit']?['name'] ??
+        json['class_code'] ??
         '';
 
     final room = json['room'] is Map

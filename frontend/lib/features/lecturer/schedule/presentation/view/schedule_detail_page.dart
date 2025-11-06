@@ -5,11 +5,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qlgd_lhk/common/widgets/tlu_app_bar.dart';
 import 'package:qlgd_lhk/features/lecturer/schedule/presentation/view_model/schedule_detail_view_model.dart';
-import 'package:qlgd_lhk/features/lecturer/attendance/attendance_page.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-class LecturerScheduleDetailPage extends ConsumerWidget {
+class LecturerScheduleDetailPage extends ConsumerStatefulWidget {
   final int sessionId;
-  final Map<String, dynamic>? sessionData; // Session data đã gộp từ home page
+  final Map<String, dynamic>? sessionData;
   
   const LecturerScheduleDetailPage({
     super.key,
@@ -18,9 +19,24 @@ class LecturerScheduleDetailPage extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(scheduleDetailViewModelProvider(sessionId));
-    final viewModel = ref.read(scheduleDetailViewModelProvider(sessionId).notifier);
+  ConsumerState<LecturerScheduleDetailPage> createState() => _LecturerScheduleDetailPageState();
+}
+
+class _LecturerScheduleDetailPageState extends ConsumerState<LecturerScheduleDetailPage> {
+  final TextEditingController _newMaterialCtrl = TextEditingController();
+  final TextEditingController _noteCtrl = TextEditingController();
+
+  @override
+  void dispose() {
+    _newMaterialCtrl.dispose();
+    _noteCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = ref.watch(scheduleDetailViewModelProvider(widget.sessionId));
+    final viewModel = ref.read(scheduleDetailViewModelProvider(widget.sessionId).notifier);
     final theme = Theme.of(context);
 
     if (state.isLoading) {
@@ -90,10 +106,10 @@ class LecturerScheduleDetailPage extends ConsumerWidget {
     String start = '';
     String end = '';
     
-    if (sessionData != null) {
+    if (widget.sessionData != null) {
       // Nếu có session data đã gộp, dùng thời gian đã gộp (cả buổi)
-      final mergedStart = sessionData!['start_time'];
-      final mergedEnd = sessionData!['end_time'];
+      final mergedStart = widget.sessionData!['start_time'];
+      final mergedEnd = widget.sessionData!['end_time'];
       if (mergedStart != null) start = _hhmm(mergedStart);
       if (mergedEnd != null) end = _hhmm(mergedEnd);
     }
@@ -116,8 +132,7 @@ class LecturerScheduleDetailPage extends ConsumerWidget {
             : r?.toString() ?? '')
         .trim();
 
-    final TextEditingController _newMaterialCtrl = TextEditingController();
-    final TextEditingController _noteCtrl = TextEditingController();
+    // Khởi tạo note controller với giá trị từ state
     if (state.note.isNotEmpty && _noteCtrl.text.isEmpty) {
       _noteCtrl.text = state.note;
     }
@@ -144,10 +159,10 @@ class LecturerScheduleDetailPage extends ConsumerWidget {
                       child: FilledButton.icon(
                         onPressed: () {
                           // Kiểm tra xem có _grouped_session_ids không (buổi học đã được gộp)
-                          final groupedIds = sessionData?['_grouped_session_ids'] as List?;
+                          final groupedIds = widget.sessionData?['_grouped_session_ids'] as List?;
                           
                           context.push(
-                            '/attendance/$sessionId',
+                            '/attendance/${widget.sessionId}',
                             extra: {
                               'subjectName': subject,
                               'className': className,
@@ -206,6 +221,36 @@ class LecturerScheduleDetailPage extends ConsumerWidget {
                           ),
                         ),
                         const SizedBox(width: 8),
+                        // Nút chọn file
+                        IconButton(
+                          onPressed: () async {
+                            final title = _newMaterialCtrl.text.trim();
+                            if (title.isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Vui lòng nhập tiêu đề trước')),
+                              );
+                              return;
+                            }
+
+                            FilePickerResult? result = await FilePicker.platform.pickFiles(
+                              type: FileType.any,
+                              allowMultiple: false,
+                            );
+
+                            if (result != null && result.files.single.path != null) {
+                              final filePath = result.files.single.path!;
+                              final success = await viewModel.uploadMaterial(title, filePath);
+                              if (success && context.mounted) {
+                                _newMaterialCtrl.clear();
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Đã upload tài liệu')),
+                                );
+                              }
+                            }
+                          },
+                          icon: const Icon(Icons.attach_file),
+                          tooltip: 'Chọn file',
+                        ),
                         FilledButton(
                           onPressed: () async {
                             final title = _newMaterialCtrl.text.trim();
@@ -380,25 +425,35 @@ class LecturerScheduleDetailPage extends ConsumerWidget {
 
     if (!context.mounted) return;
 
+    // Reload để lấy state mới nhất
+    await viewModel.refresh();
+    final updatedState = ref.read(scheduleDetailViewModelProvider(widget.sessionId));
+
+    if (!context.mounted) return;
+
     if (success) {
-      final finalStatus = viewModel.state.status.toLowerCase();
+      final finalStatus = updatedState.status.toLowerCase();
       final message = finalStatus == 'done'
           ? 'Buổi học đã được kết thúc (ĐÃ HOÀN THÀNH).'
           : 'Buổi học đã được kết thúc (ĐÃ HUỶ).';
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: finalStatus == 'done' ? Colors.green : Colors.red,
-        ),
-      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: finalStatus == 'done' ? Colors.green : Colors.red,
+          ),
+        );
+      }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Lỗi: ${viewModel.state.error ?? "Không thể kết thúc buổi học"}'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi: ${updatedState.error ?? "Không thể kết thúc buổi học"}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -439,7 +494,14 @@ class LecturerScheduleDetailPage extends ConsumerWidget {
         subtitle:
             (subtitle != null && subtitle.isNotEmpty) ? Text(subtitle) : null,
         trailing: hasUrl ? const Icon(Icons.open_in_new) : null,
-        onTap: hasUrl ? () {} : null,
+        onTap: hasUrl
+            ? () async {
+                final uri = Uri.parse(url!);
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              }
+            : null,
         dense: true,
       ),
     );

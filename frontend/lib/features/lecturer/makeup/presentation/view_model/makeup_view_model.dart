@@ -61,7 +61,7 @@ class MakeupViewModel extends StateNotifier<MakeupState> {
     
     // Initialize từ contextData nếu có
     if (_contextData != null) {
-      final d = _contextData!;
+      final d = _contextData;
       final roomId = d['room_id'] ?? d['room']?['id'];
       if (roomId != null) {
         state = state.copyWith(selectedRoomId: int.tryParse(roomId.toString()));

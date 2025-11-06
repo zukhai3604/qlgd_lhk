@@ -181,7 +181,6 @@ class LeaveDetailDialog extends StatelessWidget {
 
       if (!context.mounted) return;
 
-      final state = viewModel.state;
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -194,7 +193,7 @@ class LeaveDetailDialog extends StatelessWidget {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Lỗi khi hủy: ${state.error ?? "Không xác định"}')),
+          const SnackBar(content: Text('Lỗi khi hủy đơn xin nghỉ')),
         );
       }
     }

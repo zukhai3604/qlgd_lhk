@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import 'package:qlgd_lhk/common/widgets/tlu_app_bar.dart';
 import 'attendance_api.dart';
 
@@ -217,47 +216,6 @@ class _LecturerAttendancePageState extends State<LecturerAttendancePage> {
         setState(() => _saving = false);
       }
     }
-  }
-
-  void _showNoteDialog(int studentId, String studentName) {
-    final controller = TextEditingController(
-      text: _attendanceNotes[studentId] ?? '',
-    );
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('Ghi chú cho $studentName'),
-        content: TextField(
-          controller: controller,
-          maxLines: 3,
-          decoration: const InputDecoration(
-            hintText: 'Nhập ghi chú (nếu có)',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Hủy'),
-          ),
-          FilledButton(
-            onPressed: () {
-              final note = controller.text.trim();
-              setState(() {
-                if (note.isEmpty) {
-                  _attendanceNotes.remove(studentId);
-                } else {
-                  _attendanceNotes[studentId] = note;
-                }
-              });
-              Navigator.pop(ctx);
-            },
-            child: const Text('Lưu'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
@@ -498,6 +456,8 @@ class _LecturerAttendancePageState extends State<LecturerAttendancePage> {
                                                 style: theme.textTheme.titleMedium?.copyWith(
                                                   fontWeight: FontWeight.w600,
                                                 ),
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
                                               ),
                                               const SizedBox(height: 4),
                                               Text(
@@ -518,8 +478,7 @@ class _LecturerAttendancePageState extends State<LecturerAttendancePage> {
                                         ),
                                         
                                         // Radio Buttons
-                                        SizedBox(
-                                          width: 120,
+                                        Flexible(
                                           child: Column(
                                             mainAxisSize: MainAxisSize.min,
                                             crossAxisAlignment: CrossAxisAlignment.start,

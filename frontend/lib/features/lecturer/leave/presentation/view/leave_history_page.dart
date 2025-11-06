@@ -18,16 +18,20 @@ class LeaveHistoryPage extends ConsumerWidget {
     final tt = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: const TluAppBar(title: 'Lịch sử xin nghỉ'),
+      appBar: const TluAppBar(),
       body: state.isLoading
           ? const Center(child: CircularProgressIndicator())
           : state.error != null
-              ? _ErrorBox(message: state.error!, onRetry: () => viewModel.refresh())
+              ? _ErrorBox(
+                  message: state.error!,
+                  onRetry: () => viewModel.refresh(),
+                )
               : Column(
                   children: [
                     // Filter bar
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
                         color: Colors.grey[100],
                         boxShadow: [
@@ -42,13 +46,37 @@ class LeaveHistoryPage extends ConsumerWidget {
                         scrollDirection: Axis.horizontal,
                         child: Row(
                           children: [
-                            _buildFilterChip(context, 'Tất cả', null, state.selectedStatus, viewModel),
+                            _buildFilterChip(
+                              context,
+                              'Tất cả',
+                              null,
+                              state.selectedStatus,
+                              viewModel,
+                            ),
                             const SizedBox(width: 8),
-                            _buildFilterChip(context, 'Chờ duyệt', 'PENDING', state.selectedStatus, viewModel),
+                            _buildFilterChip(
+                              context,
+                              'Chờ duyệt',
+                              'PENDING',
+                              state.selectedStatus,
+                              viewModel,
+                            ),
                             const SizedBox(width: 8),
-                            _buildFilterChip(context, 'Đã duyệt', 'APPROVED', state.selectedStatus, viewModel),
+                            _buildFilterChip(
+                              context,
+                              'Đã duyệt',
+                              'APPROVED',
+                              state.selectedStatus,
+                              viewModel,
+                            ),
                             const SizedBox(width: 8),
-                            _buildFilterChip(context, 'Từ chối', 'REJECTED', state.selectedStatus, viewModel),
+                            _buildFilterChip(
+                              context,
+                              'Từ chối',
+                              'REJECTED',
+                              state.selectedStatus,
+                              viewModel,
+                            ),
                           ],
                         ),
                       ),
@@ -60,21 +88,29 @@ class LeaveHistoryPage extends ConsumerWidget {
                         child: Column(
                           children: [
                             Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                              padding:
+                                  const EdgeInsets.fromLTRB(16, 12, 16, 8),
                               child: Text(
                                 'Danh sách các đơn xin nghỉ đã gửi. Nhấn vào đơn để xem chi tiết.',
-                                style: tt.bodySmall?.copyWith(color: cs.onSurfaceVariant),
+                                style: tt.bodySmall
+                                    ?.copyWith(color: cs.onSurfaceVariant),
                               ),
                             ),
                             Expanded(
                               child: state.filteredItems.isEmpty
                                   ? const _EmptyBox()
                                   : ListView.builder(
-                                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                                      padding: const EdgeInsets.fromLTRB(
+                                          16, 0, 16, 16),
                                       itemCount: state.filteredItems.length,
                                       itemBuilder: (context, i) {
-                                        final item = state.filteredItems[i];
-                                        return _buildLeaveRequestCard(context, item, viewModel);
+                                        final item =
+                                            state.filteredItems[i];
+                                        return _buildLeaveRequestCard(
+                                          context,
+                                          item,
+                                          viewModel,
+                                        );
                                       },
                                     ),
                             ),
@@ -95,12 +131,14 @@ class LeaveHistoryPage extends ConsumerWidget {
     LeaveHistoryViewModel viewModel,
   ) {
     final isSelected = selectedStatus == status;
+    final primary = Theme.of(context).primaryColor;
+
     return FilterChip(
       label: Text(label),
       selected: isSelected,
       onSelected: (_) => viewModel.filterByStatus(status),
-      selectedColor: Theme.of(context).primaryColor.withOpacity(0.2),
-      checkmarkColor: Theme.of(context).primaryColor,
+      selectedColor: primary.withOpacity(0.2),
+      checkmarkColor: primary,
     );
   }
 
@@ -109,21 +147,33 @@ class LeaveHistoryPage extends ConsumerWidget {
     Map<String, dynamic> item,
     LeaveHistoryViewModel viewModel,
   ) {
-    final cs = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
 
     final subject = (item['subject'] ?? 'Môn học').toString();
-    final className = (item['class_name'] ?? '').toString();
-    final date = DateFormatter.formatDDMMYYYY(item['date']?.toString());
+    // Lấy mã lớp (code) thay vì tên lớp
+    String className = '';
+    if (item['assignment'] is Map) {
+      final assignment = item['assignment'] as Map;
+      if (assignment['class_unit'] is Map) {
+        final classUnit = assignment['class_unit'] as Map;
+        className = (classUnit['code'] ?? classUnit['class_code'] ?? '').toString();
+      }
+    }
+    if (className.isEmpty) {
+      className = (item['class_code'] ?? item['class_name'] ?? '').toString();
+    }
+    final date =
+        DateFormatter.formatDDMMYYYY(item['date']?.toString());
     final start = (item['start_time'] ?? '--:--').toString();
     final end = (item['end_time'] ?? '--:--').toString();
     final room = (item['room'] ?? '').toString();
-    final statusInfo = _getStatus(item['status']?.toString() ?? '');
+    final statusInfo =
+        _getStatus(item['status']?.toString() ?? '');
 
-    String timeLine = '$start - $end';
+    final statusStr =
+        item['status']?.toString().toUpperCase() ?? '';
+    final timeLine = '$start - $end';
     final hasTime = start != '--:--' && end != '--:--';
-
-    final statusStr = item['status']?.toString().toUpperCase() ?? '';
 
     // Màu viền + icon + text theo trạng thái
     Color borderColor;
@@ -179,12 +229,11 @@ class LeaveHistoryPage extends ConsumerWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ===== BÊN TRÁI: Thông tin môn / lớp / ngày / phòng =====
+              // BÊN TRÁI
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Tên môn học (in đậm)
                     Text(
                       subject,
                       style: tt.titleLarge?.copyWith(
@@ -195,38 +244,51 @@ class LeaveHistoryPage extends ConsumerWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 8),
-                    // Lớp
                     if (className.isNotEmpty)
                       Text(
                         'Lớp: $className',
-                        style: tt.bodyMedium?.copyWith(color: Colors.grey.shade700),
+                        style: tt.bodyMedium?.copyWith(
+                          color: Colors.grey.shade700,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    // Phòng học
                     if (room.isNotEmpty)
                       Text(
                         'Phòng học: $room',
-                        style: tt.bodyMedium?.copyWith(color: Colors.grey.shade700),
+                        style: tt.bodyMedium?.copyWith(
+                          color: Colors.grey.shade700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    // Ngày
                     if (date.isNotEmpty)
                       Text(
                         'Ngày: $date',
-                        style: tt.bodyMedium?.copyWith(color: Colors.grey.shade700),
+                        style: tt.bodyMedium?.copyWith(
+                          color: Colors.grey.shade700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                   ],
                 ),
               ),
 
-              // ===== BÊN PHẢI: Trạng thái + thời gian + hint =====
+              const SizedBox(width: 12),
+
+              // BÊN PHẢI
               SizedBox(
-                height: 80,
+                width: 140,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Status indicator
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 2,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      alignment: WrapAlignment.end,
                       children: [
                         Text(
                           statusText,
@@ -234,13 +296,18 @@ class LeaveHistoryPage extends ConsumerWidget {
                             color: statusColor,
                             fontWeight: FontWeight.w500,
                           ),
+                          textAlign: TextAlign.right,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(width: 4),
-                        Icon(statusIcon, size: 16, color: statusColor),
+                        Icon(
+                          statusIcon,
+                          size: 16,
+                          color: statusColor,
+                        ),
                       ],
                     ),
-
-                    // Thời gian
+                    const SizedBox(height: 6),
                     if (hasTime)
                       Text(
                         timeLine,
@@ -248,19 +315,21 @@ class LeaveHistoryPage extends ConsumerWidget {
                           fontWeight: FontWeight.bold,
                           color: Colors.grey.shade900,
                         ),
-                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.right,
                         maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       )
                     else
                       const SizedBox(height: 20),
-
-                    // Hint (luôn hiển thị)
+                    const SizedBox(height: 4),
                     Text(
                       'Bấm vào đây để xem chi tiết',
                       style: tt.bodySmall?.copyWith(
                         color: Colors.grey.shade500,
-                        fontWeight: FontWeight.normal,
                       ),
+                      textAlign: TextAlign.right,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ],
                 ),
@@ -290,22 +359,33 @@ class _ErrorBox extends StatelessWidget {
   final String message;
   final VoidCallback onRetry;
   const _ErrorBox({required this.message, required this.onRetry});
+
   @override
   Widget build(BuildContext context) {
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
-          const SizedBox(height: 8),
-          Text(message, textAlign: TextAlign.center),
-          const SizedBox(height: 8),
-          FilledButton.icon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh),
-            label: const Text('Thử lại'),
-          ),
-        ]),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.error_outline,
+              size: 48,
+              color: Colors.redAccent,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            FilledButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Thử lại'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -313,6 +393,7 @@ class _ErrorBox extends StatelessWidget {
 
 class _EmptyBox extends StatelessWidget {
   const _EmptyBox();
+
   @override
   Widget build(BuildContext context) {
     return const Center(
@@ -321,7 +402,11 @@ class _EmptyBox extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.history_toggle_off, size: 56, color: Colors.grey),
+            Icon(
+              Icons.history_toggle_off,
+              size: 56,
+              color: Colors.grey,
+            ),
             SizedBox(height: 12),
             Text(
               'Không có đơn xin nghỉ nào.',

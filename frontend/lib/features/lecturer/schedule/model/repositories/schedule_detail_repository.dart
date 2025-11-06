@@ -8,6 +8,7 @@ abstract class ScheduleDetailRepository {
   Future<ScheduleDetailResult<Map<String, dynamic>>> getDetail(int id);
   Future<ScheduleDetailResult<List<Map<String, dynamic>>>> getMaterials(int id);
   Future<ScheduleDetailResult<void>> addMaterial(int sessionId, String title);
+  Future<ScheduleDetailResult<void>> uploadMaterial(int sessionId, String title, String filePath);
   Future<ScheduleDetailResult<void>> submitReport({
     required int sessionId,
     String? status,
@@ -57,6 +58,18 @@ class ScheduleDetailRepositoryImpl implements ScheduleDetailRepository {
     } catch (e) {
       return ScheduleDetailResult.failure(
         Exception('Không thể thêm tài liệu: $e'),
+      );
+    }
+  }
+
+  @override
+  Future<ScheduleDetailResult<void>> uploadMaterial(int sessionId, String title, String filePath) async {
+    try {
+      await _api.uploadMaterial(sessionId, title, filePath);
+      return const ScheduleDetailResult.success(null);
+    } catch (e) {
+      return ScheduleDetailResult.failure(
+        Exception('Không thể upload tài liệu: $e'),
       );
     }
   }

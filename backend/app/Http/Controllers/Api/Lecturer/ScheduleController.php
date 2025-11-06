@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API\Lecturer;
 use App\Http\Controllers\Controller;
 use App\Models\Assignment;
 use App\Models\Schedule;
+use App\Models\Semester;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -90,13 +91,14 @@ class ScheduleController extends Controller
             ->with([
                 'assignment.subject',
                 'assignment.classUnit',
+                'assignment.semester',
                 'room',
                 'timeslot',
             ])
             ->whereHas('assignment', function ($query) use ($lecturerId, $semesterFilter) {
                 $query->where('lecturer_id', $lecturerId);
                 if ($semesterFilter) {
-                    $query->where('semester_label', $semesterFilter);
+                    $query->where('semester_id', $semesterFilter);
                 }
             });
 
@@ -115,6 +117,9 @@ class ScheduleController extends Controller
 
         $semesterOptions = $this->buildSemesterOptions($lecturerId);
         $selectedSemester = $semesterFilter ?: ($semesterOptions->first()['value'] ?? null);
+        
+        // Convert selectedSemester sang string để Flutter parse đúng
+        $selectedSemester = $selectedSemester !== null ? (string) $selectedSemester : null;
 
         $items = (clone $baseQuery)
             ->when(
@@ -216,17 +221,22 @@ class ScheduleController extends Controller
 
     private function buildSemesterOptions(int $lecturerId): Collection
     {
-        $semesters = Assignment::query()
-            ->select('semester_label')
+        // Lấy từ bảng semester thông qua assignments
+        $semesterIds = Assignment::query()
+            ->select('semester_id')
             ->where('lecturer_id', $lecturerId)
-            ->whereNotNull('semester_label')
+            ->whereNotNull('semester_id')
             ->distinct()
-            ->orderBy('semester_label')
-            ->pluck('semester_label');
-
-        return $semesters->map(fn($label) => [
-            'value' => $label,
-            'label' => $label,
+            ->pluck('semester_id');
+        
+        $semesters = Semester::whereIn('id', $semesterIds)
+            ->orderBy('start_date', 'desc')
+            ->get();
+        
+        return $semesters->map(fn($semester) => [
+            'value' => (string) $semester->id, // Convert sang string để Flutter parse đúng
+            'label' => $semester->name,
+            'code' => $semester->code,
         ]);
     }
 
@@ -259,7 +269,12 @@ class ScheduleController extends Controller
             ] : null,
             'assignment' => $assignment ? [
                 'id' => $assignment->id,
-                'semester_label' => $assignment->semester_label,
+                'semester_id' => $assignment->semester_id,
+                'semester' => $assignment->semester ? [
+                    'id' => $assignment->semester->id,
+                    'code' => $assignment->semester->code,
+                    'name' => $assignment->semester->name,
+                ] : null,
                 'subject' => $subject ? [
                     'id' => $subject->id,
                     'code' => $subject->code,

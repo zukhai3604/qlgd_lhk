@@ -86,7 +86,7 @@ class _MakeupPageState extends State<MakeupPage> {
           }
         });
       }
-    } catch (e, stackTrace) {
+    } catch (e) {
       if (mounted) {
         setState(() {
           _loadingRooms = false;

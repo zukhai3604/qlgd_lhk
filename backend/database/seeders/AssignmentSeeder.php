@@ -7,6 +7,7 @@ use App\Models\Assignment;
 use App\Models\ClassUnit;
 use App\Models\Lecturer;
 use App\Models\Subject;
+use App\Models\Semester;
 
 class AssignmentSeeder extends Seeder
 {
@@ -44,6 +45,14 @@ class AssignmentSeeder extends Seeder
             ['subject_code' => 'DATAENG', 'lecturer_email' => 'phamthaison@tlu.edu.vn', 'class_code' => 'CNTT6-K68'],
         ];
 
+        // Lấy semester từ seeder (phải chạy SemesterSeeder trước)
+        $semester = Semester::where('code', '2025-2026 HK1')->first();
+        
+        if (!$semester) {
+            $this->command->warn('Semester "2025-2026 HK1" chưa được tạo. Vui lòng chạy SemesterSeeder trước.');
+            return;
+        }
+
         foreach ($targets as $item) {
             $subject = Subject::where('code', $item['subject_code'])->first();
             $classUnit = ClassUnit::where('code', $item['class_code'])->first();
@@ -66,9 +75,11 @@ class AssignmentSeeder extends Seeder
                     'lecturer_id' => $lecturer->id,
                 ],
                 [
-                    'semester_label' => '2025-2026 HK1',
+                    'semester_id' => $semester->id,
+                    // KHÔNG có semester_label
                 ]
             );
         }
     }
 }
+

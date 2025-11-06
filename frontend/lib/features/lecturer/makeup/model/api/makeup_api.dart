@@ -129,7 +129,7 @@ class LecturerMakeupApi {
       final res = await _dio.get('/api/rooms');
       final list = _asList(res.data);
       return list;
-    } catch (e, stackTrace) {
+    } catch (e) {
       rethrow; // Re-throw để frontend có thể handle và hiển thị lỗi
     }
   }

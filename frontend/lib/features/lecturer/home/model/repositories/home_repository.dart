@@ -48,15 +48,18 @@ class HomeRepositoryImpl implements HomeRepository {
   @override
   Future<HomeResult<Map<String, dynamic>>> getStats() async {
     try {
-      // TODO: Implement actual stats API call
-      // Tạm thời return placeholder
-      final stats = {
-        'taught': 10,
-        'remaining': 34,
-        'leave_count': 0,
-        'makeup_count': 2,
-      };
-      return HomeResult.success(stats);
+      final response = await _scheduleApi.getStats();
+      final data = response['data'] is Map 
+          ? Map<String, dynamic>.from(response['data']) 
+          : <String, dynamic>{};
+      final semester = response['semester'] is Map
+          ? Map<String, dynamic>.from(response['semester'])
+          : null;
+      
+      return HomeResult.success({
+        ...data,
+        'semester': semester,
+      });
     } catch (e) {
       return HomeResult.failure(Exception('Không tải được thống kê: $e'));
     }

@@ -158,6 +158,22 @@ class ScheduleDetailViewModel extends StateNotifier<ScheduleDetailState> {
     );
   }
 
+  Future<bool> uploadMaterial(String title, String filePath) async {
+    if (title.trim().isEmpty) return false;
+
+    final result = await _repository.uploadMaterial(sessionId, title.trim(), filePath);
+    return result.when(
+      success: (_) {
+        loadData(); // Reload để cập nhật materials
+        return true;
+      },
+      failure: (error) {
+        state = state.copyWith(error: error.toString());
+        return false;
+      },
+    );
+  }
+
   Future<bool> submitReport() async {
     // Nếu status đã là DONE hoặc CANCELED, không cho phép thay đổi status nữa
     final currentStatus = state.status.toLowerCase();

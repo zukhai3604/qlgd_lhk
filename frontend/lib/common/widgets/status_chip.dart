@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../constants/app_design.dart';
 
 /// Status info class
 class StatusInfo {

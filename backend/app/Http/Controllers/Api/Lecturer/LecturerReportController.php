@@ -108,7 +108,11 @@ class LecturerReportController extends Controller
             ->orderBy('subjects.name');
 
         if ($semester = $request->query('semester')) {
-            $query->where('assignments.semester_label', $semester);
+            $query->join('semesters', 'semesters.id', '=', 'assignments.semester_id')
+                ->where(function ($q) use ($semester) {
+                    $q->where('semesters.code', $semester)
+                      ->orWhere('semesters.name', $semester);
+                });
         }
 
         if ($from = $request->query('from')) {

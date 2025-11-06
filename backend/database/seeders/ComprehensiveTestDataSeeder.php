@@ -127,7 +127,7 @@ class ComprehensiveTestDataSeeder extends Seeder
         $schedules = Schedule::with(['assignment.lecturer'])
             ->whereHas('assignment.lecturer')
             ->where('status', '!=', 'CANCELED')
-            ->whereDoesntHave('leaveRequest')
+            ->whereDoesntHave('leaveRequests')
             ->orderBy('session_date')
             ->get();
 

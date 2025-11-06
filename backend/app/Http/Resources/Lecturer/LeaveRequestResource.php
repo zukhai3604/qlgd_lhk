@@ -41,7 +41,11 @@ class LeaveRequestResource extends JsonResource
                 ] : null,
                 'assignment' => $assignment ? [
                     'id' => $assignment->id,
-                    'semester_label' => $assignment->semester_label,
+                    'semester' => $assignment->semester ? [
+                        'id' => $assignment->semester->id,
+                        'code' => $assignment->semester->code,
+                        'name' => $assignment->semester->name,
+                    ] : null,
                     'subject' => $subject ? [
                         'id' => $subject->id,
                         'code' => $subject->code,
