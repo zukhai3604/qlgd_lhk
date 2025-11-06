@@ -37,15 +37,8 @@ class _LeavePageState extends ConsumerState<LeavePage> {
     if (success) {
       // Chuyển thẳng đến history
       context.go('/leave/history');
-    } else {
-      // Hiển thị lỗi từ state
-      final state = ref.read(leaveViewModelProvider(widget.session));
-      if (state.error != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(state.error!)),
-        );
-      }
     }
+    // Lỗi sẽ được hiển thị dưới TextFormField qua state.error
   }
 
   String _dateVN(String yyyyMmDd) {
@@ -150,20 +143,36 @@ class _LeavePageState extends ConsumerState<LeavePage> {
           // Form lý do
           Form(
             key: _formKey,
-            child: TextFormField(
-              controller: _reasonController,
-              maxLines: 5,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                labelText: 'Lý do xin nghỉ',
-                hintText: 'Nhập lý do (tối thiểu 10 ký tự)',
-              ),
-              validator: (v) {
-                final t = (v ?? '').trim();
-                if (t.length < 10) return 'Lý do quá ngắn (tối thiểu 10 ký tự)';
-                if (t.length > 500) return 'Lý do quá dài (tối đa 500 ký tự)';
-                return null;
-              },
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                TextFormField(
+                  controller: _reasonController,
+                  maxLines: 5,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    labelText: 'Lý do xin nghỉ',
+                    hintText: 'Nhập lý do (tối thiểu 10 ký tự)',
+                  ),
+                  validator: (v) {
+                    final t = (v ?? '').trim();
+                    if (t.length < 10) return 'Lý do quá ngắn (tối thiểu 10 ký tự)';
+                    if (t.length > 500) return 'Lý do quá dài (tối đa 500 ký tự)';
+                    return null;
+                  },
+                ),
+                // Hiển thị lỗi từ server màu đỏ dưới TextFormField
+                if (leaveState.error != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    leaveState.error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
           const SizedBox(height: 16),

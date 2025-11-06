@@ -164,13 +164,32 @@ class LecturerScheduleService {
   Future<List<Map<String, dynamic>>> getMaterials(int sessionId) =>
       listMaterials(sessionId);
 
-  // Th�m n?i dung/t�i li?u (UI m?i d�ng)
+  // Thêm nội dung/tài liệu (UI mới dùng)
   Future<void> addMaterial(int sessionId, String title) async {
     await _dio.post('/api/lecturer/schedule/$sessionId/materials', data: {
       'title': title,
-      // N?u BE c?a b?n b?t bu?c file_url th� th�m ? d�y:
+      // Nếu BE của bạn bắt buộc file_url thì thêm ở đây:
       // 'file_url': 'https://example.com',
     });
+  }
+
+  // Upload material với file (PDF, PPT, Word)
+  Future<void> uploadMaterialFile({
+    required int sessionId,
+    required String title,
+    required String filePath,
+    String? fileType,
+  }) async {
+    final formData = FormData.fromMap({
+      'title': title,
+      'file': await MultipartFile.fromFile(filePath, filename: filePath.split('/').last),
+      if (fileType != null) 'file_type': fileType,
+    });
+    
+    await _dio.post(
+      '/api/lecturer/schedule/$sessionId/materials',
+      data: formData,
+    );
   }
 
   // ===== Report =====

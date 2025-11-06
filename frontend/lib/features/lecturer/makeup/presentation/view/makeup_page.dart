@@ -1,12 +1,14 @@
 // ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:qlgd_lhk/common/widgets/tlu_app_bar.dart';
 import 'package:qlgd_lhk/features/lecturer/makeup/model/api/makeup_api.dart';
+import 'package:qlgd_lhk/features/lecturer/makeup/presentation/view_model/makeup_history_view_model.dart';
 import 'package:qlgd_lhk/features/lecturer/leave/utils/leave_data_helpers.dart';
 import 'package:qlgd_lhk/features/lecturer/makeup/utils/makeup_data_helpers.dart';
 
-class MakeupPage extends StatefulWidget {
+class MakeupPage extends ConsumerStatefulWidget {
   /// Tương thích ngược: chấp nhận cả `contextData` (mới) & `leaveItem` (cũ)
   const MakeupPage({
     super.key,
@@ -17,10 +19,10 @@ class MakeupPage extends StatefulWidget {
   final Map<String, dynamic>? data;
 
   @override
-  State<MakeupPage> createState() => _MakeupPageState();
+  ConsumerState<MakeupPage> createState() => _MakeupPageState();
 }
 
-class _MakeupPageState extends State<MakeupPage> {
+class _MakeupPageState extends ConsumerState<MakeupPage> {
   final _api = LecturerMakeupApi();
 
   final _formKey = GlobalKey<FormState>();
@@ -33,6 +35,7 @@ class _MakeupPageState extends State<MakeupPage> {
   bool _submitting = false;
   bool _loadingRooms = false;
   List<Map<String, dynamic>> _rooms = [];
+  String? _errorMessage; // Lưu lỗi từ server để hiển thị
 
   // Map tiết số với timeslot_id (sẽ được tính toán dựa trên ngày đã chọn)
   Map<int, int>? _timeslotIdMap;
@@ -275,10 +278,10 @@ class _MakeupPageState extends State<MakeupPage> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
+    setState(() => _errorMessage = null); // Clear error khi submit lại
+
     if (_selectedPeriods.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng chọn ít nhất một tiết.')),
-      );
+      setState(() => _errorMessage = 'Vui lòng chọn ít nhất một tiết.');
       return;
     }
 
@@ -287,12 +290,10 @@ class _MakeupPageState extends State<MakeupPage> {
       final payloads = await _buildPayloads();
       if (payloads.isEmpty) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Không thể tạo đăng ký. Vui lòng kiểm tra lại.'),
-          ),
-        );
-        setState(() => _submitting = false);
+        setState(() {
+          _submitting = false;
+          _errorMessage = 'Không thể tạo đăng ký. Vui lòng kiểm tra lại.';
+        });
         return;
       }
 
@@ -311,30 +312,26 @@ class _MakeupPageState extends State<MakeupPage> {
       if (!mounted) return;
 
       if (successCount == payloads.length) {
+        // Refresh lịch sử đăng ký dạy bù sau khi tạo thành công
+        ref.invalidate(makeupHistoryViewModelProvider);
         Navigator.of(context).pop();
       } else if (successCount > 0) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Đã gửi $successCount/${payloads.length} đăng ký. Lỗi: ${lastError ?? "Không xác định"}',
-            ),
-          ),
-        );
+        setState(() {
+          _submitting = false;
+          _errorMessage = 'Đã gửi $successCount/${payloads.length} đăng ký. Lỗi: ${lastError ?? "Không xác định"}';
+        });
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content:
-                Text('Gửi thất bại: ${lastError ?? "Không xác định"}'),
-          ),
-        );
+        setState(() {
+          _submitting = false;
+          _errorMessage = 'Gửi thất bại: ${lastError ?? "Không xác định"}';
+        });
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gửi thất bại: $e')),
-      );
-    } finally {
-      if (mounted) setState(() => _submitting = false);
+      setState(() {
+        _submitting = false;
+        _errorMessage = 'Gửi thất bại: $e';
+      });
     }
   }
 
@@ -584,17 +581,11 @@ class _MakeupPageState extends State<MakeupPage> {
                                       ? null
                                       : (selected) {
                                           setState(() {
+                                            _errorMessage = null; // Clear error khi chọn tiết
                                             if (selected) {
                                               if (_selectedPeriods.length >=
                                                   3) {
-                                                ScaffoldMessenger.of(context)
-                                                    .showSnackBar(
-                                                  const SnackBar(
-                                                    content: Text(
-                                                      'Chỉ được chọn tối đa 3 tiết liền kề nhau.',
-                                                    ),
-                                                  ),
-                                                );
+                                                setState(() => _errorMessage = 'Chỉ được chọn tối đa 3 tiết liền kề nhau.');
                                                 return;
                                               }
 
@@ -616,15 +607,7 @@ class _MakeupPageState extends State<MakeupPage> {
                                                   _selectedPeriods
                                                       .add(period);
                                                 } else {
-                                                  ScaffoldMessenger.of(
-                                                          context)
-                                                      .showSnackBar(
-                                                    const SnackBar(
-                                                      content: Text(
-                                                        'Chỉ được chọn các tiết liền kề nhau (ví dụ: Tiết 4, 5, 6).',
-                                                      ),
-                                                    ),
-                                                  );
+                                                  setState(() => _errorMessage = 'Chỉ được chọn các tiết liền kề nhau (ví dụ: Tiết 4, 5, 6).');
                                                   return;
                                                 }
                                               }
@@ -661,6 +644,23 @@ class _MakeupPageState extends State<MakeupPage> {
                             ),
                           ),
                         ),
+                      // Hiển thị lỗi từ server hoặc validation màu đỏ
+                      if (_errorMessage != null) ...[
+                        const SizedBox(height: 4),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4),
+                          child: Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              _errorMessage!,
+                              style: TextStyle(
+                                color: cs.error,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 16),
 
                       // Room - Dropdown từ API (cho phép bỏ trống)
@@ -744,6 +744,21 @@ class _MakeupPageState extends State<MakeupPage> {
                         ),
                       ),
                       const SizedBox(height: 20),
+
+                      // Hiển thị lỗi từ server dưới button
+                      if (_errorMessage != null && _selectedPeriods.isNotEmpty) ...[
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Text(
+                            _errorMessage!,
+                            style: TextStyle(
+                              color: cs.error,
+                              fontSize: 12,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
 
                       SizedBox(
                         width: double.infinity,

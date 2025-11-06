@@ -8,8 +8,11 @@ class LeaveChooseSessionState {
   final String? error;
   final List<Map<String, dynamic>> allSessions;
   final List<Map<String, dynamic>> filteredSessions;
-  final List<String> dateOptions;
+  final List<String> dateOptions; // Tất cả các ngày
+  final List<String> filteredDateOptions; // Các ngày trong tuần đã chọn
   final String? selectedDate;
+  final List<String> weekOptions; // Danh sách các tuần (format: "Tuần X: DD/MM - DD/MM")
+  final String? selectedWeek; // Tuần đã chọn
 
   const LeaveChooseSessionState({
     this.isLoading = false,
@@ -17,7 +20,10 @@ class LeaveChooseSessionState {
     this.allSessions = const [],
     this.filteredSessions = const [],
     this.dateOptions = const [],
+    this.filteredDateOptions = const [],
     this.selectedDate,
+    this.weekOptions = const [],
+    this.selectedWeek,
   });
 
   LeaveChooseSessionState copyWith({
@@ -27,7 +33,10 @@ class LeaveChooseSessionState {
     List<Map<String, dynamic>>? allSessions,
     List<Map<String, dynamic>>? filteredSessions,
     List<String>? dateOptions,
+    List<String>? filteredDateOptions,
     String? selectedDate,
+    List<String>? weekOptions,
+    String? selectedWeek,
   }) {
     return LeaveChooseSessionState(
       isLoading: isLoading ?? this.isLoading,
@@ -35,7 +44,10 @@ class LeaveChooseSessionState {
       allSessions: allSessions ?? this.allSessions,
       filteredSessions: filteredSessions ?? this.filteredSessions,
       dateOptions: dateOptions ?? this.dateOptions,
+      filteredDateOptions: filteredDateOptions ?? this.filteredDateOptions,
       selectedDate: selectedDate ?? this.selectedDate,
+      weekOptions: weekOptions ?? this.weekOptions,
+      selectedWeek: selectedWeek ?? this.selectedWeek,
     );
   }
 }
@@ -54,25 +66,61 @@ class LeaveChooseSessionViewModel extends StateNotifier<LeaveChooseSessionState>
 
     final result = await _repository.getAvailableSessions();
     result.when(
-      success: (sessions) {
-        // Tập ngày cho dropdown
-        final opts = <String>{};
-        for (final s in sessions) {
-          final d = _dateIsoOf(s);
-          if (d.isNotEmpty) opts.add(d);
+      success: (data) {
+        // Extract sessions và weekOptions từ LeaveChooseSessionData
+        final sessions = data.sessions;
+        final weekOptions = data.weekOptions;
+        final allDatesFromRepo = data.allDates; // Tất cả các ngày từ sessions trước khi filter
+        
+        // Debug: Kiểm tra số lượng sessions
+        print('DEBUG: Total sessions loaded: ${sessions.length}');
+        print('DEBUG: Week options from API: ${weekOptions.length}');
+        print('DEBUG: All dates from repository: ${allDatesFromRepo.length}');
+        
+        // Sử dụng allDates từ repository thay vì tính từ sessions đã filter
+        // Điều này đảm bảo dropdown ngày luôn có dữ liệu, kể cả khi không còn sessions nào
+        final sorted = allDatesFromRepo;
+        
+        print('DEBUG: Unique dates: ${sorted.length}');
+        if (sorted.isNotEmpty) {
+          print('DEBUG: First date: ${sorted.first}, Last date: ${sorted.last}');
         }
-        final sorted = opts.toList()..sort();
 
-        final selectedDate = sorted.isNotEmpty ? sorted.first : null;
+        if (weekOptions.isNotEmpty) {
+          print('DEBUG: First week: ${weekOptions.first}');
+          print('DEBUG: Last week: ${weekOptions.last}');
+        }
+        
+        final selectedWeek = weekOptions.isNotEmpty ? weekOptions.first : null;
+
+        // Tính toán filteredDateOptions dựa trên tuần đã chọn
+        List<String> filteredDateOptions = sorted;
+        if (selectedWeek != null) {
+          final weekDates = _parseWeekDates(selectedWeek);
+          if (weekDates != null) {
+            filteredDateOptions = _getDatesInWeekFromList(
+              weekDates['start']!,
+              weekDates['end']!,
+              sorted,
+            );
+          }
+        }
+
+        // Chọn ngày đầu tiên trong filteredDateOptions (không phải sorted)
+        final selectedDate = filteredDateOptions.isNotEmpty ? filteredDateOptions.first : null;
 
         state = state.copyWith(
           isLoading: false,
           allSessions: sessions,
           dateOptions: sorted,
           selectedDate: selectedDate,
+          weekOptions: weekOptions,
+          selectedWeek: selectedWeek,
+          filteredDateOptions: filteredDateOptions,
         );
 
-        _filterByDate(selectedDate);
+        // Áp dụng filter sau khi set state
+        _applyFilters();
       },
       failure: (error) {
         state = state.copyWith(
@@ -88,10 +136,284 @@ class LeaveChooseSessionViewModel extends StateNotifier<LeaveChooseSessionState>
     await loadData();
   }
 
+  /// Chọn tuần và filter sessions
+  void selectWeek(String? week) {
+    // Tính toán filteredDateOptions trước
+    List<String> filteredDateOptions;
+    String? newSelectedDate;
+    
+    if (week != null) {
+      final weekDates = _parseWeekDates(week);
+      if (weekDates != null) {
+        filteredDateOptions = _getDatesInWeek(weekDates['start']!, weekDates['end']!);
+        // Chọn ngày đầu tiên trong tuần mới nếu có
+        newSelectedDate = filteredDateOptions.isNotEmpty ? filteredDateOptions.first : null;
+      } else {
+        filteredDateOptions = [];
+        newSelectedDate = null;
+      }
+    } else {
+      // Nếu chọn "Tất cả các tuần", hiển thị tất cả các ngày
+      filteredDateOptions = state.dateOptions;
+      // Giữ nguyên selectedDate nếu nó vẫn còn trong danh sách, nếu không thì chọn ngày đầu tiên
+      newSelectedDate = state.selectedDate != null && filteredDateOptions.contains(state.selectedDate)
+          ? state.selectedDate
+          : (filteredDateOptions.isNotEmpty ? filteredDateOptions.first : null);
+    }
+    
+    state = state.copyWith(
+      selectedWeek: week,
+      selectedDate: newSelectedDate,
+      filteredDateOptions: filteredDateOptions,
+    );
+    
+    _applyFilters();
+  }
+
   /// Chọn ngày và filter sessions
   void selectDate(String? date) {
     state = state.copyWith(selectedDate: date);
-    _filterByDate(date);
+    _applyFilters();
+  }
+
+  /// Lấy danh sách các ngày trong tuần từ danh sách ngày có sẵn
+  List<String> _getDatesInWeekFromList(
+    DateTime startDate,
+    DateTime endDate,
+    List<String> availableDates,
+  ) {
+    final dates = <String>[];
+    final formatter = DateFormat('yyyy-MM-dd');
+    
+    var currentDate = DateTime(startDate.year, startDate.month, startDate.day);
+    final end = DateTime(endDate.year, endDate.month, endDate.day);
+    
+    while (!currentDate.isAfter(end)) {
+      final dateStr = formatter.format(currentDate);
+      // Chỉ thêm ngày nếu có trong availableDates
+      if (availableDates.contains(dateStr)) {
+        dates.add(dateStr);
+      }
+      currentDate = currentDate.add(const Duration(days: 1));
+    }
+    
+    return dates;
+  }
+
+  /// Lấy danh sách các ngày trong tuần (dùng state.dateOptions)
+  List<String> _getDatesInWeek(DateTime startDate, DateTime endDate) {
+    return _getDatesInWeekFromList(startDate, endDate, state.dateOptions);
+  }
+
+  /// Áp dụng filter dựa trên tuần và ngày đã chọn
+  void _applyFilters() {
+    // Nếu có chọn ngày, filter theo ngày
+    if (state.selectedDate != null) {
+      _filterByDate(state.selectedDate);
+    } else if (state.selectedWeek != null) {
+      // Nếu không có ngày nhưng có tuần, filter theo tuần
+      _filterByWeek(state.selectedWeek);
+    } else {
+      // Nếu không có cả tuần và ngày, hiển thị tất cả
+      final grouped = _groupConsecutiveSessions(state.allSessions);
+      state = state.copyWith(filteredSessions: grouped);
+    }
+  }
+
+  /// Filter sessions theo tuần đã chọn
+  void _filterByWeek(String? week) {
+    if (week == null) {
+      state = state.copyWith(filteredSessions: []);
+      return;
+    }
+
+    // Parse tuần từ format "Tuần X: DD/MM/YYYY - DD/MM/YYYY"
+    final weekDates = _parseWeekDates(week);
+    if (weekDates == null) {
+      state = state.copyWith(filteredSessions: []);
+      return;
+    }
+
+    final filtered = state.allSessions.where((s) {
+      final sessionDate = _dateIsoOf(s);
+      if (sessionDate.isEmpty) return false;
+      
+      try {
+        final date = DateTime.parse(sessionDate);
+        final startDate = weekDates['start']!;
+        final endDate = weekDates['end']!;
+        
+        // So sánh chỉ phần ngày (không có giờ)
+        final sessionDay = DateTime(date.year, date.month, date.day);
+        final startDay = DateTime(startDate.year, startDate.month, startDate.day);
+        final endDay = DateTime(endDate.year, endDate.month, endDate.day);
+        
+        // Kiểm tra xem ngày có nằm trong khoảng tuần không (bao gồm cả start và end)
+        return (sessionDay.isAtSameMomentAs(startDay) || sessionDay.isAfter(startDay)) &&
+               (sessionDay.isAtSameMomentAs(endDay) || sessionDay.isBefore(endDay));
+      } catch (_) {
+        return false;
+      }
+    }).toList();
+
+    final grouped = _groupConsecutiveSessions(filtered);
+    state = state.copyWith(filteredSessions: grouped);
+  }
+
+  /// Parse tuần từ string format "Tuần X: DD/MM/YYYY - DD/MM/YYYY"
+  Map<String, DateTime>? _parseWeekDates(String weekStr) {
+    try {
+      // Format: "Tuần X: DD/MM/YYYY - DD/MM/YYYY"
+      final parts = weekStr.split(':');
+      if (parts.length < 2) return null;
+      
+      final dateRange = parts[1].trim();
+      final dates = dateRange.split(' - ');
+      if (dates.length < 2) return null;
+      
+      final startStr = dates[0].trim();
+      final endStr = dates[1].trim();
+      
+      // Parse DD/MM/YYYY
+      final startParts = startStr.split('/');
+      final endParts = endStr.split('/');
+      
+      if (startParts.length < 3 || endParts.length < 3) return null;
+      
+      final startDate = DateTime(
+        int.parse(startParts[2]),
+        int.parse(startParts[1]),
+        int.parse(startParts[0]),
+      );
+      
+      final endDate = DateTime(
+        int.parse(endParts[2]),
+        int.parse(endParts[1]),
+        int.parse(endParts[0]),
+      );
+      
+      return {'start': startDate, 'end': endDate};
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Tính toán các tuần từ danh sách sessions
+  List<String> _calculateWeekOptions(List<Map<String, dynamic>> sessions) {
+    if (sessions.isEmpty) return [];
+    
+    // Dùng Set để loại bỏ duplicate dates
+    final dateSet = <DateTime>{};
+    
+    for (final s in sessions) {
+      final dateStr = _dateIsoOf(s);
+      if (dateStr.isNotEmpty) {
+        try {
+          final date = DateTime.parse(dateStr);
+          // Normalize về 00:00:00 để so sánh chính xác
+          final normalizedDate = DateTime(date.year, date.month, date.day);
+          dateSet.add(normalizedDate);
+        } catch (_) {
+          // Bỏ qua nếu parse lỗi
+        }
+      }
+    }
+    
+    if (dateSet.isEmpty) return [];
+    
+    // Chuyển Set thành List và sắp xếp
+    final dates = dateSet.toList()..sort();
+    final firstDate = dates.first;
+    final lastDate = dates.last;
+    
+    // Tính tuần đầu tiên (Thứ 2 của tuần chứa ngày đầu tiên)
+    final firstWeekday = firstDate.weekday; // 1 = Monday, 7 = Sunday
+    final daysFromMonday = firstWeekday == 7 ? 6 : firstWeekday - 1;
+    final firstMonday = DateTime(
+      firstDate.year,
+      firstDate.month,
+      firstDate.day,
+    ).subtract(Duration(days: daysFromMonday));
+    
+    // Tính tuần cuối cùng (Chủ nhật của tuần chứa ngày cuối cùng)
+    final lastWeekday = lastDate.weekday;
+    final daysToSunday = lastWeekday == 7 ? 0 : 7 - lastWeekday;
+    final lastSunday = DateTime(
+      lastDate.year,
+      lastDate.month,
+      lastDate.day,
+    ).add(Duration(days: daysToSunday));
+    
+    // Tạo danh sách tất cả các tuần từ tuần đầu đến tuần cuối
+    final weeks = <String, Map<String, DateTime>>{};
+    var currentMonday = DateTime(firstMonday.year, firstMonday.month, firstMonday.day);
+    final endSunday = DateTime(lastSunday.year, lastSunday.month, lastSunday.day);
+    
+    // Tạo Set dates để so sánh nhanh hơn
+    final datesSet = dates.toSet();
+    
+    while (!currentMonday.isAfter(endSunday)) {
+      final currentSunday = DateTime(
+        currentMonday.year,
+        currentMonday.month,
+        currentMonday.day,
+      ).add(const Duration(days: 6));
+      
+      final weekKey = '${currentMonday.year}-${currentMonday.month}-${currentMonday.day}';
+      
+      // Kiểm tra xem có session nào trong tuần này không
+      // So sánh chính xác bằng cách normalize dates và so sánh year/month/day
+      final hasSessionInWeek = datesSet.any((date) {
+        final dateYear = date.year;
+        final dateMonth = date.month;
+        final dateDay = date.day;
+        
+        final mondayYear = currentMonday.year;
+        final mondayMonth = currentMonday.month;
+        final mondayDay = currentMonday.day;
+        
+        final sundayYear = currentSunday.year;
+        final sundayMonth = currentSunday.month;
+        final sundayDay = currentSunday.day;
+        
+        // So sánh dates bằng cách so sánh year, month, day
+        final dateCompare = dateYear * 10000 + dateMonth * 100 + dateDay;
+        final mondayCompare = mondayYear * 10000 + mondayMonth * 100 + mondayDay;
+        final sundayCompare = sundayYear * 10000 + sundayMonth * 100 + sundayDay;
+        
+        return dateCompare >= mondayCompare && dateCompare <= sundayCompare;
+      });
+      
+      if (hasSessionInWeek && !weeks.containsKey(weekKey)) {
+        weeks[weekKey] = {
+          'start': DateTime(currentMonday.year, currentMonday.month, currentMonday.day),
+          'end': DateTime(currentSunday.year, currentSunday.month, currentSunday.day),
+        };
+      }
+      
+      currentMonday = currentMonday.add(const Duration(days: 7));
+    }
+    
+    // Sắp xếp các tuần theo thứ tự thời gian
+    final sortedWeeks = weeks.values.toList()
+      ..sort((a, b) => a['start']!.compareTo(b['start']!));
+    
+    // Format thành danh sách string
+    final weekOptions = <String>[];
+    int weekNumber = 1;
+    
+    for (final week in sortedWeeks) {
+      final start = week['start']!;
+      final end = week['end']!;
+      
+      final startStr = '${start.day.toString().padLeft(2, '0')}/${start.month.toString().padLeft(2, '0')}/${start.year}';
+      final endStr = '${end.day.toString().padLeft(2, '0')}/${end.month.toString().padLeft(2, '0')}/${end.year}';
+      
+      weekOptions.add('Tuần $weekNumber: $startStr - $endStr');
+      weekNumber++;
+    }
+    
+    return weekOptions;
   }
 
   /// Filter sessions theo ngày đã chọn và group

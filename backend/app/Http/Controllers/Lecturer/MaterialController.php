@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Lecturer;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use App\Models\Schedule;
 use App\Models\SessionMaterial;
 
@@ -63,8 +64,22 @@ class MaterialController extends Controller
             
             // Lưu file vào storage/public/session-materials
             $path = $file->store('session-materials', 'public');
-            $fileUrl = asset('storage/' . $path);
+            
+            if (!$path) {
+                return response()->json([
+                    'message' => 'Không thể upload file. Vui lòng thử lại.'
+                ], 400);
+            }
+            
+            // Sử dụng Storage::url() để lấy URL đúng
+            $fileUrl = Storage::disk('public')->url($path);
+            
+            // Fallback nếu Storage::url() không hoạt động
+            if (empty($fileUrl)) {
+                $fileUrl = url('storage/' . $path);
+            }
         } elseif ($request->filled('file_url')) {
+            // Cho phép nhập URL từ bên ngoài (Google Drive, OneDrive, etc.)
             $fileUrl = $data['file_url'];
         }
 
@@ -77,7 +92,6 @@ class MaterialController extends Controller
         ];
         
         // Chỉ thêm file_url và file_type nếu có giá trị
-        // (Tránh lỗi khi migration chưa chạy và file_url vẫn là NOT NULL)
         if ($fileUrl !== null && $fileUrl !== '') {
             $materialData['file_url'] = $fileUrl;
         }
@@ -85,13 +99,14 @@ class MaterialController extends Controller
             $materialData['file_type'] = $fileType;
         }
 
-        // Nếu không có file_url, không thể insert vào database với constraint NOT NULL
-        // Sử dụng DB::table để kiểm soát các fields được insert
-        if (!isset($materialData['file_url'])) {
-            // Nếu migration chưa chạy, cần có file_url
-            // Tạm thời sử dụng empty string hoặc placeholder
-            $materialData['file_url'] = ''; // Placeholder cho đến khi migration chạy
-        }
+        // Với migration đã chạy, file_url có thể NULL
+        // Nhưng để đảm bảo có nội dung, yêu cầu phải có file hoặc URL
+        // (Có thể bỏ comment dòng này nếu muốn cho phép material không có file)
+        // if (!isset($materialData['file_url'])) {
+        //     return response()->json([
+        //         'message' => 'Vui lòng upload file hoặc cung cấp URL tài liệu.'
+        //     ], 400);
+        // }
 
         $material = SessionMaterial::create($materialData);
 

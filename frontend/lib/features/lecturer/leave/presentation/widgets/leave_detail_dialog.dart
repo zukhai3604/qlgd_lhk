@@ -183,12 +183,8 @@ class LeaveDetailDialog extends StatelessWidget {
 
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              leaveRequestIds.length > 1
-                  ? 'Đã hủy ${leaveRequestIds.length} đơn xin nghỉ.'
-                  : 'Đã hủy đơn xin nghỉ.',
-            ),
+          const SnackBar(
+            content: Text('Đã hủy đơn xin nghỉ thành công.'),
           ),
         );
       } else {

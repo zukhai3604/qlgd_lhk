@@ -414,6 +414,7 @@ class _LecturerAccountPageState extends ConsumerState<LecturerAccountPage> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (ctx, setS) {
+            String? errorMessage; // Lưu lỗi để hiển thị
             return Padding(
               padding: EdgeInsets.only(
                 left: 16, right: 16, top: 8,
@@ -479,6 +480,17 @@ class _LecturerAccountPageState extends ConsumerState<LecturerAccountPage> {
                         return null;
                       },
                     ),
+                    // Hiển thị lỗi từ server màu đỏ
+                    if (errorMessage != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        errorMessage!,
+                        style: TextStyle(
+                          color: Theme.of(ctx).colorScheme.error,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 16),
 
                     Row(
@@ -491,7 +503,10 @@ class _LecturerAccountPageState extends ConsumerState<LecturerAccountPage> {
                         FilledButton.icon(
                           onPressed: submitting ? null : () async {
                             if (!formKey.currentState!.validate()) return;
-                            setS(() => submitting = true);
+                            setS(() {
+                              submitting = true;
+                              errorMessage = null; // Clear error khi submit lại
+                            });
                             try {
                               final dio = ApiClient().dio;
                               final urls = _changePasswordUrls(_role());
@@ -518,8 +533,10 @@ class _LecturerAccountPageState extends ConsumerState<LecturerAccountPage> {
                                       final errs = (data['errors'] as Map).entries
                                           .expand((kv) => (kv.value as List).map((x) => '- ${kv.key}: $x'))
                                           .join('\n');
-                                      _showSnack(errs.isEmpty ? 'Dữ liệu không hợp lệ' : errs, error: true);
-                                      setS(() => submitting = false);
+                                      setS(() {
+                                        submitting = false;
+                                        errorMessage = errs.isEmpty ? 'Dữ liệu không hợp lệ' : errs;
+                                      });
                                       return;
                                     }
                                   }
@@ -531,11 +548,15 @@ class _LecturerAccountPageState extends ConsumerState<LecturerAccountPage> {
                                 }
                               }
 
-                              setS(() => submitting = false);
-                              _showSnack('Lỗi đổi mật khẩu (HTTP ${lastErr?.response?.statusCode ?? 'null'})', error: true);
+                              setS(() {
+                                submitting = false;
+                                errorMessage = 'Lỗi đổi mật khẩu (HTTP ${lastErr?.response?.statusCode ?? 'null'})';
+                              });
                             } catch (e) {
-                              setS(() => submitting = false);
-                              _showSnack(e.toString().replaceFirst('Exception: ', ''), error: true);
+                              setS(() {
+                                submitting = false;
+                                errorMessage = e.toString().replaceFirst('Exception: ', '');
+                              });
                             }
                           },
                           icon: submitting
@@ -661,6 +682,7 @@ class _LecturerAccountPageState extends ConsumerState<LecturerAccountPage> {
       ),
       builder: (ctx) {
         bool firstBuild = true;
+        String? errorMessage; // Lưu lỗi để hiển thị
         return StatefulBuilder(
           builder: (ctx, setS) {
             // Lần đầu: thử fetch danh mục (nếu có)
@@ -826,6 +848,18 @@ class _LecturerAccountPageState extends ConsumerState<LecturerAccountPage> {
                       ),
                     ],
 
+                    // Hiển thị lỗi từ server màu đỏ
+                    if (errorMessage != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        errorMessage!,
+                        style: TextStyle(
+                          color: Theme.of(ctx).colorScheme.error,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+
                     const SizedBox(height: 16),
 
                     Row(
@@ -838,7 +872,10 @@ class _LecturerAccountPageState extends ConsumerState<LecturerAccountPage> {
                         FilledButton.icon(
                           onPressed: submitting ? null : () async {
                             if (!formKey.currentState!.validate()) return;
-                            setS(() => submitting = true);
+                            setS(() {
+                              submitting = true;
+                              errorMessage = null; // Clear error khi submit lại
+                            });
                             try {
                               final dio = ApiClient().dio;
 
@@ -883,12 +920,16 @@ class _LecturerAccountPageState extends ConsumerState<LecturerAccountPage> {
                                       final errs = (data['errors'] as Map).entries
                                           .expand((kv) => (kv.value as List).map((x) => '- ${kv.key}: $x'))
                                           .join('\n');
-                                      _showSnack(errs.isEmpty ? 'Dữ liệu không hợp lệ' : errs, error: true);
-                                      setS(() => submitting = false);
+                                      setS(() {
+                                        submitting = false;
+                                        errorMessage = errs.isEmpty ? 'Dữ liệu không hợp lệ' : errs;
+                                      });
                                       return;
                                     }
-                                    _showSnack('Dữ liệu không hợp lệ', error: true);
-                                    setS(() => submitting = false);
+                                    setS(() {
+                                      submitting = false;
+                                      errorMessage = 'Dữ liệu không hợp lệ';
+                                    });
                                     return;
                                   }
 
@@ -900,11 +941,15 @@ class _LecturerAccountPageState extends ConsumerState<LecturerAccountPage> {
                                 }
                               }
 
-                              setS(() => submitting = false);
-                              _showSnack('Lỗi cập nhật (HTTP ${lastErr?.response?.statusCode ?? 'null'})', error: true);
+                              setS(() {
+                                submitting = false;
+                                errorMessage = 'Lỗi cập nhật (HTTP ${lastErr?.response?.statusCode ?? 'null'})';
+                              });
                             } catch (e) {
-                              setS(() => submitting = false);
-                              _showSnack(e.toString().replaceFirst('Exception: ', ''), error: true);
+                              setS(() {
+                                submitting = false;
+                                errorMessage = e.toString().replaceFirst('Exception: ', '');
+                              });
                             }
                           },
                           icon: submitting

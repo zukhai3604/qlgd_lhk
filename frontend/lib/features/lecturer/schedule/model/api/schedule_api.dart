@@ -252,10 +252,20 @@ class ScheduleApi {
     DateTime? to,
     int page = 1,
   }) async {
-    final fromStr = (from ?? DateTime.now()).toIso8601String().substring(0, 10);
-    final toStr = (to ?? DateTime.now().add(const Duration(days: 30)))
-        .toIso8601String()
-        .substring(0, 10);
+    // Build query parameters
+    final queryParams = <String, dynamic>{
+      'status': 'PLANNED',
+      'page': page,
+      'per_page': 1000, // Lấy nhiều items để bao phủ toàn bộ semester
+    };
+    
+    // Chỉ thêm from/to nếu được cung cấp
+    if (from != null) {
+      queryParams['from'] = from.toIso8601String().substring(0, 10);
+    }
+    if (to != null) {
+      queryParams['to'] = to.toIso8601String().substring(0, 10);
+    }
 
     String? onlyDate(dynamic v) {
       if (v == null) return null;
@@ -279,16 +289,10 @@ class ScheduleApi {
       return value?.toString() ?? '';
     }
 
-    // Fetch với per_page=100 để lấy nhiều items trong 1 request (nhanh hơn)
+    // Fetch với per_page lớn để lấy nhiều items trong 1 request
     final res = await _dio.get(
       '/api/lecturer/sessions',
-      queryParameters: {
-        'status': 'PLANNED',
-        'from': fromStr,
-        'to': toStr,
-        'page': 1,
-        'per_page': 100, // Request nhiều items để giảm số requests
-      },
+      queryParameters: queryParams,
     );
 
     final src = res.data;

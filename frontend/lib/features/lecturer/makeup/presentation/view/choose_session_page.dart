@@ -463,11 +463,20 @@ class _LeaveItemTile extends StatelessWidget {
     final hasTime =
         timeRange.isNotEmpty && timeRange != '--:-- - --:--';
 
-    // Tất cả buổi nghỉ đã được duyệt đều hiển thị màu xanh và text "Buổi nghỉ đã duyệt"
-    final borderColor = Colors.green.shade300;
-    final statusColor = Colors.green.shade700;
-    final statusText = 'Buổi nghỉ đã duyệt';
-    final statusIcon = Icons.check_circle;
+    // Kiểm tra xem schedule có bị hủy không
+    // CHỈ kiểm tra schedule.status === 'CANCELED'
+    // Không kiểm tra thời gian vì buổi nghỉ đã được duyệt vẫn có thể đã qua thời gian
+    // nhưng vẫn là buổi nghỉ đã được duyệt, không phải bị hủy
+    final scheduleStatus = (data['status'] ?? '').toString().toUpperCase();
+    final isCanceled = scheduleStatus == 'CANCELED';
+
+    // Xác định màu và text dựa trên trạng thái
+    // Nếu schedule.status === 'CANCELED' → màu vàng, "Buổi học bị hủy"
+    // Nếu không (đơn nghỉ đã được duyệt) → màu xanh, "Buổi nghỉ đã duyệt"
+    final borderColor = isCanceled ? Colors.orange.shade300 : Colors.green.shade300;
+    final statusColor = isCanceled ? Colors.orange.shade600 : Colors.green.shade700;
+    final statusText = isCanceled ? 'Buổi học bị hủy' : 'Buổi nghỉ đã duyệt';
+    final statusIcon = isCanceled ? Icons.cancel : Icons.check_circle;
 
     return Card(
       elevation: 0,

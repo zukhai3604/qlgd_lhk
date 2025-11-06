@@ -2,6 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'service.dart';
 import 'package:qlgd_lhk/common/widgets/tlu_app_bar.dart';
 
@@ -95,6 +97,97 @@ class _LecturerScheduleDetailPageState
     final m = await _svc.getMaterials(widget.sessionId);
     if (!mounted) return;
     setState(() => _materials = m);
+  }
+
+  Future<void> _pickAndUploadFile() async {
+    try {
+      // Chọn file (PDF, PPT, Word)
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['pdf', 'ppt', 'pptx', 'doc', 'docx'],
+        allowMultiple: false,
+      );
+
+      if (result == null || result.files.isEmpty) return;
+
+      final file = result.files.first;
+      if (file.path == null) return;
+
+      // Hiển thị dialog để nhập title
+      final title = await showDialog<String>(
+        context: context,
+        builder: (context) {
+          final titleCtrl = TextEditingController();
+          return AlertDialog(
+            title: const Text('Thêm tài liệu'),
+            content: TextField(
+              controller: titleCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Tên tài liệu',
+                hintText: 'Ví dụ: Bài giảng chương 1',
+              ),
+              autofocus: true,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Hủy'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  final title = titleCtrl.text.trim();
+                  if (title.isNotEmpty) {
+                    Navigator.pop(context, title);
+                  }
+                },
+                child: const Text('Upload'),
+              ),
+            ],
+          );
+        },
+      );
+
+      if (title == null || title.isEmpty) return;
+
+      // Upload file
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đang upload file...')),
+      );
+
+      // Xác định file type
+      final extension = file.extension?.toLowerCase() ?? '';
+      String? fileType;
+      if (extension == 'pdf') {
+        fileType = 'application/pdf';
+      } else if (extension == 'ppt' || extension == 'pptx') {
+        fileType = 'application/vnd.ms-powerpoint';
+      } else if (extension == 'doc' || extension == 'docx') {
+        fileType = 'application/msword';
+      }
+
+      await _svc.uploadMaterialFile(
+        sessionId: widget.sessionId,
+        title: title,
+        filePath: file.path!,
+        fileType: fileType,
+      );
+
+      // Reload materials
+      final m = await _svc.getMaterials(widget.sessionId);
+      if (!mounted) return;
+      setState(() => _materials = m);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã upload tài liệu thành công')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Lỗi: ${e.toString()}')),
+      );
+    }
   }
 
   Future<void> _saveReport() async {
@@ -254,6 +347,7 @@ class _LecturerScheduleDetailPageState
                           title: (m['title'] ?? '').toString(),
                           subtitle: (m['uploaded_at'] ?? '').toString(),
                           url: (m['file_url'] ?? '').toString(),
+                          fileType: (m['file_type'] ?? '').toString(),
                         ),
                       ),
                     const SizedBox(height: 8),
@@ -273,6 +367,15 @@ class _LecturerScheduleDetailPageState
                                 vertical: 12,
                               ),
                             ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          onPressed: _pickAndUploadFile,
+                          icon: const Icon(Icons.upload_file),
+                          tooltip: 'Upload file (PDF, PPT, Word)',
+                          style: IconButton.styleFrom(
+                            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -367,9 +470,28 @@ class _LecturerScheduleDetailPageState
     required String title,
     String? subtitle,
     String? url,
+    String? fileType,
     bool disabled = false,
   }) {
     final hasUrl = (url ?? '').isNotEmpty;
+    
+    // Xác định icon dựa trên file type
+    IconData iconData = Icons.description_outlined;
+    Color? iconColor;
+    
+    if (fileType != null && fileType.isNotEmpty) {
+      if (fileType.contains('pdf')) {
+        iconData = Icons.picture_as_pdf;
+        iconColor = Colors.red;
+      } else if (fileType.contains('powerpoint') || fileType.contains('presentation')) {
+        iconData = Icons.slideshow;
+        iconColor = Colors.orange;
+      } else if (fileType.contains('word') || fileType.contains('msword')) {
+        iconData = Icons.description;
+        iconColor = Colors.blue;
+      }
+    }
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -378,12 +500,25 @@ class _LecturerScheduleDetailPageState
       ),
       child: ListTile(
         enabled: !disabled,
-        leading: const Icon(Icons.description_outlined),
+        leading: Icon(iconData, color: iconColor),
         title: Text(title),
         subtitle:
             (subtitle != null && subtitle.isNotEmpty) ? Text(subtitle) : null,
         trailing: hasUrl ? const Icon(Icons.open_in_new) : null,
-        onTap: hasUrl ? () {} : null,
+        onTap: hasUrl
+            ? () async {
+                // Mở file trong browser hoặc app phù hợp
+                final uri = Uri.parse(url!);
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                } else {
+                  if (!mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Không thể mở file')),
+                  );
+                }
+              }
+            : null,
         dense: true,
       ),
     );

@@ -87,6 +87,34 @@ class ScheduleController extends Controller
         $semesterFilter = $request->query('semester_id');
         $weekFilter = $request->query('week');
 
+        // Xác định semesterFilter TRƯỚC khi tạo baseQuery
+        $semesterOptions = $this->buildSemesterOptions($lecturerId);
+        
+        // Nếu không có semesterFilter, tìm semester đầu tiên mà lecturer CÓ assignment
+        if (!$semesterFilter) {
+            $lecturerSemesterIds = Assignment::query()
+                ->select('semester_id')
+                ->where('lecturer_id', $lecturerId)
+                ->whereNotNull('semester_id')
+                ->distinct()
+                ->pluck('semester_id')
+                ->toArray();
+            
+            // Tìm semester đầu tiên trong danh sách mà lecturer có assignment
+            foreach ($semesterOptions as $semester) {
+                if (in_array((int)$semester['value'], $lecturerSemesterIds)) {
+                    $semesterFilter = $semester['value'];
+                    break;
+                }
+            }
+        }
+        
+        $selectedSemester = $semesterFilter ?: ($semesterOptions->first()['value'] ?? null);
+        
+        // Convert selectedSemester sang string để Flutter parse đúng
+        $selectedSemester = $selectedSemester !== null ? (string) $selectedSemester : null;
+
+        // Tạo baseQuery SAU khi đã xác định semesterFilter
         $baseQuery = Schedule::query()
             ->with([
                 'assignment.subject',
@@ -114,12 +142,6 @@ class ScheduleController extends Controller
             $weekOptions,
             $weekFilter
         );
-
-        $semesterOptions = $this->buildSemesterOptions($lecturerId);
-        $selectedSemester = $semesterFilter ?: ($semesterOptions->first()['value'] ?? null);
-        
-        // Convert selectedSemester sang string để Flutter parse đúng
-        $selectedSemester = $selectedSemester !== null ? (string) $selectedSemester : null;
 
         $items = (clone $baseQuery)
             ->when(
@@ -221,15 +243,9 @@ class ScheduleController extends Controller
 
     private function buildSemesterOptions(int $lecturerId): Collection
     {
-        // Lấy từ bảng semester thông qua assignments
-        $semesterIds = Assignment::query()
-            ->select('semester_id')
-            ->where('lecturer_id', $lecturerId)
-            ->whereNotNull('semester_id')
-            ->distinct()
-            ->pluck('semester_id');
-        
-        $semesters = Semester::whereIn('id', $semesterIds)
+        // Lấy TẤT CẢ semesters có trong hệ thống, sắp xếp theo start_date giảm dần
+        // (thay vì chỉ lấy từ assignments của lecturer)
+        $semesters = Semester::query()
             ->orderBy('start_date', 'desc')
             ->get();
         

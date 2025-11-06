@@ -56,7 +56,39 @@ class ChooseSessionPage extends ConsumerWidget {
                       ),
                       const SizedBox(height: 12),
 
-                      if (state.dateOptions.isNotEmpty)
+                      // Combobox chọn tuần
+                      if (state.weekOptions.isNotEmpty)
+                        Container(
+                          decoration: BoxDecoration(
+                            color: cs.surfaceVariant,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: DropdownButton<String>(
+                            value: state.selectedWeek,
+                            isExpanded: true,
+                            underline: const SizedBox.shrink(),
+                            items: [
+                              const DropdownMenuItem<String>(
+                                value: null,
+                                child: Text('Tất cả các tuần'),
+                              ),
+                              ...state.weekOptions
+                                  .map(
+                                    (w) => DropdownMenuItem(
+                                      value: w,
+                                      child: Text(w),
+                                    ),
+                                  )
+                                  .toList(),
+                            ],
+                            onChanged: (v) => viewModel.selectWeek(v),
+                          ),
+                        ),
+                      const SizedBox(height: 8),
+
+                      // Combobox chọn ngày (chỉ hiển thị các ngày trong tuần đã chọn)
+                      if (state.filteredDateOptions.isNotEmpty)
                         Container(
                           decoration: BoxDecoration(
                             color: cs.surfaceVariant,
@@ -67,14 +99,20 @@ class ChooseSessionPage extends ConsumerWidget {
                             value: state.selectedDate,
                             isExpanded: true,
                             underline: const SizedBox.shrink(),
-                            items: state.dateOptions
-                                .map(
-                                  (d) => DropdownMenuItem(
-                                    value: d,
-                                    child: Text(_formatDateLabel(d)),
-                                  ),
-                                )
-                                .toList(),
+                            items: [
+                              const DropdownMenuItem<String>(
+                                value: null,
+                                child: Text('Tất cả các ngày'),
+                              ),
+                              ...state.filteredDateOptions
+                                  .map(
+                                    (d) => DropdownMenuItem(
+                                      value: d,
+                                      child: Text(_formatDateLabel(d)),
+                                    ),
+                                  )
+                                  .toList(),
+                            ],
                             onChanged: (v) => viewModel.selectDate(v),
                           ),
                         ),

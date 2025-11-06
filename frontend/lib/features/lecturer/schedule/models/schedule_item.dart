@@ -166,6 +166,15 @@ class ScheduleItem {
   }
 
   Color statusColor(ColorScheme cs) {
+    // Kiểm tra thời gian thực tế để xác định màu chính xác
+    final now = DateTime.now();
+    
+    // Nếu đã qua thời gian kết thúc và status vẫn là PLANNED hoặc rỗng
+    if ((status == 'PLANNED' || status.isEmpty) && endTime.isBefore(now)) {
+      return Colors.orange;
+    }
+    
+    // Kiểm tra các trạng thái từ backend
     switch (status) {
       case 'DONE':
       case 'MAKEUP_DONE':
@@ -177,24 +186,58 @@ class ScheduleItem {
       case 'MAKEUP_PLANNED':
         return Colors.orange;
       default:
+        // Nếu chưa đến thời gian bắt đầu → màu secondary (sắp tới)
+        if (startTime.isAfter(now)) {
+          return cs.secondary;
+        }
+        // Nếu đang trong khoảng thời gian → màu primary (đang diễn ra)
+        if (startTime.isBefore(now) || startTime.isAtSameMomentAs(now)) {
+          return cs.primary;
+        }
         return cs.secondary;
     }
   }
 
+  /// Kiểm tra xem có phải buổi học gộp không (có _grouped_session_ids)
+  bool get isGroupedSession {
+    final groupedIds = raw['_grouped_session_ids'];
+    return groupedIds is List && groupedIds.length > 1;
+  }
+
   String statusLabel() {
+    // Kiểm tra thời gian thực tế để xác định trạng thái chính xác
+    final now = DateTime.now();
+    
+    // Xác định prefix: "Tiết học" hoặc "Buổi học"
+    final prefix = isGroupedSession ? 'Buổi học' : 'Tiết học';
+    
+    // Nếu đã qua thời gian kết thúc và status vẫn là PLANNED hoặc rỗng
+    if ((status == 'PLANNED' || status.isEmpty) && endTime.isBefore(now)) {
+      return '$prefix đã qua';
+    }
+    
+    // Kiểm tra các trạng thái từ backend
     switch (status) {
       case 'DONE':
-        return 'Done';
+        return '$prefix đã hoàn thành';
       case 'MAKEUP_DONE':
-        return 'Makeup Done';
+        return '$prefix đã dạy bù';
       case 'TEACHING':
-        return 'Teaching';
+        return '$prefix đang dạy';
       case 'CANCELED':
-        return 'Canceled';
+        return '$prefix đã hủy';
       case 'MAKEUP_PLANNED':
-        return 'Makeup Planned';
+        return '$prefix đã lên lịch dạy bù';
       default:
-        return 'Upcoming';
+        // Nếu chưa đến thời gian bắt đầu → sắp tới
+        if (startTime.isAfter(now)) {
+          return '$prefix sắp tới';
+        }
+        // Nếu đang trong khoảng thời gian (startTime <= now < endTime) → đang diễn ra
+        if (startTime.isBefore(now) || startTime.isAtSameMomentAs(now)) {
+          return '$prefix đang diễn ra';
+        }
+        return '$prefix sắp tới';
     }
   }
 }

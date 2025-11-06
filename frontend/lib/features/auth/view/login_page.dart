@@ -39,15 +39,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final vmN = ref.read(loginViewModelProvider.notifier);
     final cs  = Theme.of(context).colorScheme;
 
-    // Listen for errors from the view model and show a snackbar
-    ref.listen(loginViewModelProvider, (previous, next) {
-      if (next.errorMessage != null && previous?.errorMessage != next.errorMessage) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(next.errorMessage!)),
-        );
-      }
-    });
-
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -140,6 +131,19 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             : const Text('Đăng nhập'),
                       ),
                     ),
+
+                    // Hiển thị lỗi màu đỏ dưới button
+                    if (vm.errorMessage != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        vm.errorMessage!,
+                        style: TextStyle(
+                          color: cs.error,
+                          fontSize: 12,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
 
                     const SizedBox(height: 36),
                     const Text(

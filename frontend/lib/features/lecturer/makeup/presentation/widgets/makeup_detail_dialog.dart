@@ -29,6 +29,10 @@ class MakeupDetailDialog extends StatelessWidget {
     final originalDate = MakeupDataExtractor.extractOriginalDate(item);
     final leaveReason = MakeupDataExtractor.extractLeaveReason(item);
 
+    // Kiểm tra status để hiển thị nút hủy đơn
+    final statusStr = (item['status'] ?? '').toString().toUpperCase();
+    final isPending = statusStr == 'PENDING';
+
     // Format dates và times
     final dateStr = item['suggested_date'] ?? item['makeup_date'] ?? item['date'];
     final date = DateFormatter.formatDDMMYYYY(dateStr?.toString());
@@ -291,7 +295,7 @@ class MakeupDetailDialog extends StatelessWidget {
         ),
       ),
       actions: [
-        if (status.label == 'Chờ duyệt')
+        if (isPending)
           TextButton(
             onPressed: () {
               Navigator.pop(context);
@@ -339,9 +343,7 @@ class MakeupDetailDialog extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         title: const Text('Hủy đơn đăng ký dạy bù?'),
         content: Text(
-          makeupRequestIds.length > 1
-              ? 'Bạn có muốn hủy ${makeupRequestIds.length} đơn đăng ký dạy bù liền kề này không?'
-              : 'Đơn này đang chờ duyệt. Bạn có muốn hủy không?',
+          'Đơn này đang chờ duyệt. Bạn có muốn hủy không?',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
@@ -363,12 +365,8 @@ class MakeupDetailDialog extends StatelessWidget {
 
       if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              makeupRequestIds.length > 1
-                  ? 'Đã hủy ${makeupRequestIds.length} đơn đăng ký dạy bù.'
-                  : 'Đã hủy đơn đăng ký dạy bù.',
-            ),
+          const SnackBar(
+            content: Text('Đã hủy đơn đăng ký dạy bù thành công.'),
           ),
         );
       } else {

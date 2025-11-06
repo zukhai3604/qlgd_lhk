@@ -448,9 +448,103 @@ class MakeupHistoryViewModel extends StateNotifier<MakeupHistoryState> {
             .toList();
         merged['_grouped_makeup_request_ids'] = makeupRequestIds;
 
+        // Lưu created_at của đơn đầu tiên (hoặc mới nhất) để sắp xếp
+        // Tìm created_at mới nhất trong group
+        DateTime? latestCreatedAt;
+        for (final req in group) {
+          final createdAt = req['created_at'] ?? req['createdAt'];
+          if (createdAt != null) {
+            try {
+              final date = DateTime.tryParse(createdAt.toString());
+              if (date != null) {
+                if (latestCreatedAt == null || date.isAfter(latestCreatedAt)) {
+                  latestCreatedAt = date;
+                }
+              }
+            } catch (_) {
+              // Bỏ qua nếu parse lỗi
+            }
+          }
+        }
+        
+        // Nếu không có created_at, dùng updated_at
+        if (latestCreatedAt == null) {
+          for (final req in group) {
+            final updatedAt = req['updated_at'] ?? req['updatedAt'];
+            if (updatedAt != null) {
+              try {
+                final date = DateTime.tryParse(updatedAt.toString());
+                if (date != null) {
+                  if (latestCreatedAt == null || date.isAfter(latestCreatedAt)) {
+                    latestCreatedAt = date;
+                  }
+                }
+              } catch (_) {
+                // Bỏ qua nếu parse lỗi
+              }
+            }
+          }
+        }
+        
+        // Lưu created_at vào merged để sắp xếp
+        if (latestCreatedAt != null) {
+          merged['created_at'] = latestCreatedAt.toIso8601String();
+        } else {
+          // Fallback: dùng created_at của đơn đầu tiên
+          merged['created_at'] = first['created_at'] ?? first['createdAt'] ?? first['updated_at'] ?? first['updatedAt'];
+        }
+
         result.add(merged);
       }
     }
+
+    // Sắp xếp lại theo thời gian tạo (created_at) giảm dần - đơn mới nhất ở trên đầu
+    result.sort((a, b) {
+      // Ưu tiên dùng created_at nếu có
+      final createdAtA = a['created_at'] ?? a['createdAt'];
+      final createdAtB = b['created_at'] ?? b['createdAt'];
+      
+      if (createdAtA != null && createdAtB != null) {
+        try {
+          final dateA = DateTime.tryParse(createdAtA.toString());
+          final dateB = DateTime.tryParse(createdAtB.toString());
+          if (dateA != null && dateB != null) {
+            return dateB.compareTo(dateA); // Giảm dần: mới nhất ở trên
+          }
+        } catch (_) {
+          // Nếu parse lỗi, tiếp tục với các cách khác
+        }
+      }
+      
+      // Fallback: dùng updated_at nếu có
+      final updatedAtA = a['updated_at'] ?? a['updatedAt'];
+      final updatedAtB = b['updated_at'] ?? b['updatedAt'];
+      
+      if (updatedAtA != null && updatedAtB != null) {
+        try {
+          final dateA = DateTime.tryParse(updatedAtA.toString());
+          final dateB = DateTime.tryParse(updatedAtB.toString());
+          if (dateA != null && dateB != null) {
+            return dateB.compareTo(dateA); // Giảm dần: mới nhất ở trên
+          }
+        } catch (_) {
+          // Nếu parse lỗi, tiếp tục với cách khác
+        }
+      }
+      
+      // Fallback cuối cùng: dùng id (id lớn hơn = mới hơn)
+      final idA = a['id'];
+      final idB = b['id'];
+      if (idA != null && idB != null) {
+        final intA = int.tryParse(idA.toString());
+        final intB = int.tryParse(idB.toString());
+        if (intA != null && intB != null) {
+          return intB.compareTo(intA); // Giảm dần: id lớn hơn ở trên
+        }
+      }
+      
+      return 0; // Giữ nguyên thứ tự nếu không so sánh được
+    });
 
     return result;
   }
