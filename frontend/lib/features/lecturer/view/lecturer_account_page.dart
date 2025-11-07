@@ -5,10 +5,23 @@ class LecturerAccountPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Tài khoản Giảng viên')),
-      body: const Center(
-        child: Text('Chi tiết tài khoản của giảng viên sẽ được hiển thị ở đây.'),
+    // This page should not have its own Scaffold.
+    // The LecturerBottomNavShell provides it.
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircleAvatar(
+            radius: 50,
+            // Placeholder for an image you will add to your assets
+            backgroundImage: AssetImage('assets/images/default_avatar.png'),
+            backgroundColor: Colors.black12,
+          ),
+          SizedBox(height: 16),
+          Text('Tài khoản Giảng viên', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+          SizedBox(height: 8),
+          Text('Chi tiết tài khoản sẽ được hiển thị ở đây.', style: TextStyle(color: Colors.grey)),
+        ],
       ),
     );
   }

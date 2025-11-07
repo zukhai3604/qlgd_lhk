@@ -7,8 +7,9 @@ Dio createDio() {
   final dio = Dio(
     BaseOptions(
       baseUrl: Env.baseUrl,
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 15),
+      connectTimeout: const Duration(seconds: 60),
+      receiveTimeout: const Duration(seconds: 60),
+      sendTimeout: const Duration(seconds: 60),
     ),
   );
 

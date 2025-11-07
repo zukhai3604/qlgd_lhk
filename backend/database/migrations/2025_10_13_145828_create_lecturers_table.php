@@ -5,18 +5,36 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration {
-    public function up(): void {
+    public function up(): void
+    {
         Schema::create('lecturers', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
-            $table->foreignId('department_id')->nullable()->constrained('departments')->nullOnDelete();
-            $table->string('degree',50)->nullable();
-            $table->string('phone',30)->nullable();
+
+            // Liên kết 1-1 với users
+            $table->foreignId('user_id')->unique()
+                  ->constrained('users')->cascadeOnDelete();
+
+            // Hồ sơ giảng viên
+            $table->enum('gender', ['Nam', 'Nữ', 'Khác'])->nullable();
+            $table->date('date_of_birth')->nullable();
+
+            // Bộ môn/khoa
+            $table->foreignId('department_id')
+                  ->nullable()
+                  ->constrained('departments')->nullOnDelete();
+
+            // Ảnh đại diện
+            $table->string('avatar_url', 255)->nullable();
+
             $table->timestamps();
-            $table->index('department_id');
+
+            // index phụ (nếu cần)
+            $table->index(['department_id']);
         });
     }
-    public function down(): void {
+
+    public function down(): void
+    {
         Schema::dropIfExists('lecturers');
     }
 };

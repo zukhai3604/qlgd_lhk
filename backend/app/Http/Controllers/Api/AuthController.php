@@ -1,121 +1,129 @@
 <?php
 
-namespace App\Http\Controllers\API; // ✅ ĐÚNG CHỮ HOA
+namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Models\User;
+use OpenApi\Annotations as OA;
 
 class AuthController extends Controller
 {
     /**
-     * POST /api/login
+     * @OA\Post(
+     *   path="/api/login",
+     *   operationId="authLogin",
+     *   tags={"Auth"},
+     *   summary="Đăng nhập và lấy access token",
+     *   @OA\RequestBody(
+     *     required=true,
+     *     @OA\JsonContent(
+     *       required={"email","password"},
+     *       @OA\Property(property="email", type="string", format="email", example="giangvien@qlgd.test"),
+     *       @OA\Property(property="password", type="string", example="secret123")
+     *     )
+     *   ),
+     *   @OA\Response(
+     *     response=200,
+     *     description="Đăng nhập thành công",
+     *     @OA\JsonContent(
+     *       @OA\Property(property="token", type="string", example="1|P3nY..."),
+     *       @OA\Property(property="user", ref="#/components/schemas/UserResource")
+     *     )
+     *   ),
+     *   @OA\Response(
+     *     response=401,
+     *     description="Sai thông tin đăng nhập",
+     *     @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *   ),
+     *   @OA\Response(
+     *     response=422,
+     *     description="Dữ liệu không hợp lệ",
+     *     @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *   )
+     * )
      */
     public function login(Request $request)
     {
-        $credentials = $request->validate([
-            'email'    => ['required', 'email'],
-            'password' => ['required'],
+        $data = $request->validate([
+            'email' => ['required', 'email'],
+            'password' => ['required', 'string'],
         ]);
 
-        if (!Auth::attempt($credentials)) {
-            return response()->json(['message' => 'Email hoặc mật khẩu không chính xác.'], 401);
+        if (!Auth::attempt(['email' => $data['email'], 'password' => $data['password']])) {
+            return response()->json(['message' => 'Sai tài khoản hoặc mật khẩu'], 401);
         }
 
-        /** @var User $user */
-        $user = User::where('email', $credentials['email'])->firstOrFail();
-
-        // (Tuỳ chọn) Huỷ token cũ: $user->tokens()->delete();
-        $token = $user->createToken('api_token')->plainTextToken;
-
-        // Nếu muốn trả kèm hồ sơ tóm tắt lúc login:
-        $user->loadMissing(['lecturer.department.faculty']);
-        $lec = $user->lecturer;
+        $user = $request->user();
+        $token = $user->createToken('api')->plainTextToken;
 
         return response()->json([
             'token' => $token,
-            'user'  => [
-                'id'    => $user->id,
-                'name'  => $user->name,
-                'email' => $user->email,
-                'phone' => $user->phone,
-                'role'  => $user->role,
-            ],
-            'lecturer' => $lec ? [
-                'gender'        => $lec->gender,
-                'date_of_birth' => $lec->date_of_birth,
-                'department'    => $lec->department ? [
-                    'id'   => $lec->department->id,
-                    'name' => $lec->department->name,
-                    'faculty' => $lec->department->faculty ? [
-                        'id'   => $lec->department->faculty->id,
-                        'name' => $lec->department->faculty->name,
-                    ] : null,
-                ] : null,
-            ] : null,
-            // ✅ ĐÃ SỬA LỖI: Kiểm tra $lec trước khi truy cập avatar_url
-            'avatar_url' => $lec ? $lec->avatar_url : null,
+            'user' => $user,
         ]);
     }
 
     /**
-     * GET /api/me
-     * Trả profile chuẩn dùng cho app
+     * @OA\Get(
+     *   path="/api/me",
+     *   operationId="authMe",
+     *   tags={"Auth"},
+     *   summary="Thông tin người dùng hiện tại",
+     *   security={{"bearerAuth":{}}},
+     *   @OA\Response(
+     *     response=200,
+     *     description="Thông tin tài khoản",
+     *     @OA\JsonContent(ref="#/components/schemas/UserResource")
+     *   ),
+     *   @OA\Response(
+     *     response=401,
+     *     description="Chưa xác thực",
+     *     @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *   )
+     * )
      */
     public function me(Request $request)
     {
-        $user = $request->user()->loadMissing(['lecturer.department.faculty']);
-        $lec  = $user->lecturer;
+        $user = $request->user();
+        
+        // Load relationships based on role
+        switch ($user->role) {
+            case 'ADMIN':
+                $user->load('admin');
+                break;
+            case 'DAO_TAO':
+                $user->load('trainingStaff');
+                break;
+            case 'GIANG_VIEN':
+                $user->load(['lecturer.department.faculty']);
+                break;
+        }
 
-        return response()->json([
-            'user' => [
-                'id'    => $user->id,
-                'name'  => $user->name,
-                'email' => $user->email,
-                'phone' => $user->phone,
-                'role'  => $user->role,
-            ],
-            'lecturer' => $lec ? [
-                'gender'        => $lec->gender,
-                'date_of_birth' => $lec->date_of_birth,
-                'department'    => $lec->department ? [
-                    'id'   => $lec->department->id,
-                    'name' => $lec->department->name,
-                    'faculty' => $lec->department->faculty ? [
-                        'id'   => $lec->department->faculty->id,
-                        'name' => $lec->department->faculty->name,
-                    ] : null,
-                ] : null,
-            ] : null,
-             // ✅ ĐÃ SỬA LỖI: Kiểm tra $lec trước khi truy cập avatar_url
-            'avatar_url' => $lec ? $lec->avatar_url : null,
-        ]);
+        return response()->json($user);
     }
 
     /**
-     * POST /api/logout
+     * @OA\Post(
+     *   path="/api/logout",
+     *   operationId="authLogout",
+     *   tags={"Auth"},
+     *   summary="Đăng xuất và thu hồi token hiện tại",
+     *   security={{"bearerAuth":{}}},
+     *   @OA\Response(
+     *     response=204,
+     *     description="Đăng xuất thành công"
+     *   ),
+     *   @OA\Response(
+     *     response=401,
+     *     description="Chưa xác thực",
+     *     @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *   )
+     * )
      */
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
-        return response()->json(['message' => 'Đăng xuất thành công.']);
-    }
 
-    /**
-     * Đăng xuất khỏi tất cả các thiết bị (Xóa tất cả token)
-     * API: POST /api/logout-all
-     */
-    public function logoutAll(Request $request)
-    {
-        // Lấy người dùng đang đăng nhập
-        $user = $request->user();
-
-        // Xóa tất cả các token (phiên đăng nhập) của user này
-        $user->tokens()->delete();
-
-        return response()->json([
-            'message' => 'Đã đăng xuất khỏi tất cả các thiết bị thành công.'
-        ], 200);
+        return response()->noContent();
     }
 }

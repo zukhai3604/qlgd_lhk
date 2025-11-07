@@ -13,7 +13,7 @@ class AuthApi {
   AuthApi(this._dio);
 
   // Thử nhiều endpoint phổ biến
-  static const _paths = ['/auth/login', '/login', '/api/login'];
+  static const _paths = ['/api/login', '/auth/login', '/login'];
 
   Future<Response> loginFlexible(Map<String, dynamic> body) async {
     DioException? lastErr;

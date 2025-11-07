@@ -7,16 +7,16 @@ class AuthRepo {
   final _storage = const FlutterSecureStorage();
 
   Future<User> login(String email, String password) async {
-    final r = await _api.dio.post('/login', data: {'email': email, 'password': password});
+    final r = await _api.dio.post('/api/login', data: {'email': email, 'password': password});
     final token = r.data['token']?.toString();
     if (token==null || token.isEmpty) { throw Exception('No token returned'); }
     await _storage.write(key: 'auth_token', value: token);
-    final me = await _api.dio.get('/me');
+    final me = await _api.dio.get('/api/me');
     return User.fromJson(me.data as Map<String,dynamic>);
   }
 
   Future<User> me() async {
-    final me = await _api.dio.get('/me');
+    final me = await _api.dio.get('/api/me');
     return User.fromJson(me.data as Map<String,dynamic>);
   }
 }

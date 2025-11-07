@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../../core/models.dart';
+import 'package:qlgd_lhk/core/model.dart';
 
 class SectionCard extends StatelessWidget {
   const SectionCard({super.key, required this.child});

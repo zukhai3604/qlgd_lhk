@@ -4,152 +4,354 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\Admin;
+use App\Models\TrainingStaff;
+use App\Models\Lecturer;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
     /**
-     * Lấy danh sách người dùng, có hỗ trợ tìm kiếm và phân trang.
-     * API: GET /api/admin/users?search=...&page=...
+     * GET /api/admin/users
+     * Danh sách người dùng (trừ chính mình), có tìm kiếm + lọc role + phân trang.
      */
     public function index(Request $request)
     {
-        $query = User::query();
+        try {
+            $query = User::with(['admin', 'trainingStaff', 'lecturer'])
+                ->where('id', '!=', auth()->id());
 
-        // Xử lý tìm kiếm
-        if ($request->has('search')) {
-            $searchTerm = $request->query('search');
-            $query->where(function ($q) use ($searchTerm) {
-                $q->where('name', 'like', "%{$searchTerm}%")
-                  ->orWhere('email', 'like', "%{$searchTerm}%")
-                  ->orWhere('phone', 'like', "%{$searchTerm}%");
-            });
+            if ($request->filled('role')) {
+                $query->where('role', $request->string('role'));
+            }
+
+            if ($request->filled('search')) {
+                $search = $request->string('search');
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                      ->orWhere('email', 'like', "%{$search}%");
+                });
+            }
+
+            $perPage = (int) $request->get('per_page', 15);
+            $users = $query->paginate($perPage);
+
+            return response()->json($users);
+        } catch (\Throwable $e) {
+            Log::error('Error fetching users: '.$e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return response()->json([
+                'message' => 'Failed to fetch users',
+                'error'   => $e->getMessage(),
+            ], 500);
         }
-
-        // Sắp xếp và phân trang
-        return $query->orderByDesc('id')->paginate(20);
     }
 
     /**
-     * Tạo một người dùng mới.
-     * API: POST /api/admin/users
+     * POST /api/admin/users
+     * Tạo tài khoản mới; nếu không gửi password sẽ tự sinh.
      */
     public function store(Request $request)
     {
-        $data = $request->validate([
-            'name'          => ['required', 'string', 'max:150'],
-            'email'         => ['required', 'email', 'max:190', 'unique:users,email'],
-            'phone'         => ['nullable', 'string', 'max:30'],
-            'password'      => ['required', 'string', 'min:8'],
-            'role'          => ['required', Rule::in(['ADMIN', 'DAO_TAO', 'GIANG_VIEN'])],
-            'is_active'     => ['boolean'],
-            'date_of_birth' => ['nullable', 'date_format:Y-m-d'],
-            'gender'        => ['nullable', 'string', Rule::in(['Nam', 'Nữ', 'Khác'])],
-            'department'    => ['nullable', 'string', 'max:190'],
-            'faculty'       => ['nullable', 'string', 'max:190'],
-            'avatar'        => ['nullable', 'string', 'max:500', 'url'],
-        ]);
+        try {
+            $validated = $request->validate([
+                'name'         => ['required','string','max:255'],
+                'email'        => ['required','email','max:190','unique:users,email'],
+                'phone'        => ['nullable','string','max:32'],
+                'role'         => ['required', Rule::in(['ADMIN','DAO_TAO','GIANG_VIEN'])],
+                'password'     => ['nullable','string','min:8'],
+                'force_change' => ['sometimes','boolean'],
+            ]);
 
-        $data['password'] = Hash::make($data['password']);
-        $data['is_active'] = $data['is_active'] ?? true;
+            $plainPassword = $validated['password'] ?? Str::random(10);
 
-        $user = User::create($data);
-        return response()->json($user, 201); // 201 Created
-    }
+            $user = User::create([
+                'name'     => $validated['name'],
+                'email'    => $validated['email'],
+                'phone'    => $validated['phone'] ?? null,
+                'password' => Hash::make($plainPassword),
+                'role'     => $validated['role'],
+                'is_active'=> true,
+            ]);
 
-    /**
-     * Lấy thông tin chi tiết của một người dùng.
-     * API: GET /api/admin/users/{user}
-     */
-    public function show(User $user)
-    {
-        return $user;
-    }
+            // tạo bản ghi theo role
+            $this->ensureRoleModels($user);
 
-    /**
-     * Cập nhật thông tin của một người dùng.
-     * API: PUT /api/admin/users/{user}
-     */
-    public function update(Request $request, User $user)
-    {
-        $data = $request->validate([
-            'name'          => ['sometimes', 'string', 'max:150'],
-            'email'         => ['sometimes', 'email', 'max:190', Rule::unique('users', 'email')->ignore($user->id)],
-            'phone'         => ['nullable', 'string', 'max:30'],
-            'password'      => ['nullable', 'string', 'min:8'], // Mật khẩu không bắt buộc khi cập nhật
-            'role'          => ['sometimes', Rule::in(['ADMIN', 'DAO_TAO', 'GIANG_VIEN'])],
-            'is_active'     => ['boolean'],
-            'date_of_birth' => ['nullable', 'date_format:Y-m-d'],
-            'gender'        => ['nullable', 'string', Rule::in(['Nam', 'Nữ', 'Khác'])],
-            'department'    => ['nullable', 'string', 'max:190'],
-            'faculty'       => ['nullable', 'string', 'max:190'],
-            'avatar'        => ['nullable', 'string', 'max:500', 'url'],
-        ]);
+            // Gắn cờ bắt đổi mật khẩu lần đầu nếu có cột này
+            if (!empty($validated['force_change'])) {
+                if (Schema()->hasColumn('users', 'force_change_password')) {
+                    $user->force_change_password = true;
+                    $user->save();
+                }
+            }
 
-        // Chỉ cập nhật mật khẩu nếu nó được cung cấp và không rỗng
-        if (!empty($data['password'])) {
-            $data['password'] = Hash::make($data['password']);
-        } else {
-            unset($data['password']); // Xóa key password khỏi mảng data nếu không cập nhật
+            return response()->json([
+                'message' => 'Tạo tài khoản thành công',
+                'data' => [
+                    'id'                 => $user->id,
+                    'name'               => $user->name,
+                    'email'              => $user->email,
+                    'role'               => $user->role,
+                    'temporary_password' => $plainPassword,
+                ],
+            ], 201);
+        } catch (\Throwable $e) {
+            Log::error('Error creating user: '.$e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return response()->json([
+                'message' => 'Failed to create user',
+                'error'   => $e->getMessage(),
+            ], 500);
         }
-
-        $user->update($data);
-        return $user->refresh(); // Trả về user sau khi đã cập nhật
     }
 
     /**
-     * Xóa một người dùng.
-     * API: DELETE /api/admin/users/{user}
+     * GET /api/admin/users/{id}
+     * Xem chi tiết user.
      */
-    public function destroy(User $user)
+    public function show($id)
     {
-        $user->delete();
-        return response()->json(['message' => 'User deleted successfully.']);
+        try {
+            $user = User::with(['admin', 'trainingStaff', 'lecturer'])->findOrFail($id);
+
+            return response()->json([
+                'data' => $user,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Error fetching user details: '.$e->getMessage());
+            return response()->json([
+                'message' => 'User not found',
+                'error'   => $e->getMessage(),
+            ], 404);
+        }
     }
 
     /**
-     * Khóa tài khoản của một người dùng.
-     * API: POST /api/admin/users/{user}/lock
+     * PATCH /api/admin/users/{id}
+     * Cập nhật thông tin cơ bản.
      */
-    public function lock(User $user)
+    public function update(Request $request, $id)
     {
-        $user->update(['is_active' => false]);
-        return response()->json(['message' => 'User locked successfully.']);
+        try {
+            $user = User::findOrFail($id);
+
+            $validated = $request->validate([
+                'name'      => ['sometimes','string','max:255'],
+                'email'     => ['sometimes','email', Rule::unique('users')->ignore($id)],
+                'role'      => ['sometimes', Rule::in(['ADMIN','DAO_TAO','GIANG_VIEN'])],
+                'is_active' => ['sometimes','boolean'],
+                'phone'     => ['sometimes','nullable','string','max:32'],
+            ]);
+
+            $user->update($validated);
+
+            // Nếu có đổi role qua PATCH chung, vẫn đảm bảo record role tồn tại
+            if (isset($validated['role'])) {
+                $this->ensureRoleModels($user->refresh());
+            }
+
+            $user->load(['admin', 'trainingStaff', 'lecturer']);
+
+            return response()->json([
+                'message' => 'User updated successfully',
+                'data'    => $user,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Error updating user: '.$e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return response()->json([
+                'message' => 'Failed to update user',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
     }
 
     /**
-     * Mở khóa tài khoản của một người dùng.
-     * API: POST /api/admin/users/{user}/unlock
+     * DELETE /api/admin/users/{id}
      */
-    public function unlock(User $user)
+    public function destroy($id)
     {
-        $user->update(['is_active' => true]);
-        return response()->json(['message' => 'User unlocked successfully.']);
+        try {
+            $user = User::findOrFail($id);
+
+            if ($user->id === auth()->id()) {
+                return response()->json([
+                    'message' => 'You cannot delete your own account',
+                ], 403);
+            }
+
+            $user->delete();
+
+            return response()->json([
+                'message' => 'User deleted successfully',
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Error deleting user: '.$e->getMessage());
+            return response()->json([
+                'message' => 'Failed to delete user',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
     }
 
-    // ==========================================================
-    // ===== HÀM MỚI BẠN CẦN THÊM VÀO LÀ HÀM NÀY (ADMIN) =====
-    // ==========================================================
-    
     /**
-     * [Admin] Đặt lại mật khẩu cho một người dùng.
-     * API: POST /api/admin/users/{user}/reset-password
+     * POST /api/admin/users/{id}/lock
      */
-    public function resetPassword(Request $request, User $user)
+    public function lock($id)
     {
-        // 1. Validate mật khẩu mới
-        $data = $request->validate([
-            'password' => ['required', 'string', 'min:8'],
-        ]);
+        try {
+            $user = User::findOrFail($id);
 
-        // 2. Cập nhật mật khẩu mới (đã hash)
-        $user->update([
-            'password' => Hash::make($data['password'])
-        ]);
-        
-        // 3. Trả về thông báo thành công
-        return response()->json(['message' => 'Password for user ' . $user->name . ' has been reset successfully.']);
+            if ($user->id === auth()->id()) {
+                return response()->json([
+                    'message' => 'You cannot lock your own account',
+                ], 403);
+            }
+
+            $user->update(['is_active' => false]);
+
+            return response()->json([
+                'message' => 'User locked successfully',
+                'data'    => $user,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Error locking user: '.$e->getMessage());
+            return response()->json([
+                'message' => 'Failed to lock user',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * POST /api/admin/users/{id}/unlock
+     */
+    public function unlock($id)
+    {
+        try {
+            $user = User::findOrFail($id);
+            $user->update(['is_active' => true]);
+
+            return response()->json([
+                'message' => 'User unlocked successfully',
+                'data'    => $user,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Error unlocking user: '.$e->getMessage());
+            return response()->json([
+                'message' => 'Failed to unlock user',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * POST /api/admin/users/{id}/reset-password
+     * FE đang gọi với { temporary_password?: string, force_change?: bool }
+     */
+    public function resetPassword(Request $request, $id)
+    {
+        try {
+            $user = User::findOrFail($id);
+
+            $validated = $request->validate([
+                'temporary_password' => ['nullable','string','min:8'],
+                'password'           => ['sometimes','string','min:8','confirmed'], // optional legacy path
+                'force_change'       => ['sometimes','boolean'],
+            ]);
+
+            // Ưu tiên 'password' + confirmation nếu được gửi theo chuẩn cũ
+            if (!empty($validated['password'])) {
+                $plain = $validated['password'];
+            } else {
+                $plain = $validated['temporary'] ?? $validated['temporary_password'] ?? Str::random(10);
+            }
+
+            $user->password = Hash::make($plain);
+
+            if (!empty($validated['force_change']) && Schema()->hasColumn('users','force_change_password')) {
+                $user->force_change_password = true;
+            }
+
+            $user->save();
+
+            return response()->json([
+                'message'       => 'Password reset successfully',
+                'new_password'  => $plain, // để FE hiển thị/copy
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Error resetting password: '.$e->getMessage());
+            return response()->json([
+                'message' => 'Failed to reset password',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * POST /api/admin/users/{id}/role
+     * Cập nhật vai trò, đảm bảo tạo record role tương ứng.
+     */
+    public function updateRole(Request $request, $id)
+    {
+        try {
+            $user = User::findOrFail($id);
+
+            $validated = $request->validate([
+                'role' => ['required', Rule::in(['ADMIN','DAO_TAO','GIANG_VIEN'])],
+            ]);
+
+            $user->role = $validated['role'];
+            $user->save();
+
+            $this->ensureRoleModels($user);
+
+            $user->load(['admin','trainingStaff','lecturer']);
+
+            return response()->json([
+                'message' => 'Role updated successfully',
+                'data'    => $user,
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Error updating role: '.$e->getMessage(), ['trace' => $e->getTraceAsString()]);
+            return response()->json([
+                'message' => 'Failed to update role',
+                'error'   => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Đảm bảo bản ghi phụ trợ theo role tồn tại (Admin / TrainingStaff / Lecturer).
+     */
+    protected function ensureRoleModels(User $user): void
+    {
+        try {
+            if ($user->role === 'ADMIN') {
+                if (!$user->admin) {
+                    Admin::firstOrCreate(['user_id' => $user->id]);
+                }
+            } elseif ($user->role === 'DAO_TAO') {
+                if (!$user->trainingStaff) {
+                    TrainingStaff::firstOrCreate(['user_id' => $user->id]);
+                }
+            } elseif ($user->role === 'GIANG_VIEN') {
+                if (!$user->lecturer) {
+                    Lecturer::firstOrCreate(['user_id' => $user->id]);
+                }
+            }
+        } catch (\Throwable $e) {
+            Log::warning('ensureRoleModels warning: '.$e->getMessage());
+        }
+    }
+}
+
+/**
+ * Helper nhỏ để kiểm tra cột tồn tại mà không phải inject Schema facade mỗi lần.
+ */
+if (!function_exists('Schema')) {
+    function Schema() {
+        return app('db.schema');
     }
 }

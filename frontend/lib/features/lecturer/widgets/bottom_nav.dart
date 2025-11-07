@@ -1,46 +1,55 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-class BottomNav extends StatelessWidget {
-  final int currentIndex;
+class LecturerBottomNavShell extends StatefulWidget {
+  final Widget child;
+  const LecturerBottomNavShell({super.key, required this.child});
 
-  const BottomNav({super.key, required this.currentIndex});
+  @override
+  State<LecturerBottomNavShell> createState() => _LecturerBottomNavShellState();
+}
+
+class _LecturerBottomNavShellState extends State<LecturerBottomNavShell> {
+  // Đổi tên đường dẫn giữa các tab nếu cần
+  static const _tabs = ['/home', '/notifications', '/account'];
+
+  int _computeIndex(BuildContext context) {
+    final location = GoRouterState.of(context).uri.toString();
+    if (location.startsWith(_tabs[1])) return 1;
+    if (location.startsWith(_tabs[2])) return 2;
+    return 0;
+  }
+
+  void _onTap(int index) {
+    if (index < 0 || index >= _tabs.length) return;
+    final target = _tabs[index];
+    // Ngăn chuyển tab trùng
+    if (GoRouterState.of(context).uri.toString().startsWith(target)) return;
+    context.go(target);
+  }
 
   @override
   Widget build(BuildContext context) {
-    return NavigationBar(
-      selectedIndex: currentIndex,
-      onDestinationSelected: (i) {
-        // Avoid unnecessary navigation
-        if (currentIndex == i) return;
-
-        if (i == 0) {
-          context.go('/home');
-        } else if (i == 1) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Thông báo: đang phát triển')),
-          );
-        } else if (i == 2) {
-          context.go('/account');
-        }
-      },
-      destinations: const [
-        NavigationDestination(
-          icon: Icon(Icons.home_outlined),
-          selectedIcon: Icon(Icons.home),
-          label: 'Trang chủ',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.notifications_outlined),
-          selectedIcon: Icon(Icons.notifications),
-          label: 'Thông báo',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.person_outline),
-          selectedIcon: Icon(Icons.person),
-          label: 'Tài khoản',
-        ),
-      ],
+    return Scaffold(
+      body: widget.child,
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _computeIndex(context),
+        onTap: _onTap,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined),
+            label: 'Trang chủ',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.notifications_none_outlined),
+            label: 'Thông báo',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            label: 'Tài khoản',
+          ),
+        ],
+      ),
     );
   }
 }
