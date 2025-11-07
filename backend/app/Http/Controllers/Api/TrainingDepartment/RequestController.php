@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\API\TrainingDepartment;
+namespace App\Http\Controllers\Api\TrainingDepartment;
 
 use App\Http\Controllers\Controller;
 use App\Models\LeaveRequest;
