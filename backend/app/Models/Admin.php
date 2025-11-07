@@ -12,6 +12,10 @@ class Admin extends Model
         'user_id',
         'gender',
         'date_of_birth',
+        'email',
+        'phone',
+        'address',
+        'citizen_id',
         'avatar_url',
     ];
 

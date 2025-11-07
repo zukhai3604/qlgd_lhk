@@ -15,8 +15,12 @@ class AdminSeeder extends Seeder
             Admin::firstOrCreate(
                 ['user_id' => $u->id],
                 [
-                    'gender' => null,
-                    'date_of_birth' => null,
+                    'gender' => 'Nam',
+                    'date_of_birth' => '1990-01-01',
+                    'email' => 'admin@tlu.edu.vn',
+                    'phone' => '0123456789',
+                    'address' => 'Trường Đại học Thủy Lợi, Hà Nội',
+                    'citizen_id' => '001234567890',
                     'avatar_url' => null,
                 ]
             );

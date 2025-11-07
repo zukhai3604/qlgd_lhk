@@ -7,6 +7,10 @@ use Illuminate\Support\Facades\DB;
 
 return new class extends Migration {
     public function up(): void {
+
+return new class extends Migration {
+    public function up(): void {
+        if (Schema::hasTable('semesters')) return;
         Schema::create('semesters', function (Blueprint $table) {
             $table->id();
             $table->string('code', 30)->unique();

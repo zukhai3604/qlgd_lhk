@@ -84,6 +84,8 @@ class ClassDetailPage extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(height: 24),
+          _RawDebugSection(raw: item.raw),
         ],
       ),
     );
@@ -120,5 +122,30 @@ class _InfoCard extends StatelessWidget {
   }
 }
 
+class _RawDebugSection extends StatelessWidget {
+  final Map<String, dynamic> raw;
 
+  const _RawDebugSection({required this.raw});
 
+  @override
+  Widget build(BuildContext context) {
+    return ExpansionTile(
+      title: const Text('Dữ liệu gốc'),
+      subtitle: const Text('Phục vụ debug nhanh'),
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(.4),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            raw.toString(),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+      ],
+    );
+  }
+}

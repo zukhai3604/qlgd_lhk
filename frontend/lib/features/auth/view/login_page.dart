@@ -17,10 +17,32 @@ class LoginPage extends ConsumerStatefulWidget {
 class _LoginPageState extends ConsumerState<LoginPage> {
   final _formKey = GlobalKey<FormState>();
   final _emailCtrl = TextEditingController();
-  final _passCtrl  = TextEditingController();
+  final _passCtrl = TextEditingController();
+  late final ProviderSubscription<LoginState> _loginSub;
+
+  @override
+  void initState() {
+    super.initState();
+    _loginSub = ref.listenManual<LoginState>(
+      loginViewModelProvider,
+      (previous, next) {
+        final hasNewError = next.errorMessage != null &&
+            previous?.errorMessage != next.errorMessage;
+        if (!hasNewError) return;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final messenger = ScaffoldMessenger.maybeOf(context);
+          messenger?.showSnackBar(
+            SnackBar(content: Text(next.errorMessage!)),
+          );
+        });
+      },
+    );
+  }
 
   @override
   void dispose() {
+    _loginSub.close();
     _emailCtrl.dispose();
     _passCtrl.dispose();
     super.dispose();
@@ -30,9 +52,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     if (_formKey.currentState?.validate() ?? false) {
       FocusScope.of(context).unfocus();
       ref.read(loginViewModelProvider.notifier).login(
-        email: _emailCtrl.text.trim(),
-        password: _passCtrl.text,
-      );
+            email: _emailCtrl.text.trim(),
+            password: _passCtrl.text,
+          );
     }
   }
 
@@ -105,12 +127,12 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         ),
                       ),
                       validator: vmN.validateEmail,
-                      onFieldSubmitted: (_) => FocusScope.of(context).nextFocus(),
+                      onFieldSubmitted: (_) =>
+                          FocusScope.of(context).nextFocus(),
                     ),
-
                     const SizedBox(height: 16),
-
-                    Text('Mật khẩu', style: Theme.of(context).textTheme.labelMedium),
+                    Text('Mật khẩu',
+                        style: Theme.of(context).textTheme.labelMedium),
                     const SizedBox(height: 6),
                     TextFormField(
                       controller: _passCtrl,
@@ -124,29 +146,31 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           borderRadius: BorderRadius.all(Radius.circular(10)),
                         ),
                         suffixIcon: IconButton(
-                          tooltip: vm.obscurePassword ? 'Hiện mật khẩu' : 'Ẩn mật khẩu',
-                          icon: Icon(vm.obscurePassword ? Icons.visibility_off : Icons.visibility),
+                          tooltip: vm.obscurePassword
+                              ? 'Hiện mật khẩu'
+                              : 'Ẩn mật khẩu',
+                          icon: Icon(vm.obscurePassword
+                              ? Icons.visibility_off
+                              : Icons.visibility),
                           onPressed: vmN.togglePasswordVisibility,
                         ),
                       ),
                       validator: vmN.validatePassword,
                       onFieldSubmitted: (_) => _submit(),
                     ),
-
                     const SizedBox(height: 8),
-
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Tính năng đang phát triển')),
+                        onPressed: () =>
+                            ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text('Tính năng đang phát triển')),
                         ),
                         child: const Text('Quên mật khẩu?'),
                       ),
                     ),
-
                     const SizedBox(height: 6),
-
                     SizedBox(
                       height: 46,
                       child: ElevatedButton(
@@ -160,9 +184,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         onPressed: vm.isLoggingIn ? null : _submit,
                         child: vm.isLoggingIn
                             ? const SizedBox(
-                          width: 18, height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
+                                width: 18,
+                                height: 18,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
                             : const Text('Đăng nhập'),
                       ),
                     ),

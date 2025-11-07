@@ -10,9 +10,9 @@ class ApiClient {
     dio = Dio(
       BaseOptions(
         baseUrl: resolvedBaseUrl,
-        connectTimeout: const Duration(seconds: 15),
-        receiveTimeout: const Duration(seconds: 20),
-        headers: const {'Accept': 'application/json'},
+        connectTimeout: const Duration(seconds: 60),
+        receiveTimeout: const Duration(seconds: 60),
+        headers: const {'Accept': 'application/json', 'Content-Type': 'application/json'},
       ),
     );
 

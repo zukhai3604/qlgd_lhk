@@ -25,9 +25,14 @@ return [
         'http://localhost:*',  // Cho phép mọi port của localhost (VD: 5173, 8080...)
         'http://127.0.0.1',
         'http://127.0.0.1:*',  // Cho phép mọi port của 127.0.0.1
+        'http://192.168.1.14', // IP máy tính - THAY BẰNG IP THẬT CỦA BẠN
+        'http://192.168.1.100:*',
     ],
 
-    'allowed_origins_patterns' => [],
+    'allowed_origins_patterns' => [
+        '/^http:\/\/192\.168\.\d+\.\d+/',  // Cho phép tất cả IP trong mạng LAN 192.168.x.x
+        '/^http:\/\/10\.\d+\.\d+\.\d+/',   // Cho phép mạng 10.x.x.x
+    ],
 
     'allowed_headers' => ['*'], // Cho phép mọi header (quan trọng để gửi token JSON)
 

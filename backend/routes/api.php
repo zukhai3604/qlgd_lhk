@@ -2,19 +2,11 @@
 
 use Illuminate\Support\Facades\Route;
 
-// Controllers
-use App\Http\Controllers\API\AuthController;
-use App\Http\Controllers\Admin\UserController;
-use App\Http\Controllers\Admin\ProfileController as AdminProfileController;
-use App\Http\Controllers\Lecturer\ScheduleController;
-use App\Http\Controllers\Lecturer\LeaveController;
-use App\Http\Controllers\Lecturer\ProfileController;
-use App\Http\Controllers\Lecturer\ReportController;
-use App\Http\Controllers\Lecturer\MaterialController;
-use App\Http\Controllers\TrainingDepartment\ApprovalController;
-use App\Http\Controllers\TrainingDepartment\ProfileController as TDProfileController;
-use App\Http\Controllers\Api\TrainingDepartment\RequestController as ApiTDRequestController;
-use App\Http\Controllers\Api\HealthController; // <- THASM DANG NAY (Chu y: Api, khong phai API)
+// ===== Controllers chung =====
+use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\HealthController;
+
+// Danh mục dùng chung
 use App\Http\Controllers\Api\FacultyController as ApiFacultyController;
 use App\Http\Controllers\Api\DepartmentController as ApiDepartmentController;
 use App\Http\Controllers\Api\RoomController as ApiRoomController;
@@ -23,28 +15,46 @@ use App\Http\Controllers\Api\ClassUnitController as ApiClassUnitController;
 use App\Http\Controllers\Api\SubjectController as ApiSubjectController;
 use App\Http\Controllers\Api\LecturerController as ApiLecturerController;
 
-// --- API Lecturer module (Bearer token)
-use App\Http\Controllers\API\Lecturer\LecturerProfileController as ApiLecturerProfileController;
-use App\Http\Controllers\API\Lecturer\LecturerReportController as ApiLecturerReportController;
-use App\Http\Controllers\API\Lecturer\ScheduleController as ApiLecturerScheduleController;
-use App\Http\Controllers\API\Lecturer\TeachingSessionController as ApiTeachingSessionController;
-use App\Http\Controllers\API\Lecturer\TeachingSessionWorkflowController as ApiTeachingSessionWorkflowController;
+// ====== ADMIN ======
+use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\UserController as AdminUserController;
+use App\Http\Controllers\Admin\ProfileController as AdminProfileController;
+use App\Http\Controllers\Admin\AuditLogController;
+use App\Http\Controllers\Admin\SystemReportController;
+use App\Http\Controllers\Admin\AdminNotificationController;
+
+
+// ====== PHÒNG ĐÀO TẠO ======
+use App\Http\Controllers\TrainingDepartment\ProfileController as TDProfileController;
+use App\Http\Controllers\TrainingDepartment\ApprovalController;
+use App\Http\Controllers\Api\TrainingDepartment\RequestController as ApiTDRequestController;
+
+// ====== LECTURER (web guard) ======
+use App\Http\Controllers\Lecturer\ScheduleController;
+use App\Http\Controllers\Lecturer\LeaveController;
+use App\Http\Controllers\Lecturer\ProfileController;
+use App\Http\Controllers\Lecturer\ReportController;
+use App\Http\Controllers\Lecturer\MaterialController;
+
+// ====== LECTURER (API chuẩn hoá Bearer) ======
+use App\Http\Controllers\Api\Lecturer\LecturerProfileController as ApiLecturerProfileController;
+use App\Http\Controllers\Api\Lecturer\LecturerReportController as ApiLecturerReportController;
+use App\Http\Controllers\Api\Lecturer\ScheduleController as ApiLecturerScheduleController;
+use App\Http\Controllers\Api\Lecturer\TeachingSessionController as ApiTeachingSessionController;
+use App\Http\Controllers\Api\Lecturer\TeachingSessionWorkflowController as ApiTeachingSessionWorkflowController;
 use App\Http\Controllers\Api\Lecturer\AttendanceController as ApiAttendanceController;
-use App\Http\Controllers\API\Lecturer\LeaveRequestController as ApiLeaveRequestController;
-use App\Http\Controllers\API\Lecturer\MakeupRequestController as ApiMakeupRequestController;
-use App\Http\Controllers\API\Lecturer\NotificationController as ApiNotificationController;
-use App\Http\Controllers\API\Lecturer\StatsController as ApiStatsController;
+use App\Http\Controllers\Api\Lecturer\LeaveRequestController as ApiLeaveRequestController;
+use App\Http\Controllers\Api\Lecturer\MakeupRequestController as ApiMakeupRequestController;
+use App\Http\Controllers\Api\Lecturer\NotificationController as ApiNotificationController;
+use App\Http\Controllers\Api\Lecturer\StatsController as ApiStatsController;
 use App\Http\Controllers\Api\Lecturer\LecturerStatsController;
 
 /*
 |--------------------------------------------------------------------------
-| API Routes
+| Public (no auth)
 |--------------------------------------------------------------------------
 */
-
 Route::post('/login', [AuthController::class, 'login'])->name('login');
-
-// Thay closure bang controller, va de NGOAI moi middleware group
 Route::get('/health', [HealthController::class, 'health']);
 Route::get('/ping',   [HealthController::class, 'ping']);
 
@@ -64,7 +74,7 @@ Route::middleware(['auth:sanctum', 'ensure.active'])->group(function () {
     Route::middleware('role:ADMIN')->prefix('admin')->group(function () {
         Route::get('me/profile', [AdminProfileController::class, 'show']);
         Route::patch('me/profile', [AdminProfileController::class, 'update']);
-        Route::apiResource('users', UserController::class);
+        Route::apiResource('users', AdminUserController::class);
     });
 
     Route::middleware('role:DAO_TAO')->prefix('training_department')->group(function () {

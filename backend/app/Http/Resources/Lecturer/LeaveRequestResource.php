@@ -10,12 +10,13 @@ class LeaveRequestResource extends JsonResource
     {
         $lr = $this->resource;
         $schedule = $lr->schedule;
+        $lecturer = $lr->lecturer;
+        $assignment = $schedule?->assignment;
         
         $scheduleData = null;
         if ($schedule) {
             $timeslot = $schedule->timeslot;
             $room = $schedule->room;
-            $assignment = $schedule->assignment;
             $subject = $assignment?->subject;
             $classUnit = $assignment?->classUnit;
             
@@ -80,8 +81,8 @@ class LeaveRequestResource extends JsonResource
                 'unit' => $lecturer?->department?->faculty?->name,
             ],
             
-            // Thông tin lịch học
-            'schedule' => [
+            // Thông tin lịch học (formatted)
+            'schedule_info' => [
                 'id' => $schedule?->id,
                 'subject' => $assignment?->subject?->name,
                 'subject_code' => $assignment?->subject?->code,
@@ -96,14 +97,6 @@ class LeaveRequestResource extends JsonResource
                 'room' => $schedule?->room?->name,
                 'room_code' => $schedule?->room?->code,
             ],
-            
-            // Thông tin đơn nghỉ
-            'reason' => $lr->reason,
-            'note' => $lr->note,
-            'status' => $lr->status,
-            'approved_by' => $lr->approved_by,
-            'approved_at' => optional($lr->approved_at)->toDateTimeString(),
-            'created_at' => optional($lr->created_at)->toDateTimeString(),
         ];
     }
 }

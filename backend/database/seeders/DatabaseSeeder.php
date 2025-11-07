@@ -35,6 +35,7 @@ class DatabaseSeeder extends Seeder
             
             // Seeder điểm danh (sau khi có schedules)
             AttendanceRecordSeeder::class,
+            AuditLogSeeder::class,
         ]);
     }
 }

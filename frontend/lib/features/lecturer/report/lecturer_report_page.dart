@@ -45,7 +45,3 @@ class ReportRow extends StatelessWidget {
     );
   }
 }
-
-
-
-

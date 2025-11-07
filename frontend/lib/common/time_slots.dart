@@ -1,4 +1,4 @@
-﻿import 'package:intl/intl.dart';
+import 'package:intl/intl.dart';
 
 class TimeRange {
   final DateTime start;
@@ -15,10 +15,10 @@ class TimeRange {
 DateTime _clamp(DateTime d, int h, int m) =>
     DateTime(d.year, d.month, d.day, h, m);
 
-/// Sinh danh s�ch �ti?t� trong 1 ng�y theo:
-/// - Khung 07:00 ? 21:30
-/// - Ti?t 50�, ngh? 5�
-/// - Ngo?i l?: 12:25?12:55 v� 18:20?18:50
+/// Sinh danh sách “tiết” trong 1 ngày theo:
+/// - Khung 07:00 → 21:30
+/// - Tiết 50’, nghỉ 5’
+/// - Ngoại lệ: 12:25→12:55 và 18:20→18:50
 List<TimeRange> generateTeachingPeriods(DateTime day) {
   final startDay = _clamp(day, 7, 0);
   final endDay = _clamp(day, 21, 30);
@@ -51,7 +51,7 @@ List<TimeRange> generateTeachingPeriods(DateTime day) {
   return periods;
 }
 
-/// T?o m?c nh�n gi? (07:00, 08:00, ..., 21:30)
+/// Tạo mốc nhãn giờ (07:00, 08:00, ..., 21:30)
 List<DateTime> generateHourTicks(DateTime day) {
   final end = _clamp(day, 21, 30);
   final ticks = <DateTime>[];
@@ -68,4 +68,3 @@ List<DateTime> generateHourTicks(DateTime day) {
 
   return ticks;
 }
-

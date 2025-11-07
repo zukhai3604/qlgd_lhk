@@ -32,6 +32,8 @@ import 'package:qlgd_lhk/features/training_dept/view/tr_data_page.dart';
 import 'package:qlgd_lhk/features/lecturer/leave/presentation/view/leave_page.dart';
 import 'package:qlgd_lhk/features/lecturer/leave/presentation/view/leave_history_page.dart';
 import 'package:qlgd_lhk/features/lecturer/leave/presentation/view/choose_session_page.dart';
+import 'package:qlgd_lhk/features/lecturer/leave/lecturer_choose_session_page.dart';
+import 'package:qlgd_lhk/features/lecturer/leave/lecturer_leave_page.dart';
 
 // --- MAKEUP (luồng mới) ---
 // 👉 GIỮ alias cho module makeup
@@ -39,8 +41,18 @@ import 'package:qlgd_lhk/features/lecturer/makeup/presentation/view/choose_sessi
     as makeup_pages;
 import 'package:qlgd_lhk/features/lecturer/makeup/presentation/view/makeup_page.dart';
 import 'package:qlgd_lhk/features/lecturer/makeup/presentation/view/makeup_history_page.dart';
+import 'package:qlgd_lhk/features/lecturer/makeup/lecturer_makeup_page.dart';
 
 // ======================= Bootstrap Auth =======================
+
+import 'package:qlgd_lhk/features/admin/view/admin_dashboard_page.dart';
+import 'package:qlgd_lhk/features/admin/view/admin_users_page.dart';
+import 'package:qlgd_lhk/features/admin/view/admin_user_detail_page.dart';
+import 'package:qlgd_lhk/features/admin/view/admin_account_page.dart';
+import 'package:qlgd_lhk/features/admin/view/admin_notifications_page.dart';
+import 'package:qlgd_lhk/features/admin/view/admin_create_user_page.dart';
+import 'package:qlgd_lhk/features/admin/view/admin_system_reports_page.dart';
+import 'package:qlgd_lhk/features/admin/view/admin_report_detail_page.dart';
 
 class AuthBootstrapResult {
   const AuthBootstrapResult({required this.isLoggedIn});
@@ -111,6 +123,30 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/login',
     refreshListenable: notifier,
     routes: [
+      GoRoute(
+        path: '/',
+        redirect: (context, state) {
+          final bootstrap = ref.read(authBootstrapProvider);
+          if (bootstrap.isLoading) return '/login';
+          if (bootstrap.hasError && authState == null) return '/login';
+          
+          final isLoggedIn = authState != null;
+          final role = authState?.role;
+          
+          if (!isLoggedIn) return '/login';
+          
+          switch (role) {
+            case Role.GIANG_VIEN:
+              return '/home';
+            case Role.DAO_TAO:
+              return '/training-dept/home';
+            case Role.ADMIN:
+              return '/dashboard';
+            default:
+              return '/login';
+          }
+        },
+      ),
       GoRoute(
         path: '/login',
         name: 'login',
@@ -209,15 +245,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/account/edit',
             name: 'account_edit',
-            builder: (context, state) =>
-                const LecturerAccountPage(initialSheet: AccountSheet.edit),
+            builder: (context, state) => const LecturerAccountPage(),
           ),
           GoRoute(
             path: '/account/change-password',
             name: 'account_change_password',
-            builder: (context, state) => const LecturerAccountPage(
-              initialSheet: AccountSheet.changePassword,
-            ),
+            builder: (context, state) => const LecturerAccountPage(),
           ),
           GoRoute(
             path: '/notifications',
@@ -315,6 +348,53 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/training-dept/schedule',
         builder: (context, state) => const TrainingDepartmentSchedulePage(),
       ),
+      // Admin routes
+      GoRoute(
+        path: '/dashboard',
+        name: 'admin_dashboard',
+        builder: (context, state) => const AdminDashboardPage(),
+      ),
+      GoRoute(
+        path: '/admin/users',
+        name: 'admin_users',
+        builder: (context, state) => const AdminUsersPage(),
+      ),
+      GoRoute(
+        path: '/admin/users/create',
+        name: 'adminUserCreate',
+        builder: (context, state) => const AdminCreateUserPage(),
+      ),
+      GoRoute(
+        path: '/admin/users/:id',
+        name: 'admin_user_detail',
+        builder: (context, state) {
+          final id = int.tryParse(state.pathParameters['id'] ?? '0') ?? 0;
+          return AdminUserDetailPage(userId: id);
+        },
+      ),
+      GoRoute(
+        path: '/admin/account',
+        name: 'adminAccount',
+        builder: (context, state) => const AdminAccountPage(),
+      ),
+      GoRoute(
+        path: '/admin/notifications',
+        name: 'admin_notifications',
+        builder: (context, state) => const AdminNotificationsPage(),
+      ),
+      GoRoute(
+        path: '/admin/reports',
+        name: 'admin_reports',
+        builder: (context, state) => const AdminSystemReportsPage(),
+      ),
+      GoRoute(
+        path: '/admin/reports/:id',
+        name: 'admin_report_detail',
+        builder: (context, state) {
+          final id = state.pathParameters['id'] ?? '0';
+          return AdminReportDetailPage(reportId: id);
+        },
+      ),
       GoRoute(
         path: '/training-dept/data',
         builder: (context, state) => const TrainingDepartmentDataPage(),
@@ -342,7 +422,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           case Role.DAO_TAO:
             return '/training-dept/home';
           case Role.ADMIN:
-            return '/users';
+            return '/dashboard'; // <-- Redirect to admin dashboard
           default:
             return '/home';
         }

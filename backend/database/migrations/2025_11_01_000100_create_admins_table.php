@@ -11,9 +11,18 @@ return new class extends Migration
         Schema::create('admins', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')->unique()->constrained('users')->cascadeOnDelete();
+            
+            // Thông tin cá nhân
             $table->enum('gender', ['Nam','Nữ','Khác'])->nullable();
             $table->date('date_of_birth')->nullable();
+            $table->string('email', 100)->nullable();
+            $table->string('phone', 20)->nullable();
+            $table->text('address')->nullable()->comment('Địa chỉ');
+            $table->string('citizen_id', 20)->nullable()->comment('Số CCCD/CMND');
+            
+            // Media
             $table->string('avatar_url', 255)->nullable();
+            
             $table->timestamps();
         });
     }

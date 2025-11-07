@@ -1,4 +1,4 @@
-﻿import 'package:dio/dio.dart';
+import 'package:dio/dio.dart';
 import '../../../core/api_client.dart';
 
 class LecturerScheduleService {
@@ -18,7 +18,7 @@ class LecturerScheduleService {
     } else if (raw is List) {
       list = List.from(raw);
     } else if (raw is Map) {
-      // single object ? wrap
+      // single object → wrap
       list = [raw];
     } else {
       throw Exception('Unexpected response type for week schedule');
@@ -161,7 +161,7 @@ class LecturerScheduleService {
     return list.map((e) => Map<String, dynamic>.from(e)).toList();
   }
 
-  // UI m?i dang g?i getMaterials -> alias v? listMaterials
+  // UI mới đang gọi getMaterials -> alias về listMaterials
   Future<List<Map<String, dynamic>>> getMaterials(int sessionId) =>
       listMaterials(sessionId);
 
@@ -261,9 +261,9 @@ class LecturerScheduleService {
     await _dio.post('/api/lecturer/schedule/$sessionId/report', data: body);
   }
 
-  // Gi? tuong th�ch v?i code cu c?a b?n:
+  // Giữ tương thích với code cũ của bạn:
   // submitReport(id, content: '...', issues: '...', nextPlan: '...')
-  @Deprecated('D�ng submitReport({...}) v?i tham s? d?t t�n')
+  @Deprecated('Dùng submitReport({...}) với tham số đặt tên')
   Future<void> submitReportLegacy(
     int id, {
     required String content,

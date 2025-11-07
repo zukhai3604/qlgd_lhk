@@ -1,4 +1,4 @@
-﻿import 'package:dio/dio.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -68,16 +68,15 @@ class LoginViewModel extends StateNotifier<LoginState> {
 
   // Maps the backend string to our standardized Role enum
   Role _mapBackendRole(String? raw) {
-    switch ((raw ?? '').toUpperCase().trim()) {
-      case 'DAO_TAO':
-        return Role.DAO_TAO;
-      case 'GIANG_VIEN':
-        return Role.GIANG_VIEN;
-      case 'ADMIN':
+    final normalized = (raw ?? '').toLowerCase().trim();
+    switch (normalized) {
+      case 'admin':
         return Role.ADMIN;
-      case 'TRAINING_DEPARTMENT': // <-- Sửa để khớp với backend Laravel
+      case 'training':
+      case 'dao_tao':
         return Role.DAO_TAO;
-      case 'LECTURER': // <-- Sửa để khớp với backend Laravel
+      case 'lecturer':
+      case 'giang_vien':
         return Role.GIANG_VIEN;
       default:
         return Role.UNKNOWN;
@@ -145,45 +144,47 @@ class LoginViewModel extends StateNotifier<LoginState> {
     }
   }
 
+  void _setAuthFromLoginResponse(dynamic data, String token) {
+    if (data is! Map) {
+      throw Exception('Login response không hợp lệ');
+    }
+
+    final m = Map<String, dynamic>.from(data);
+
+    // Backend trả về: {"token":"...", "user":{...}}
+    final user = m['user'] as Map<String, dynamic>?;
+    if (user == null) {
+      throw Exception('Không tìm thấy thông tin user trong response');
+    }
+
+    final id = user['id'] ?? 0;
+    final name = user['name']?.toString() ?? '';
+    final email = user['email']?.toString() ?? '';
+    // Ưu tiên role_mapped, fallback về role
+    final backendRole = user['role_mapped']?.toString() ?? user['role']?.toString();
+
+    final role = _mapBackendRole(backendRole);
+
+    debugPrint('✅ Login SUCCESS! ID: $id, Name: $name, Role: $backendRole → $role');
+
+    _ref.read(authStateProvider.notifier).login(
+      token,
+      role,
+      id: int.tryParse(id.toString()) ?? 0,
+      name: name,
+      email: email,
+    );
+  }
+
   Future<void> _fetchProfileAndSetAuth(String token) async {
     try {
-      final paths = ['/auth/me', '/me', '/api/me', '/api/user'];
-      final res = await _getMeFlexible(paths);
-      final data = (res.data as Map).cast<String, dynamic>();
-      final rawRole = (data['role'] ?? data['user']?['role'] ?? data['data']?['role'] ?? '').toString();
+      const mePaths = ['/api/me', '/auth/me', '/me', '/api/user'];
+      final res = await _getMeFlexible(mePaths);
 
-      // Normalize: remove non-alphanumeric, lowercase
-      final roleStr = rawRole.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    // GỘP VÀO ĐÂY: Dòng print để kiểm tra lỗi
+    debugPrint(
+        '👤 /api/me response -> Status: ${res.statusCode}, Data: ${res.data}');
 
-      // Map common server role strings (including DAO_TAO) to our Role enum
-      final roleMap = <String, Role>{
-        'lecturer': Role.GIANG_VIEN,
-        'giangvien': Role.GIANG_VIEN,
-        'teacher': Role.GIANG_VIEN,
-
-        'training': Role.DAO_TAO,
-        'trainingdept': Role.DAO_TAO,
-        'trainingdepartment': Role.DAO_TAO,
-        'daotao': Role.DAO_TAO, // DAO_TAO from backend
-        'dao_tao': Role.DAO_TAO,
-
-        'admin': Role.ADMIN,
-        'administrator': Role.ADMIN,
-      };
-
-      final role = roleMap[roleStr] ?? _mapBackendRole(rawRole);
-
-      // Debug logging: print role mapping results
-      // (Remove these prints in production)
-      try {
-        // ignore: avoid_print
-        print('DEBUG: rawRole="$rawRole" -> roleStr="$roleStr" -> mapped="$role"');
-      } catch (_) {}
-
-    // Debug logging
-    debugPrint('ĐÃ /api/me response -> Status: ${res.statusCode}, Data: ${res.data}');
-
-    // Extract data với nhiều fallback
     Map<String, dynamic> m;
     if (res.data is Map && (res.data['data'] is Map)) {
       m = Map<String, dynamic>.from(res.data['data']);
@@ -204,6 +205,9 @@ class LoginViewModel extends StateNotifier<LoginState> {
     final email = (m['email'] ?? m['user']?['email'] ?? m['data']?['email'])
             ?.toString() ??
         '';
+
+    // Extract role from response
+    final role = _mapRoleFromResponse(m);
 
     // Debug logging
     try {
@@ -266,8 +270,8 @@ class LoginViewModel extends StateNotifier<LoginState> {
     try {
       await api.dio.post('/api/logout');
     } catch (_) {}
-    await _storage.delete(key: _kAccess);
-    await _storage.delete(key: _kCompat);
+    await LoginViewModel._storage.delete(key: LoginViewModel._kAccess);
+    await LoginViewModel._storage.delete(key: LoginViewModel._kCompat);
     _ref.read(authStateProvider.notifier).logout();
   }
 
@@ -304,8 +308,10 @@ class LoginViewModel extends StateNotifier<LoginState> {
               },
             ),
           );
+          debugPrint('✅ Login endpoint $p responded with status: ${res.statusCode}');
           if (res.statusCode != null && res.statusCode! < 500) return res;
         } on DioException catch (e) {
+          debugPrint('❌ Login endpoint $p failed: ${e.type} - ${e.message}');
           lastErr = e;
           final sc = e.response?.statusCode ?? 0;
           if (sc == 401 || sc == 422 || sc == 400) rethrow;
