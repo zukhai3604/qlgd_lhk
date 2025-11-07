@@ -14,24 +14,23 @@ return new class extends Migration
         Schema::create('users', function (Blueprint $table) {
             $table->id();
 
-            // Thông tin cơ bản
+            // ===== Thông tin tài khoản (tối thiểu) =====
             $table->string('name', 150);
-            $table->string('email', 190)->unique();
             $table->string('phone', 30)->nullable();
+            $table->string('email', 190)->unique();
 
-            // Mật khẩu và phân quyền
+            // ===== Đăng nhập & phân quyền =====
             $table->string('password');
-            $table->enum('role', ['ADMIN', 'DAO_TAO', 'GIANG_VIEN'])
-                  ->default('GIANG_VIEN');
+            $table->enum('role', ['ADMIN', 'DAO_TAO', 'GIANG_VIEN'])->default('GIANG_VIEN');
             $table->boolean('is_active')->default(true);
 
-            // Token để nhớ đăng nhập (Laravel Auth)
+            // ===== Laravel Auth =====
             $table->rememberToken();
 
-            // Thời gian tạo & cập nhật
+            // ===== Thời gian =====
             $table->timestamps();
 
-            // Index giúp truy vấn nhanh hơn
+            // ===== Index =====
             $table->index('role');
         });
     }

@@ -11,14 +11,19 @@ return new class extends Migration {
             $table->foreignId('lecturer_id')->constrained('lecturers')->cascadeOnDelete();
             $table->foreignId('subject_id')->constrained('subjects')->cascadeOnDelete();
             $table->foreignId('class_unit_id')->constrained('class_units')->cascadeOnDelete();
-            $table->string('semester_label',50);
+            // semester_id nullable tạm thời vì bảng semesters chưa tồn tại
+            // Sẽ được set NOT NULL sau khi bảng semesters được tạo
+            $table->unsignedBigInteger('semester_id')->nullable();
             $table->string('academic_year',20)->nullable();
             $table->timestamps();
             $table->index(['lecturer_id','subject_id','class_unit_id']);
-            $table->index(['semester_label','academic_year']);
+            $table->index(['semester_id','academic_year']);
+            // KHÔNG có semester_label
         });
     }
+    
     public function down(): void {
         Schema::dropIfExists('assignments');
     }
 };
+

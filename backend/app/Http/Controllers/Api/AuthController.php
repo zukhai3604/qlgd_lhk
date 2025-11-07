@@ -1,53 +1,116 @@
 <?php
 
-namespace App\Http\Controllers\Api;
+namespace App\Http\Controllers\API;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\User;                      // <-- SỬA LỖI: THÊM DÒNG NÀY
-use Illuminate\Support\Facades\Auth;      // <-- SỬA LỖI: THÊM DÒNG NÀY
+use Illuminate\Support\Facades\Auth;
+use OpenApi\Annotations as OA;
 
 class AuthController extends Controller
 {
-    // SỬA LỖI: HÀM LOGIN PHẢI NẰM BÊN TRONG CẶP DẤU {} CỦA CLASS
+    /**
+     * @OA\Post(
+     *   path="/api/login",
+     *   operationId="authLogin",
+     *   tags={"Auth"},
+     *   summary="Đăng nhập và lấy access token",
+     *   @OA\RequestBody(
+     *     required=true,
+     *     @OA\JsonContent(
+     *       required={"email","password"},
+     *       @OA\Property(property="email", type="string", format="email", example="giangvien@qlgd.test"),
+     *       @OA\Property(property="password", type="string", example="secret123")
+     *     )
+     *   ),
+     *   @OA\Response(
+     *     response=200,
+     *     description="Đăng nhập thành công",
+     *     @OA\JsonContent(
+     *       @OA\Property(property="token", type="string", example="1|P3nY..."),
+     *       @OA\Property(property="user", ref="#/components/schemas/UserResource")
+     *     )
+     *   ),
+     *   @OA\Response(
+     *     response=401,
+     *     description="Sai thông tin đăng nhập",
+     *     @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *   ),
+     *   @OA\Response(
+     *     response=422,
+     *     description="Dữ liệu không hợp lệ",
+     *     @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *   )
+     * )
+     */
     public function login(Request $request)
     {
-        // 1. Kiểm tra dữ liệu đầu vào (email, password) có hợp lệ không
-        $credentials = $request->validate([
-            'email' => 'required|email',
-            'password' => 'required',
+        $data = $request->validate([
+            'email' => ['required', 'email'],
+            'password' => ['required', 'string'],
         ]);
 
-        // 2. Thử xác thực người dùng với thông tin đã cung cấp
-        if (!Auth::attempt($credentials)) {
-            // Nếu sai email hoặc password, trả về lỗi
-            return response()->json([
-                'message' => 'Email hoặc mật khẩu không chính xác.'
-            ], 401); // 401 Unauthorized
+        if (!Auth::attempt(['email' => $data['email'], 'password' => $data['password']])) {
+            return response()->json(['message' => 'Sai tài khoản hoặc mật khẩu'], 401);
         }
 
-        // 3. Xác thực thành công, lấy thông tin user
-        $user = User::where('email', $request->email)->first();
+        $user = $request->user();
+        $token = $user->createToken('api')->plainTextToken;
 
-        // 4. Tạo ra một token mới cho user này
-        $token = $user->createToken('api_token')->plainTextToken;
-
-        // 5. Trả về thông tin user và token cho client (app mobile)
         return response()->json([
-            'user' => $user,
             'token' => $token,
+            'user' => $user,
         ]);
     }
 
-    // (Các hàm me() và logout() mà chúng ta đã làm trước đó sẽ nằm ở đây)
+    /**
+     * @OA\Get(
+     *   path="/api/me",
+     *   operationId="authMe",
+     *   tags={"Auth"},
+     *   summary="Thông tin người dùng hiện tại",
+     *   security={{"bearerAuth":{}}},
+     *   @OA\Response(
+     *     response=200,
+     *     description="Thông tin tài khoản",
+     *     @OA\JsonContent(ref="#/components/schemas/UserResource")
+     *   ),
+     *   @OA\Response(
+     *     response=401,
+     *     description="Chưa xác thực",
+     *     @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *   )
+     * )
+     */
     public function me(Request $request)
     {
-        return response()->json($request->user());
+        $user = $request->user()->load(['lecturer.department.faculty']);
+
+        return response()->json($user);
     }
 
+    /**
+     * @OA\Post(
+     *   path="/api/logout",
+     *   operationId="authLogout",
+     *   tags={"Auth"},
+     *   summary="Đăng xuất và thu hồi token hiện tại",
+     *   security={{"bearerAuth":{}}},
+     *   @OA\Response(
+     *     response=204,
+     *     description="Đăng xuất thành công"
+     *   ),
+     *   @OA\Response(
+     *     response=401,
+     *     description="Chưa xác thực",
+     *     @OA\JsonContent(ref="#/components/schemas/ErrorResponse")
+     *   )
+     * )
+     */
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
-        return response()->json(['message' => 'Đăng xuất thành công.']);
+
+        return response()->noContent();
     }
 }

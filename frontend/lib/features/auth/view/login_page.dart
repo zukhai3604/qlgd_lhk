@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:qlgd_lhk/common/providers/auth_state_provider.dart';
+import 'package:qlgd_lhk/common/providers/role_provider.dart';
+import 'package:qlgd_lhk/features/auth/model/entities/auth_user.dart';
 
 import 'widgets/login_header.dart';
 import '../presentation/view_model/login_view_model.dart';
@@ -46,6 +49,29 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(next.errorMessage!)),
         );
+      }
+    });
+
+    // Listen for auth state changes and redirect according to role.
+    ref.listen<AuthUser?>(authStateProvider, (previous, next) {
+      if (next == null) return; // logged out or nothing
+      // Only navigate when user just logged in (previous == null) or role changed
+      final prevRole = previous?.role;
+      final nextRole = next.role;
+      if (prevRole == nextRole) return;
+      if (!mounted) return;
+      switch (nextRole) {
+        case Role.training:
+          context.go('/training-dept/home');
+          break;
+        case Role.lecturer:
+          context.go('/home');
+          break;
+        case Role.admin:
+          context.go('/users');
+          break;
+        default:
+          context.go('/home');
       }
     });
 

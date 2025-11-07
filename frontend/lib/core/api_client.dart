@@ -1,6 +1,5 @@
 // lib/core/api_client.dart
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class ApiClient {
@@ -44,22 +43,20 @@ class ApiClient {
       ),
     );
 
-    // (tuỳ chọn) Gắn Authorization tự động nếu đã có token lưu
-    if (!kIsWeb) {
-      final storage = const FlutterSecureStorage();
-      storage.read(key: 'access_token').then((tkn) {
-        if (tkn != null && tkn.isNotEmpty) {
-          dio.options.headers['Authorization'] = 'Bearer $tkn';
-        } else {
-          // tương thích key cũ nếu bạn dùng 'auth_token'
-          storage.read(key: 'auth_token').then((old) {
-            if (old != null && old.isNotEmpty) {
-              dio.options.headers['Authorization'] = 'Bearer $old';
-            }
-          });
-        }
-      });
-    }
+    // (tuỳ chọn) Gắn Authorization tự động nếu đã có token lưu (hỗ trợ cả Web)
+    final storage = const FlutterSecureStorage();
+    storage.read(key: 'access_token').then((tkn) {
+      if (tkn != null && tkn.isNotEmpty) {
+        dio.options.headers['Authorization'] = 'Bearer $tkn';
+      } else {
+        // tương thích key cũ nếu bạn dùng 'auth_token'
+        storage.read(key: 'auth_token').then((old) {
+          if (old != null && old.isNotEmpty) {
+            dio.options.headers['Authorization'] = 'Bearer $old';
+          }
+        });
+      }
+    });
 
     return ApiClient._(dio);
   }

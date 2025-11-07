@@ -11,6 +11,7 @@ import 'package:qlgd_lhk/features/training_dept/view/tr_home_page.dart';
 import 'package:qlgd_lhk/features/training_dept/view/tr_requests_page.dart';
 import 'package:qlgd_lhk/features/training_dept/view/tr_reports_page.dart';
 import 'package:qlgd_lhk/features/training_dept/view/tr_schedule_page.dart';
+import 'package:qlgd_lhk/features/training_dept/view/tr_data_page.dart';
 
 // --- Placeholder Pages ---
 class SchedulePage extends StatelessWidget {
@@ -89,6 +90,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/training-dept/schedule',
         builder: (context, state) => const TrainingDepartmentSchedulePage(),
+      ),
+      GoRoute(
+        path: '/training-dept/data',
+        builder: (context, state) => const TrainingDepartmentDataPage(),
       ),
       
     ],

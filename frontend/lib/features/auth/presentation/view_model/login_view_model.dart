@@ -89,7 +89,20 @@ class LoginViewModel extends StateNotifier<LoginState> {
       await _storage.write(key: _kCompat, value: token);
       api.dio.options.headers['Authorization'] = 'Bearer $token';
       
-      // Fetch profile and update global auth state
+      // Try to extract role directly from login response (some backends return user in the login payload)
+      try {
+        final initialRole = _mapRoleFromResponse(res.data);
+        if (initialRole != Role.unknown) {
+          // set auth state immediately so redirect can happen even if /me endpoints fail
+          _ref.read(authStateProvider.notifier).login(token, initialRole);
+          try {
+            // ignore: avoid_print
+            print('DEBUG: initial role from login response -> $initialRole');
+          } catch (_) {}
+        }
+      } catch (_) {}
+
+      // Fetch profile and update global auth state (fallback / authoritative)
       await _fetchProfileAndSetAuth(token);
 
       state = state.copyWith(isLoggingIn: false);
@@ -134,12 +147,62 @@ class LoginViewModel extends StateNotifier<LoginState> {
 
       final role = roleMap[roleStr] ?? Role.unknown;
 
+      // Debug logging: print role mapping results
+      // (Remove these prints in production)
+      try {
+        // ignore: avoid_print
+        print('DEBUG: rawRole="$rawRole" -> roleStr="$roleStr" -> mapped="$role"');
+      } catch (_) {}
+
       // Update the global authentication state
       _ref.read(authStateProvider.notifier).login(token, role);
 
+      try {
+        // ignore: avoid_print
+        print('DEBUG: auth state set with role=$role for token=${token.substring(0, token.length>8?8:token.length)}...');
+      } catch (_) {}
+
     } catch (e) {
-      // If profile fetch fails, still log in with unknown role
-      _ref.read(authStateProvider.notifier).login(token, Role.unknown);
+      // If profile fetch fails, do NOT overwrite any existing role that we
+      // may have already set from the login response. Only set Role.unknown
+      // when there was no prior auth state.
+      final current = _ref.read(authStateProvider);
+      if (current == null) {
+        _ref.read(authStateProvider.notifier).login(token, Role.unknown);
+      } else {
+        try {
+          // ignore: avoid_print
+          print('DEBUG: /me fetch failed but existing auth state present, keeping role=${current.role}');
+        } catch (_) {}
+      }
+    }
+  }
+
+  /// Try to read role from a response payload (login response may include user)
+  Role _mapRoleFromResponse(dynamic data) {
+    try {
+      final m = (data is Map) ? Map<String, dynamic>.from(data) : <String, dynamic>{};
+      final rawRole = (m['role'] ?? m['user']?['role'] ?? m['data']?['role'] ?? '').toString();
+      final roleStr = rawRole.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+      final roleMap = <String, Role>{
+        'lecturer': Role.lecturer,
+        'giangvien': Role.lecturer,
+        'teacher': Role.lecturer,
+
+        'training': Role.training,
+        'trainingdept': Role.training,
+        'trainingdepartment': Role.training,
+        'daotao': Role.training,
+        'dao_tao': Role.training,
+
+        'admin': Role.admin,
+        'administrator': Role.admin,
+      };
+
+      return roleMap[roleStr] ?? Role.unknown;
+    } catch (_) {
+      return Role.unknown;
     }
   }
 

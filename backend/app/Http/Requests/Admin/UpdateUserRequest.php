@@ -36,7 +36,8 @@ class UpdateUserRequest extends FormRequest
                 // Kiểm tra email là duy nhất, NHƯNG bỏ qua (ignore) chính user này
                 Rule::unique('users')->ignore($userId),
             ],
-            'role' => ['required', 'string', 'in:admin,training_department,lecturer'],
+            // Use canonical roles consistent with DB enum
+            'role' => ['required', 'string', 'in:ADMIN,DAO_TAO,GIANG_VIEN'],
             'phone' => ['nullable', 'string', 'max:20'],
             'is_active' => ['sometimes', 'boolean'],
         ];
