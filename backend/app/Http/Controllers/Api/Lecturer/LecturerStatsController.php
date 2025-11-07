@@ -75,62 +75,82 @@ class LecturerStatsController extends Controller
                 $q->where('status', 'APPROVED');
             }
         ])
-        ->get()
-        ->sortBy(function($schedule) {
-            // Sort theo session_date và start_time (giống frontend)
+        ->get();
+        
+        // DEBUG: Log số lượng schedules (chỉ log khi có schedules để tránh spam)
+        if ($schedules->count() > 0) {
+            \Log::info('Stats Debug - Before Grouping', [
+                'lecturer_id' => $lecturerId,
+                'semester_id' => $currentSemester->id,
+                'semester_name' => $currentSemester->name,
+                'total_schedules' => $schedules->count(),
+                'status_breakdown' => $schedules->groupBy('status')->map->count()->toArray(),
+            ]);
+        }
+        
+        // Sort theo session_date và start_time (giống frontend)
+        $schedules = $schedules->sortBy(function($schedule) {
             $date = $schedule->session_date ? $schedule->session_date->format('Y-m-d') : '9999-99-99';
             $time = $schedule->timeslot && $schedule->timeslot->start_time 
                 ? $schedule->timeslot->start_time 
                 : '99:99:99';
             return $date . ' ' . $time;
-        })
-        ->values();
+        })->values();
         
         // Group các schedules liền kề thành "buổi học"
         $groupedSessions = $this->groupConsecutiveSchedules($schedules);
         
-        // DEBUG: Log để kiểm tra (có thể xóa sau khi test)
-        \Log::info('Stats Debug', [
-            'total_schedules' => $schedules->count(),
-            'total_groups' => count($groupedSessions),
-            'groups_with_multiple' => collect($groupedSessions)->filter(function($g) {
-                return count($g['schedules']) > 1;
-            })->count(),
-            'taught_count' => collect($groupedSessions)->filter(function($group) {
-                $firstSchedule = $group['schedules'][0];
-                return in_array($firstSchedule->status, ['DONE', 'MAKEUP_DONE']);
-            })->count(),
-            'remaining_count' => collect($groupedSessions)->filter(function($group) {
-                $firstSchedule = $group['schedules'][0];
-                return in_array($firstSchedule->status, ['PLANNED', 'TEACHING', 'MAKEUP_PLANNED']);
-            })->count(),
-            'sample_group' => count($groupedSessions) > 0 ? [
-                'schedules_count' => count($groupedSessions[0]['schedules']),
-                'first_schedule_id' => $groupedSessions[0]['schedules'][0]->id ?? null,
-                'first_status' => $groupedSessions[0]['schedules'][0]->status ?? null,
-            ] : null,
-        ]);
+        // DEBUG: Log sau khi group (chỉ log khi có groups)
+        if (count($groupedSessions) > 0) {
+            \Log::info('Stats Debug - After Grouping', [
+                'total_schedules' => $schedules->count(),
+                'total_groups' => count($groupedSessions),
+                'taught_count' => collect($groupedSessions)->filter(function($group) {
+                    $firstSchedule = $group['schedules'][0] ?? null;
+                    return $firstSchedule && in_array($firstSchedule->status, ['DONE', 'MAKEUP_DONE']);
+                })->count(),
+                'remaining_count' => collect($groupedSessions)->filter(function($group) {
+                    $firstSchedule = $group['schedules'][0] ?? null;
+                    return $firstSchedule && in_array($firstSchedule->status, ['PLANNED', 'TEACHING', 'MAKEUP_PLANNED']);
+                })->count(),
+            ]);
+        }
         
         // Đếm theo groups (buổi học) thay vì từng schedule
         $stats = [
             'taught' => collect($groupedSessions)->filter(function($group) {
-                // Vì các tiết trong cùng buổi học thường cùng status,
-                // nên chỉ cần kiểm tra tiết đầu tiên trong group
+                // Defensive check: đảm bảo group có schedules
+                if (empty($group['schedules']) || !isset($group['schedules'][0])) {
+                    return false;
+                }
                 $firstSchedule = $group['schedules'][0];
+                // Đảm bảo schedule có status
+                if (!$firstSchedule || !isset($firstSchedule->status)) {
+                    return false;
+                }
                 return in_array($firstSchedule->status, ['DONE', 'MAKEUP_DONE']);
             })->count(),
             
             'remaining' => collect($groupedSessions)->filter(function($group) {
-                // Kiểm tra tiết đầu tiên trong group
+                // Defensive check
+                if (empty($group['schedules']) || !isset($group['schedules'][0])) {
+                    return false;
+                }
                 $firstSchedule = $group['schedules'][0];
+                if (!$firstSchedule || !isset($firstSchedule->status)) {
+                    return false;
+                }
                 return in_array($firstSchedule->status, ['PLANNED', 'TEACHING', 'MAKEUP_PLANNED']);
             })->count(),
             
             // Đếm số buổi học có ít nhất 1 schedule có leave request approved
             'leave_count' => collect($groupedSessions)->filter(function($group) {
+                if (empty($group['schedules'])) {
+                    return false;
+                }
                 foreach ($group['schedules'] as $schedule) {
                     // leaveRequests đã được filter với status APPROVED trong query
-                    if ($schedule->leaveRequests->isNotEmpty()) {
+                    if ($schedule && $schedule->leaveRequests && $schedule->leaveRequests->isNotEmpty()) {
                         return true;
                     }
                 }
@@ -139,9 +159,12 @@ class LecturerStatsController extends Controller
             
             // Đếm số buổi học có ít nhất 1 schedule dạy bù đã được dạy (status = MAKEUP_DONE)
             'makeup_count' => collect($groupedSessions)->filter(function($group) {
+                if (empty($group['schedules'])) {
+                    return false;
+                }
                 foreach ($group['schedules'] as $schedule) {
                     // Chỉ đếm những buổi dạy bù đã được dạy (status = MAKEUP_DONE)
-                    if ($schedule->status === 'MAKEUP_DONE') {
+                    if ($schedule && isset($schedule->status) && $schedule->status === 'MAKEUP_DONE') {
                         return true;
                     }
                 }
@@ -170,6 +193,9 @@ class LecturerStatsController extends Controller
         if ($schedules->isEmpty()) {
             return [];
         }
+        
+        // Đảm bảo collection có index tuần tự từ 0
+        $schedules = $schedules->values();
         
         $groups = [];
         $processed = [];

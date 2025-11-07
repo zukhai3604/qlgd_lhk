@@ -343,8 +343,35 @@ class ScheduleApi {
 
   // ===== Stats =====
   Future<Map<String, dynamic>> getStats() async {
-    final res = await _dio.get('/api/lecturer/stats');
-    return Map<String, dynamic>.from(res.data);
+    int attempt = 0;
+    const maxRetries = 3;
+    Duration delay = const Duration(milliseconds: 500);
+    
+    while (attempt < maxRetries) {
+      try {
+        final res = await _dio.get(
+          '/api/lecturer/stats',
+          options: Options(
+            receiveTimeout: const Duration(seconds: 15),
+            sendTimeout: const Duration(seconds: 10),
+          ),
+        );
+        return Map<String, dynamic>.from(res.data);
+      } on DioException catch (e) {
+        // Chỉ retry cho connection errors
+        if ((e.type == DioExceptionType.connectionError ||
+             e.type == DioExceptionType.connectionTimeout ||
+             e.type == DioExceptionType.receiveTimeout) &&
+            attempt < maxRetries - 1) {
+          attempt++;
+          await Future.delayed(delay);
+          delay = Duration(milliseconds: delay.inMilliseconds * 2);
+          continue;
+        }
+        rethrow;
+      }
+    }
+    throw Exception('Không thể kết nối đến server sau $maxRetries lần thử');
   }
 
   // ===== Upcoming sessions for leave =====

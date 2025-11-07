@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:qlgd_lhk/common/constants/env.dart';
 
@@ -16,14 +17,16 @@ class ApiClient {
     );
 
     dio.interceptors.addAll([
-      LogInterceptor(
-        request: true,
-        requestHeader: true,
-        requestBody: true,
-        responseHeader: false,
-        responseBody: true,
-        error: true,
-      ),
+      // Chỉ log trong debug mode để tăng performance
+      if (kDebugMode)
+        LogInterceptor(
+          request: true,
+          requestHeader: true,
+          requestBody: true,
+          responseHeader: false,
+          responseBody: true,
+          error: true,
+        ),
       InterceptorsWrapper(
         onRequest: (options, handler) async {
           final token = await _readToken();

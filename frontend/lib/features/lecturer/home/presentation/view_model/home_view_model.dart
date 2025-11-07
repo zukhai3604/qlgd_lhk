@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:qlgd_lhk/features/lecturer/home/model/repositories/home_repository.dart';
@@ -45,7 +46,8 @@ class HomeViewModel extends StateNotifier<HomeState> {
   final HomeRepository _repository;
 
   HomeViewModel(this._repository) : super(const HomeState()) {
-    loadData();
+    // Delay nhẹ để đảm bảo app đã render và network sẵn sàng
+    Future.microtask(() => loadData());
   }
 
   /// Load dữ liệu ban đầu
@@ -56,9 +58,11 @@ class HomeViewModel extends StateNotifier<HomeState> {
       final today = DateTime.now();
       final iso = DateFormat('yyyy-MM-dd').format(today);
 
-      // Load schedule và stats song song
-      final scheduleResult = await _repository.getTodaySchedule(iso);
-      final statsResult = await _repository.getStats();
+      // Load schedule và stats song song với timeout
+      final scheduleResult = await _repository.getTodaySchedule(iso)
+          .timeout(const Duration(seconds: 15));
+      final statsResult = await _repository.getStats()
+          .timeout(const Duration(seconds: 15));
 
       scheduleResult.when(
         success: (scheduleData) {
@@ -78,19 +82,45 @@ class HomeViewModel extends StateNotifier<HomeState> {
               );
             },
             failure: (error) {
+              // Nếu stats fail nhưng schedule OK, vẫn hiển thị schedule
+              final schedule = scheduleData['schedule'] as List<Map<String, dynamic>>;
+              final groupedSchedule = _groupConsecutiveSessions(schedule);
+              
               state = state.copyWith(
                 isLoading: false,
-                error: error.toString(),
+                todaySchedule: groupedSchedule,
+                stats: {}, // Empty stats nếu fail
+                // Không set error để không làm gián đoạn UI
               );
             },
           );
         },
         failure: (error) {
-          state = state.copyWith(
-            isLoading: false,
-            error: error.toString(),
+          // Nếu schedule fail, vẫn thử load stats
+          statsResult.when(
+            success: (statsData) {
+              final semesterName = statsData['semester']?['name']?.toString() ?? 'Học kỳ I 2025';
+              state = state.copyWith(
+                isLoading: false,
+                todaySchedule: [],
+                stats: statsData,
+                selectedSemester: semesterName,
+                error: 'Không tải được lịch hôm nay: $error',
+              );
+            },
+            failure: (statsError) {
+              state = state.copyWith(
+                isLoading: false,
+                error: 'Không tải được dữ liệu: $error',
+              );
+            },
           );
         },
+      );
+    } on TimeoutException {
+      state = state.copyWith(
+        isLoading: false,
+        error: 'Kết nối timeout. Vui lòng thử lại.',
       );
     } catch (e) {
       state = state.copyWith(
