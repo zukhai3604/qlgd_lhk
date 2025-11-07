@@ -16,7 +16,7 @@ class RequestController extends Controller
 
         $leave = LeaveRequest::with([
             'schedule.timeslot:id,code,day_of_week,start_time,end_time',
-            'schedule.room:id,code,name',
+            'schedule.room:id,code,building',
             'schedule.assignment.subject:id,code,name',
             'schedule.assignment.classUnit:id,code,name',
             'schedule.assignment.lecturer.user:id,name'
@@ -28,7 +28,7 @@ class RequestController extends Controller
 
         $makeup = MakeupRequest::with([
             'timeslot:id,code,day_of_week,start_time,end_time',
-            'room:id,code,name',
+            'room:id,code,building',
             'leaveRequest.schedule.assignment.subject:id,code,name',
             'leaveRequest.schedule.assignment.classUnit:id,code,name',
             'leaveRequest.lecturer.user:id,name'
@@ -76,11 +76,11 @@ class RequestController extends Controller
         DB::transaction(function() use ($leave,$r){
             $leave->update([
                 'status'=>'APPROVED',
-                'decided_at'=>now(),
-                'decided_by'=>$r->user()->id,
+                'approved_at'=>now(),
+                'approved_by'=>$r->user()->id,
             ]);
             // đánh dấu buổi nghỉ
-            $leave->schedule->update(['status'=>'ABSENT']);
+            $leave->schedule->update(['status'=>'CANCELED']);
         });
         return response()->json(['message'=>'APPROVED']);
     }
@@ -88,7 +88,7 @@ class RequestController extends Controller
     public function rejectLeave($id, Request $r){
         $leave = LeaveRequest::findOrFail($id);
         if ($leave->status !== 'PENDING') return response()->json(['message'=>'Invalid state'], 422);
-        $leave->update(['status'=>'REJECTED','decided_at'=>now(),'decided_by'=>$r->user()->id]);
+        $leave->update(['status'=>'REJECTED','approved_at'=>now(),'approved_by'=>$r->user()->id]);
         return response()->json(['message'=>'REJECTED']);
     }
 
@@ -111,7 +111,7 @@ class RequestController extends Controller
                     'session_date'  => $mk->suggested_date,
                     'timeslot_id'   => $mk->timeslot_id,
                     'room_id'       => $mk->room_id,
-                    'status'        => 'MAKEUP',
+                    'status'        => 'MAKEUP_PLANNED',
                     'makeup_of_id'  => $mk->leaveRequest->schedule_id
                 ]);
             }

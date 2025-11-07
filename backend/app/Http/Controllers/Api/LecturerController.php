@@ -35,10 +35,10 @@ class LecturerController extends Controller
             });
         }
 
-        // Filter by degree
-        if ($request->has('degree') && !empty($request->degree)) {
-            $query->where('degree', $request->degree);
-        }
+        // Filter by degree - Commented out vì field degree không tồn tại trong migration
+        // if ($request->has('degree') && !empty($request->degree)) {
+        //     $query->where('degree', $request->degree);
+        // }
 
         // Lấy dữ liệu và sắp xếp theo user.name
         $lecturers = $query->get()->sortBy(function ($lecturer) {

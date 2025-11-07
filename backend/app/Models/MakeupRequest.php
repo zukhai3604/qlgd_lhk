@@ -10,6 +10,8 @@ class MakeupRequest extends Model
     protected $casts = ['suggested_date' => 'date','decided_at' => 'datetime'];
 
     public function leave(){ return $this->belongsTo(LeaveRequest::class,'leave_request_id'); }
+    // Alias để tương thích với code cũ
+    public function leaveRequest(){ return $this->belongsTo(LeaveRequest::class,'leave_request_id'); }
     public function timeslot(){ return $this->belongsTo(Timeslot::class); }
     public function room(){ return $this->belongsTo(Room::class); }
     public function decider(){ return $this->belongsTo(User::class,'decided_by'); }

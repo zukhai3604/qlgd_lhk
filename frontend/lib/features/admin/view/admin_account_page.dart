@@ -75,8 +75,34 @@ final _dioProvider = Provider<Dio>((ref) {
 final meProvider = FutureProvider<AdminProfile>((ref) async {
   final dio = ref.watch(_dioProvider);
   final res = await dio.get('/api/me');
-  final data = (res.data is Map<String, dynamic>) ? res.data['admin'] as Map<String, dynamic> : <String, dynamic>{};
-  return AdminProfile.fromJson(data);
+  
+  if (res.data is! Map<String, dynamic>) {
+    throw Exception('Invalid response format');
+  }
+  
+  final responseData = res.data as Map<String, dynamic>;
+  
+  // Kiểm tra xem có nested 'admin' object không
+  Map<String, dynamic> adminData;
+  if (responseData['admin'] != null && responseData['admin'] is Map<String, dynamic>) {
+    adminData = responseData['admin'] as Map<String, dynamic>;
+  } else {
+    // Nếu không có nested 'admin', dùng data từ root level
+    // Map các field từ root sang format admin
+    adminData = {
+      'id': responseData['id'] ?? 0,
+      'user_id': responseData['id'] ?? 0,
+      'email': responseData['email'] ?? '',
+      'phone': responseData['phone'],
+      'gender': responseData['gender'],
+      'date_of_birth': responseData['date_of_birth'] ?? responseData['dob'],
+      'address': responseData['address'],
+      'citizen_id': responseData['citizen_id'],
+      'avatar_url': responseData['avatar_url'] ?? responseData['avatar'],
+    };
+  }
+  
+  return AdminProfile.fromJson(adminData);
 });
 
 /// ===== PAGE =====

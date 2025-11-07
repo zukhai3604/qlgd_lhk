@@ -11,9 +11,12 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('semesters_final', function (Blueprint $table) {
-            //
-        });
+        // Xóa cột is_active từ bảng semesters nếu có
+        if (Schema::hasTable('semesters') && Schema::hasColumn('semesters', 'is_active')) {
+            Schema::table('semesters', function (Blueprint $table) {
+                $table->dropColumn('is_active');
+            });
+        }
     }
 
     /**
@@ -21,8 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::table('semesters_final', function (Blueprint $table) {
-            //
-        });
+        // Không rollback - giữ nguyên cấu trúc đúng
     }
 };

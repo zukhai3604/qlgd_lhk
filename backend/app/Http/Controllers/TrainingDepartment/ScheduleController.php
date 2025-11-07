@@ -48,7 +48,7 @@ class ScheduleController extends Controller
 
         $q = Schedule::with([
             'timeslot:id,code,day_of_week,start_time,end_time',
-            'room:id,code,name',
+            'room:id,code,building',
             'assignment.subject:id,code,name',
             'assignment.classUnit:id,code,name',
             'assignment.lecturer.user:id,name'
@@ -189,7 +189,7 @@ class ScheduleController extends Controller
     private function base(Request $r){
         return Schedule::with([
             'timeslot:id,code,day_of_week,start_time,end_time',
-            'room:id,code,name',
+            'room:id,code,building',
             'assignment.subject:id,code,name',
             'assignment.classUnit:id,code,name',
             'assignment.lecturer.user:id,name'
