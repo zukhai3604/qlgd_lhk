@@ -232,11 +232,9 @@ class ScheduleSeeder extends Seeder
 
     private function statusForDate(Carbon $date): array
     {
-        // Tất cả schedules trước ngày hôm nay đều là DONE
-        if ($date->lt(Carbon::today())) {
+        if ($date->lt($this->pivotDate)) {
             $this->pastCounter++;
-            // Một số ít có thể là CANCELED (10% để test)
-            if ($this->pastCounter % 10 === 0) {
+            if ($this->pastCounter % 7 === 0) {
                 return ['CANCELED', $this->cancelNotes[array_rand($this->cancelNotes)]];
             }
             return ['DONE', null];

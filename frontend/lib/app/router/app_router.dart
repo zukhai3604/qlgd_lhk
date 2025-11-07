@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:qlgd_lhk/common/providers/auth_state_provider.dart';
 import 'package:qlgd_lhk/common/providers/role_provider.dart';
 import 'package:qlgd_lhk/features/auth/view/login_page.dart';
+import 'package:qlgd_lhk/app/router/route_guards.dart';
 
 // --- LECTURER CORE ---
 import 'package:qlgd_lhk/features/lecturer/account/lecturer_account_page.dart';
@@ -20,6 +21,11 @@ import 'package:qlgd_lhk/features/lecturer/schedule/presentation/view/weekly_sch
 import 'package:qlgd_lhk/features/lecturer/widgets/bottom_nav.dart';
 import 'package:qlgd_lhk/features/lecturer/attendance/attendance_page.dart';
 import 'package:qlgd_lhk/services/profile_service.dart';
+import 'package:qlgd_lhk/features/training_dept/view/tr_home_page.dart';
+import 'package:qlgd_lhk/features/training_dept/view/tr_requests_page.dart';
+import 'package:qlgd_lhk/features/training_dept/view/tr_reports_page.dart';
+import 'package:qlgd_lhk/features/training_dept/view/tr_schedule_page.dart';
+import 'package:qlgd_lhk/features/training_dept/view/tr_data_page.dart';
 
 // --- LEAVE ---
 // 👉 BỎ alias để dùng trực tiếp tên class, tránh lỗi Method not found
@@ -292,6 +298,28 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
         ],
       ),
+            // === Training Department routes ===
+      GoRoute(
+        path: '/training-dept/home',
+        builder: (context, state) => const TrainingDepartmentHomePage(),
+      ),
+      GoRoute(
+        path: '/training-dept/requests',
+        builder: (context, state) => const TrainingDepartmentRequestsPage(),
+      ),
+      GoRoute(
+        path: '/training-dept/reports',
+        builder: (context, state) => const TrainingDepartmentReportsPage(),
+      ),
+      GoRoute(
+        path: '/training-dept/schedule',
+        builder: (context, state) => const TrainingDepartmentSchedulePage(),
+      ),
+      GoRoute(
+        path: '/training-dept/data',
+        builder: (context, state) => const TrainingDepartmentDataPage(),
+      ),
+      
     ],
     redirect: (BuildContext context, GoRouterState state) {
       final bootstrap = ref.watch(authBootstrapProvider);
@@ -299,10 +327,33 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (bootstrap.hasError && authState == null) return '/login';
 
       final isLoggedIn = authState != null;
-      final atLogin = state.matchedLocation == '/login';
+      final role = authState?.role;
+      final location = state.matchedLocation;
+      final isAtLogin = location == '/login';
 
-      if (!isLoggedIn) return atLogin ? null : '/login';
-      if (atLogin) return '/home';
+      if (!isLoggedIn && !isAtLogin) {
+        return '/login';
+      }
+
+      if (isLoggedIn && isAtLogin) {
+        switch (role) {
+          case Role.GIANG_VIEN:
+            return '/home'; // <-- Redirect to /home
+          case Role.DAO_TAO:
+            return '/training-dept/home';
+          case Role.ADMIN:
+            return '/users';
+          default:
+            return '/home';
+        }
+      }
+
+      if (isLoggedIn) {
+         return authGuard(state, role);
+      }
+
+      if (!isLoggedIn) return isAtLogin ? null : '/login';
+      if (isAtLogin) return '/home';
       return null;
     },
   );

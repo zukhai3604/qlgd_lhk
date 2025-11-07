@@ -49,7 +49,12 @@ return [
         ],
 
         'scanOptions' => [
-            'open_api_spec_version' => env('L5_SWAGGER_OPEN_API_SPEC_VERSION', \L5Swagger\Generator::OPEN_API_DEFAULT_SPEC_VERSION),
+            // Use the package constant when available; fall back to a safe default to avoid
+            // a fatal error when the package isn't installed / autoloaded during config load.
+            'open_api_spec_version' => env(
+                'L5_SWAGGER_OPEN_API_SPEC_VERSION',
+                class_exists(\L5Swagger\Generator::class) ? \L5Swagger\Generator::OPEN_API_DEFAULT_SPEC_VERSION : '3.0.3'
+            ),
         ],
 
         'securityDefinitions' => [

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Api\Lecturer;
+namespace App\Http\Controllers\API\Lecturer;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Lecturer\AttendanceStoreRequest;

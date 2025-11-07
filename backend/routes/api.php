@@ -13,11 +13,15 @@ use App\Http\Controllers\Lecturer\ReportController;
 use App\Http\Controllers\Lecturer\MaterialController;
 use App\Http\Controllers\TrainingDepartment\ApprovalController;
 use App\Http\Controllers\TrainingDepartment\ProfileController as TDProfileController;
+use App\Http\Controllers\Api\TrainingDepartment\RequestController as ApiTDRequestController;
 use App\Http\Controllers\Api\HealthController; // <- THASM DANG NAY (Chu y: Api, khong phai API)
 use App\Http\Controllers\Api\FacultyController as ApiFacultyController;
 use App\Http\Controllers\Api\DepartmentController as ApiDepartmentController;
 use App\Http\Controllers\Api\RoomController as ApiRoomController;
 use App\Http\Controllers\Api\TimeslotController as ApiTimeslotController;
+use App\Http\Controllers\Api\ClassUnitController as ApiClassUnitController;
+use App\Http\Controllers\Api\SubjectController as ApiSubjectController;
+use App\Http\Controllers\Api\LecturerController as ApiLecturerController;
 
 // --- API Lecturer module (Bearer token)
 use App\Http\Controllers\API\Lecturer\LecturerProfileController as ApiLecturerProfileController;
@@ -54,6 +58,8 @@ Route::middleware(['auth:sanctum', 'ensure.active'])->group(function () {
     Route::get('/rooms', [ApiRoomController::class, 'index']);
     Route::get('/timeslots', [ApiTimeslotController::class, 'index']);
     Route::get('/timeslots/by-period', [ApiTimeslotController::class, 'getByPeriod']);
+    Route::get('/classes', [ApiClassUnitController::class, 'index']);
+    Route::get('/classes/{id}', [ApiClassUnitController::class, 'show']);
 
     Route::middleware('role:ADMIN')->prefix('admin')->group(function () {
         Route::get('me/profile', [AdminProfileController::class, 'show']);
@@ -64,7 +70,27 @@ Route::middleware(['auth:sanctum', 'ensure.active'])->group(function () {
     Route::middleware('role:DAO_TAO')->prefix('training_department')->group(function () {
         Route::get('me/profile', [TDProfileController::class, 'show']);
         Route::patch('me/profile', [TDProfileController::class, 'update']);
+        // Lists for pending approvals
+        Route::get('approvals/leave/pending', [ApprovalController::class, 'listPendingLeaves']);
+        Route::get('approvals/makeup/pending', [ApprovalController::class, 'listPendingMakeups']);
+
+        // Approvals endpoints
         Route::post('approvals/leave/{leave}', [ApprovalController::class, 'approveLeave']);
+        Route::post('approvals/makeup/{makeup}', [ApprovalController::class, 'approveMakeup']);
+
+        // Unified requests listing (leave/makeup) for Training Department
+        Route::get('requests', [ApiTDRequestController::class, 'index']);
+
+        // Data management routes
+        Route::get('classes', [ApiClassUnitController::class, 'index']);
+        Route::get('classes/{id}', [ApiClassUnitController::class, 'show']);
+        Route::get('subjects', [ApiSubjectController::class, 'index']);
+        Route::get('subjects/{id}', [ApiSubjectController::class, 'show']);
+        Route::get('lecturers', [ApiLecturerController::class, 'index']);
+        Route::get('lecturers/{id}', [ApiLecturerController::class, 'show']);
+        Route::get('rooms', [ApiRoomController::class, 'index']);
+        Route::get('rooms/{id}', [ApiRoomController::class, 'show']);
+        Route::get('faculties', [ApiFacultyController::class, 'index']);
     });
 
     Route::middleware('role:GIANG_VIEN')->prefix('lecturer')->group(function () {
@@ -72,9 +98,13 @@ Route::middleware(['auth:sanctum', 'ensure.active'])->group(function () {
         Route::get('profile', [ProfileController::class, 'show']);
 
         Route::get('schedule/week', [ScheduleController::class, 'getWeekSchedule']);
-        
         Route::get('schedule/{id}', [ScheduleController::class, 'show']);
+
         Route::post('schedule/{id}/report', [ReportController::class, 'store']);
+
+        // Tai lieu buoi hoc (RESTful)
+        Route::get('schedule/{id}/materials',  [MaterialController::class, 'index']);
+        Route::post('schedule/{id}/materials', [MaterialController::class, 'store']);
 
         Route::post('leaves',   [LeaveController::class, 'store']);
         Route::get('leaves/my', [LeaveController::class, 'my']);

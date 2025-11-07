@@ -113,7 +113,21 @@ class LoginViewModel extends StateNotifier<LoginState> {
       await _storage.write(key: _kCompat, value: token);
 
       api.dio.options.headers['Authorization'] = 'Bearer $token';
+      
+      // Try to extract role directly from login response (some backends return user in the login payload)
+      try {
+        final initialRole = _mapRoleFromResponse(res.data);
+        if (initialRole != Role.UNKNOWN) {
+          // set auth state immediately so redirect can happen even if /me endpoints fail
+          _ref.read(authStateProvider.notifier).login(token, initialRole);
+          try {
+            // ignore: avoid_print
+            print('DEBUG: initial role from login response -> $initialRole');
+          } catch (_) {}
+        }
+      } catch (_) {}
 
+      // Fetch profile and update global auth state (fallback / authoritative)
       await _fetchProfileAndSetAuth(token);
 
       state = state.copyWith(isLoggingIn: false);
@@ -132,13 +146,44 @@ class LoginViewModel extends StateNotifier<LoginState> {
   }
 
   Future<void> _fetchProfileAndSetAuth(String token) async {
-    const mePaths = ['/api/me', '/auth/me', '/me', '/api/user'];
-    final res = await _getMeFlexible(mePaths);
+    try {
+      final paths = ['/auth/me', '/me', '/api/me', '/api/user'];
+      final res = await _getMeFlexible(paths);
+      final data = (res.data as Map).cast<String, dynamic>();
+      final rawRole = (data['role'] ?? data['user']?['role'] ?? data['data']?['role'] ?? '').toString();
 
-    // GỘP VÀO ĐÂY: Dùng print để kiểm tra lỗi
-    debugPrint(
-        'ĐÃ /api/me response -> Status: ${res.statusCode}, Data: ${res.data}');
+      // Normalize: remove non-alphanumeric, lowercase
+      final roleStr = rawRole.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
 
+      // Map common server role strings (including DAO_TAO) to our Role enum
+      final roleMap = <String, Role>{
+        'lecturer': Role.GIANG_VIEN,
+        'giangvien': Role.GIANG_VIEN,
+        'teacher': Role.GIANG_VIEN,
+
+        'training': Role.DAO_TAO,
+        'trainingdept': Role.DAO_TAO,
+        'trainingdepartment': Role.DAO_TAO,
+        'daotao': Role.DAO_TAO, // DAO_TAO from backend
+        'dao_tao': Role.DAO_TAO,
+
+        'admin': Role.ADMIN,
+        'administrator': Role.ADMIN,
+      };
+
+      final role = roleMap[roleStr] ?? _mapBackendRole(rawRole);
+
+      // Debug logging: print role mapping results
+      // (Remove these prints in production)
+      try {
+        // ignore: avoid_print
+        print('DEBUG: rawRole="$rawRole" -> roleStr="$roleStr" -> mapped="$role"');
+      } catch (_) {}
+
+    // Debug logging
+    debugPrint('ĐÃ /api/me response -> Status: ${res.statusCode}, Data: ${res.data}');
+
+    // Extract data với nhiều fallback
     Map<String, dynamic> m;
     if (res.data is Map && (res.data['data'] is Map)) {
       m = Map<String, dynamic>.from(res.data['data']);
@@ -148,6 +193,7 @@ class LoginViewModel extends StateNotifier<LoginState> {
       throw Exception('Dữ liệu hồ sơ không hợp lệ');
     }
 
+    // Extract fields với nhiều fallback
     final id = (m['id'] ?? m['user']?['id'] ?? m['data']?['id']) ?? 0;
     final name = (m['name'] ??
                 m['full_name'] ??
@@ -158,18 +204,62 @@ class LoginViewModel extends StateNotifier<LoginState> {
     final email = (m['email'] ?? m['user']?['email'] ?? m['data']?['email'])
             ?.toString() ??
         '';
-    final backendRole =
-        (m['role'] ?? m['user']?['role'] ?? m['data']?['role'])?.toString();
 
-    final role = _mapBackendRole(backendRole);
+    // Debug logging
+    try {
+      // ignore: avoid_print
+      print('DEBUG: auth state set with role=$role for token=${token.substring(0, token.length > 8 ? 8 : token.length)}...');
+    } catch (_) {}
 
     _ref.read(authStateProvider.notifier).login(
-          token,
-          role,
-          id: int.tryParse(id.toString()) ?? 0,
-          name: name,
-          email: email,
-        );
+      token,
+      role,
+      id: int.tryParse(id.toString()) ?? 0,
+      name: name,
+      email: email,
+    );
+    } catch (e) {
+      // If profile fetch fails, do NOT overwrite any existing role that we
+      // may have already set from the login response. Only set Role.UNKNOWN
+      // when there was no prior auth state.
+      final current = _ref.read(authStateProvider);
+      if (current == null) {
+        _ref.read(authStateProvider.notifier).login(token, Role.UNKNOWN);
+      } else {
+        try {
+          // ignore: avoid_print
+          print('DEBUG: /me fetch failed but existing auth state present, keeping role=${current.role}');
+        } catch (_) {}
+      }
+    }
+  }
+
+  /// Try to read role from a response payload (login response may include user)
+  Role _mapRoleFromResponse(dynamic data) {
+    try {
+      final m = (data is Map) ? Map<String, dynamic>.from(data) : <String, dynamic>{};
+      final rawRole = (m['role'] ?? m['user']?['role'] ?? m['data']?['role'] ?? '').toString();
+      final roleStr = rawRole.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+
+      final roleMap = <String, Role>{
+        'lecturer': Role.GIANG_VIEN,
+        'giangvien': Role.GIANG_VIEN,
+        'teacher': Role.GIANG_VIEN,
+
+        'training': Role.DAO_TAO,
+        'trainingdept': Role.DAO_TAO,
+        'trainingdepartment': Role.DAO_TAO,
+        'daotao': Role.DAO_TAO,
+        'dao_tao': Role.DAO_TAO,
+
+        'admin': Role.ADMIN,
+        'administrator': Role.ADMIN,
+      };
+
+      return roleMap[roleStr] ?? Role.UNKNOWN;
+    } catch (_) {
+      return Role.UNKNOWN;
+    }
   }
 
   Future<void> logout() async {

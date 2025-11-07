@@ -20,6 +20,14 @@ class Lecturer extends Model
         'date_of_birth' => 'date',
     ];
 
+    // Accessor để lấy name từ user
+    protected $appends = ['name'];
+
+    public function getNameAttribute()
+    {
+        return $this->user?->name;
+    }
+
     public function user(){ return $this->belongsTo(User::class); }
     public function department(){ return $this->belongsTo(Department::class); }
     public function assignments(){ return $this->hasMany(Assignment::class); }
