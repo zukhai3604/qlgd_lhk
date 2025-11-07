@@ -16,7 +16,6 @@ class Schedule extends Model
     public function room(){ return $this->belongsTo(Room::class); }
 
     // bảng bạn đã có
-    public function notes(){ return $this->hasMany(SessionNote::class, 'schedule_id'); }
     public function materials(){ return $this->hasMany(SessionMaterial::class, 'schedule_id'); }
     public function attendanceRecords(){ return $this->hasMany(AttendanceRecord::class, 'schedule_id'); }
     public function leaveRequests(){ return $this->hasMany(LeaveRequest::class, 'schedule_id'); }

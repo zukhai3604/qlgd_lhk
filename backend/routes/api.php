@@ -72,13 +72,9 @@ Route::middleware(['auth:sanctum', 'ensure.active'])->group(function () {
         Route::get('profile', [ProfileController::class, 'show']);
 
         Route::get('schedule/week', [ScheduleController::class, 'getWeekSchedule']);
+        
         Route::get('schedule/{id}', [ScheduleController::class, 'show']);
-
         Route::post('schedule/{id}/report', [ReportController::class, 'store']);
-
-        // Tai lieu buoi hoc (RESTful)
-        Route::get('schedule/{id}/materials',  [MaterialController::class, 'index']);
-        Route::post('schedule/{id}/materials', [MaterialController::class, 'store']);
 
         Route::post('leaves',   [LeaveController::class, 'store']);
         Route::get('leaves/my', [LeaveController::class, 'my']);
@@ -94,6 +90,11 @@ Route::prefix('lecturer')->middleware(['auth:sanctum','ensure.active','role:GIAN
     Route::post('me/change-password', [ApiLecturerProfileController::class, 'changePassword']);
 
     Route::get('schedule', [ApiLecturerScheduleController::class, 'index']);
+    
+    // Materials routes - Phải đặt TRƯỚC route schedule/{id} để tránh conflict
+    Route::get('schedule/{id}/materials',  [MaterialController::class, 'index']);
+    Route::post('schedule/{id}/materials', [MaterialController::class, 'store']);
+    Route::delete('schedule/{id}/materials/{materialId}', [MaterialController::class, 'destroy']);
 
     Route::get('sessions', [ApiTeachingSessionController::class, 'index']);
     Route::get('sessions/{id}', [ApiTeachingSessionController::class, 'show']);

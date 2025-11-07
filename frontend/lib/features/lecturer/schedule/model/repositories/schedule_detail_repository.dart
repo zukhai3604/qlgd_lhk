@@ -9,6 +9,7 @@ abstract class ScheduleDetailRepository {
   Future<ScheduleDetailResult<List<Map<String, dynamic>>>> getMaterials(int id);
   Future<ScheduleDetailResult<void>> addMaterial(int sessionId, String title);
   Future<ScheduleDetailResult<void>> uploadMaterial(int sessionId, String title, String filePath);
+  Future<ScheduleDetailResult<void>> deleteMaterial(int sessionId, int materialId);
   Future<ScheduleDetailResult<void>> submitReport({
     required int sessionId,
     String? status,
@@ -75,6 +76,18 @@ class ScheduleDetailRepositoryImpl implements ScheduleDetailRepository {
   }
 
   @override
+  Future<ScheduleDetailResult<void>> deleteMaterial(int sessionId, int materialId) async {
+    try {
+      await _api.deleteMaterial(sessionId, materialId);
+      return const ScheduleDetailResult.success(null);
+    } catch (e) {
+      return ScheduleDetailResult.failure(
+        Exception('Không thể xóa tài liệu: $e'),
+      );
+    }
+  }
+
+  @override
   Future<ScheduleDetailResult<void>> submitReport({
     required int sessionId,
     String? status,
@@ -84,7 +97,7 @@ class ScheduleDetailRepositoryImpl implements ScheduleDetailRepository {
     String? nextPlan,
   }) async {
     try {
-      await _api.submitReport(
+      final response = await _api.submitReport(
         sessionId: sessionId,
         status: status,
         note: note,
@@ -92,8 +105,10 @@ class ScheduleDetailRepositoryImpl implements ScheduleDetailRepository {
         issues: issues,
         nextPlan: nextPlan,
       );
+      print('DEBUG Repository submitReport: API call successful');
       return const ScheduleDetailResult.success(null);
     } catch (e) {
+      print('DEBUG Repository submitReport: Exception - $e');
       return ScheduleDetailResult.failure(
         Exception('Không thể lưu báo cáo: $e'),
       );
@@ -115,11 +130,17 @@ class ScheduleDetailRepositoryImpl implements ScheduleDetailRepository {
   @override
   Future<ScheduleDetailResult<Map<String, dynamic>>> endLesson(int sessionId) async {
     try {
+      print('DEBUG Repository endLesson: Calling API for session $sessionId');
       final result = await _api.endLesson(sessionId);
+      print('DEBUG Repository endLesson: API call successful, result: $result');
       return ScheduleDetailResult.success(result);
     } catch (e) {
+      // Giữ nguyên error message từ API layer
+      final errorMessage = e.toString().replaceFirst('Exception: ', '');
+      print('DEBUG Repository endLesson: Exception caught - $e');
+      print('DEBUG Repository endLesson: Error message: $errorMessage');
       return ScheduleDetailResult.failure(
-        Exception('Không thể kết thúc buổi học: $e'),
+        Exception(errorMessage),
       );
     }
   }

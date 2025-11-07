@@ -94,7 +94,7 @@ class ComprehensiveTestDataSeeder extends Seeder
                 
                 if (!$timeslot) continue;
                 
-                // Status: một số là DONE (quá khứ), một số là PLANNED (tương lai)
+                // Status: tất cả schedules trước hôm nay đều là DONE
                 $status = $date->lt(Carbon::today()) ? 'DONE' : 'PLANNED';
                 
                 Schedule::updateOrCreate(

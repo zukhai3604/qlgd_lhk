@@ -117,16 +117,26 @@ class MaterialController extends Controller
     }
 
     /**
-     * (Tuỳ chọn) DELETE /api/lecturer/schedule/{scheduleId}/materials/{materialId}
+     * DELETE /api/lecturer/schedule/{id}/materials/{materialId}
      */
-    public function destroy(Request $request, $scheduleId, $materialId)
+    public function destroy(Request $request, $id, $materialId)
     {
         $user = $request->user();
 
-        $schedule = Schedule::with('assignment.lecturer.user')->findOrFail($scheduleId);
+        $schedule = Schedule::with('assignment.lecturer.user')->findOrFail($id);
         abort_if(optional($schedule->assignment?->lecturer?->user)->id !== $user->id, 403);
 
-        $mat = SessionMaterial::where('schedule_id', $scheduleId)->findOrFail($materialId);
+        $mat = SessionMaterial::where('schedule_id', $id)->findOrFail($materialId);
+        
+        // Xóa file nếu có
+        if ($mat->file_url) {
+            // Lấy path từ URL (bỏ phần domain)
+            $path = str_replace(Storage::disk('public')->url(''), '', $mat->file_url);
+            if ($path && Storage::disk('public')->exists($path)) {
+                Storage::disk('public')->delete($path);
+            }
+        }
+        
         $mat->delete();
 
         return response()->json(['message' => 'Đã xoá tài liệu.']);

@@ -141,6 +141,7 @@ class LecturerScheduleService {
       return <String, dynamic>{
         'id': m['id'],
         'date': date,
+        'session_date': m['session_date'] ?? date, // Giữ lại session_date gốc
         'subject': subj?['name'] ?? subj?['code'] ?? m['subject']?.toString() ?? '',
         'class_name': cu?['name'] ?? cu?['code'] ?? '',
         'room': roomLabel(m['room']),
@@ -190,6 +191,48 @@ class LecturerScheduleService {
       '/api/lecturer/schedule/$sessionId/materials',
       data: formData,
     );
+  }
+
+  // Xóa material
+  Future<void> deleteMaterial(int scheduleId, int materialId) async {
+    await _dio.delete('/api/lecturer/schedule/$scheduleId/materials/$materialId');
+  }
+
+  // ===== Attendance Check =====
+  /// Kiểm tra xem buổi học đã có điểm danh chưa
+  Future<bool> checkAttendance(int sessionId) async {
+    try {
+      final res = await _dio.get('/api/lecturer/sessions/$sessionId/attendance');
+      final data = res.data;
+      final List attendanceList = data is Map 
+          ? (data['data'] ?? []) 
+          : (data is List ? data : []);
+      return attendanceList.isNotEmpty;
+    } catch (e) {
+      // Nếu lỗi hoặc không có dữ liệu, trả về false
+      return false;
+    }
+  }
+
+  // ===== Complete Session =====
+  /// Kết thúc buổi học (bắt buộc phải có điểm danh)
+  /// Gọi endpoint /finish để set status = DONE
+  /// Trả về response data từ server
+  Future<Map<String, dynamic>> completeSession(int sessionId) async {
+    try {
+      final res = await _dio.post('/api/lecturer/sessions/$sessionId/finish');
+      
+      // Parse response
+      final data = res.data;
+      if (data is Map && data['data'] != null) {
+        return Map<String, dynamic>.from(data['data']);
+      }
+      return Map<String, dynamic>.from(data);
+    } on DioException {
+      rethrow;
+    } catch (e) {
+      throw Exception('Lỗi khi kết thúc buổi học: $e');
+    }
   }
 
   // ===== Report =====
@@ -298,7 +341,7 @@ class LecturerScheduleService {
       return <String, dynamic>{
         'id': m['id'],
         'date': date,
-        'session_date': date,
+        'session_date': m['session_date'] ?? date, // Giữ lại session_date gốc
         // Normalized (flat) fields
         'subject': subj?['name'] ?? subj?['code'] ?? m['subject']?.toString() ?? '',
         'class_name': cu?['name'] ?? cu?['code'] ?? '',

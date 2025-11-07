@@ -1,10 +1,8 @@
 import 'package:dio/dio.dart';
-import 'package:qlgd_lhk/core/api_client.dart';
+import '../../../core/api_client.dart';
 
-class ScheduleApi {
-  final Dio _dio;
-
-  ScheduleApi({Dio? dio}) : _dio = dio ?? ApiClient().dio;
+class LecturerScheduleService {
+  final Dio _dio = ApiClient().dio;
 
   // ===== Week =====
   Future<Map<String, dynamic>> getWeek({String? date}) async {
@@ -68,7 +66,6 @@ class ScheduleApi {
       return <String, dynamic>{
         'id': m['id'],
         'date': date,
-        'session_date': m['session_date'] ?? date, // Giữ lại session_date gốc
         'subject':
             m['subject']?.toString() ?? subj?['name'] ?? subj?['code'] ?? '',
         'class_name':
@@ -81,26 +78,6 @@ class ScheduleApi {
     }).toList();
 
     return {'data': normalized};
-  }
-
-  // ===== Schedule list with filters =====
-  Future<Map<String, dynamic>> getSchedule({
-    String? semesterId,
-    String? weekValue,
-  }) async {
-    final params = <String, dynamic>{};
-    if (semesterId != null && semesterId.isNotEmpty) {
-      params['semester_id'] = semesterId;
-    }
-    if (weekValue != null && weekValue.isNotEmpty) {
-      params['week'] = weekValue;
-    }
-
-    final res = await _dio.get(
-      '/api/lecturer/schedule',
-      queryParameters: params,
-    );
-    return Map<String, dynamic>.from(res.data);
   }
 
   // ===== Detail =====
@@ -164,7 +141,6 @@ class ScheduleApi {
       return <String, dynamic>{
         'id': m['id'],
         'date': date,
-        'session_date': m['session_date'] ?? date, // Giữ lại session_date gốc
         'subject': subj?['name'] ?? subj?['code'] ?? m['subject']?.toString() ?? '',
         'class_name': cu?['name'] ?? cu?['code'] ?? '',
         'room': roomLabel(m['room']),
@@ -184,27 +160,41 @@ class ScheduleApi {
     return list.map((e) => Map<String, dynamic>.from(e)).toList();
   }
 
+  // UI m?i dang g?i getMaterials -> alias v? listMaterials
+  Future<List<Map<String, dynamic>>> getMaterials(int sessionId) =>
+      listMaterials(sessionId);
+
+  // Thêm nội dung/tài liệu (UI mới dùng)
   Future<void> addMaterial(int sessionId, String title) async {
     await _dio.post('/api/lecturer/schedule/$sessionId/materials', data: {
       'title': title,
+      // Nếu BE của bạn bắt buộc file_url thì thêm ở đây:
+      // 'file_url': 'https://example.com',
     });
   }
 
-  /// Upload material với file
-  Future<void> uploadMaterial(int sessionId, String title, String filePath) async {
+  // Upload material với file (PDF, PPT, Word)
+  Future<void> uploadMaterialFile({
+    required int sessionId,
+    required String title,
+    required String filePath,
+    String? fileType,
+  }) async {
     final formData = FormData.fromMap({
       'title': title,
-      'file': await MultipartFile.fromFile(filePath),
+      'file': await MultipartFile.fromFile(filePath, filename: filePath.split('/').last),
+      if (fileType != null) 'file_type': fileType,
     });
-    await _dio.post('/api/lecturer/schedule/$sessionId/materials', data: formData);
-  }
-
-  /// Xóa material
-  Future<void> deleteMaterial(int sessionId, int materialId) async {
-    await _dio.delete('/api/lecturer/schedule/$sessionId/materials/$materialId');
+    
+    await _dio.post(
+      '/api/lecturer/schedule/$sessionId/materials',
+      data: formData,
+    );
   }
 
   // ===== Report =====
+  // UI m?i g?i ki?u d?t t�n:
+  // submitReport(sessionId: 1, status: 'done', note: '...', content: '...')
   Future<void> submitReport({
     required int sessionId,
     String? status,
@@ -215,13 +205,7 @@ class ScheduleApi {
   }) async {
     final body = <String, dynamic>{};
     if (status != null) body['status'] = status;
-    // Luôn gửi note nếu được truyền vào (kể cả rỗng) để backend có thể cập nhật/xóa
-    if (note != null) {
-      body['note'] = note.trim();
-      print('DEBUG API submitReport: Sending note="${note.trim()}"');
-    } else {
-      print('DEBUG API submitReport: note is null, not sending');
-    }
+    if (note != null && note.trim().isNotEmpty) body['note'] = note.trim();
     if (content != null && content.trim().isNotEmpty) {
       body['content'] = content.trim();
     }
@@ -231,120 +215,24 @@ class ScheduleApi {
     if (nextPlan != null && nextPlan.trim().isNotEmpty) {
       body['next_plan'] = nextPlan.trim();
     }
-    print('DEBUG API submitReport: Request body=$body');
-    try {
-      final response = await _dio.post('/api/lecturer/schedule/$sessionId/report', data: body);
-      print('DEBUG API submitReport: Response status=${response.statusCode}');
-      print('DEBUG API submitReport: Response headers=${response.headers}');
-      print('DEBUG API submitReport: Response data type=${response.data.runtimeType}');
-      print('DEBUG API submitReport: Response data=$response.data');
-      print('DEBUG API submitReport: Response data.toString()=${response.data.toString()}');
-      
-      // Kiểm tra xem response.data có null hoặc empty không
-      if (response.data == null) {
-        print('DEBUG API submitReport: WARNING - response.data is NULL');
-      } else if (response.data is Map && (response.data as Map).isEmpty) {
-        print('DEBUG API submitReport: WARNING - response.data is empty Map');
-      } else if (response.data is String && (response.data as String).isEmpty) {
-        print('DEBUG API submitReport: WARNING - response.data is empty String');
-      }
-      
-      return;
-    } on DioException catch (e) {
-      print('DEBUG API submitReport: DioException - ${e.response?.statusCode}');
-      print('DEBUG API submitReport: Response data=${e.response?.data}');
-      rethrow;
-    }
+    await _dio.post('/api/lecturer/schedule/$sessionId/report', data: body);
   }
 
-  // ===== Check attendance =====
-  Future<bool> hasAttendance(int sessionId) async {
-    try {
-      final res = await _dio.get('/api/lecturer/sessions/$sessionId/attendance');
-      final data = res.data is Map ? res.data['data'] : res.data;
-      final List records = data is List ? data : [];
-      
-      // Kiểm tra xem có records nào đã được điểm danh (có id và status)
-      // Backend trả về tất cả students, kể cả chưa điểm danh (id: null, status: null)
-      // Chỉ coi là đã điểm danh nếu có ít nhất 1 record có id và status không null
-      final hasMarkedAttendance = records.any((record) {
-        if (record is Map) {
-          final id = record['id'];
-          final status = record['status'];
-          // Có id và status không null nghĩa là đã được điểm danh
-          return id != null && status != null;
-        }
-        return false;
-      });
-      
-      print('DEBUG hasAttendance: Total records: ${records.length}');
-      print('DEBUG hasAttendance: Has marked attendance: $hasMarkedAttendance');
-      
-      return hasMarkedAttendance;
-    } catch (e) {
-      print('DEBUG hasAttendance: Error - $e');
-      return false;
-    }
-  }
-
-  // ===== End lesson =====
-  Future<Map<String, dynamic>> endLesson(int sessionId) async {
-    try {
-      print('DEBUG endLesson API: Calling POST /api/lecturer/sessions/$sessionId/end');
-      final res = await _dio.post('/api/lecturer/sessions/$sessionId/end');
-      print('DEBUG endLesson API: Response status: ${res.statusCode}');
-      print('DEBUG endLesson API: Response data: ${res.data}');
-      
-      final data = res.data is Map ? res.data['data'] : res.data;
-      print('DEBUG endLesson API: Parsed data: $data');
-      
-      return Map<String, dynamic>.from(data);
-    } on DioException catch (e) {
-      // Parse error message từ backend với logging chi tiết
-      String errorMessage = 'Không thể kết thúc buổi học';
-      
-      print('DEBUG endLesson API: DioException caught');
-      print('DEBUG endLesson API: Exception type: ${e.type}');
-      
-      if (e.response != null) {
-        // Log status code và response data để debug
-        print('DEBUG endLesson API: Status code: ${e.response?.statusCode}');
-        print('DEBUG endLesson API: Response data: ${e.response?.data}');
-        
-        if (e.response?.data is Map) {
-          final errorData = e.response!.data as Map<String, dynamic>;
-          errorMessage = errorData['message']?.toString() ?? errorMessage;
-          print('DEBUG endLesson API: Parsed error message: $errorMessage');
-        } else if (e.response?.data is String) {
-          errorMessage = e.response!.data as String;
-          print('DEBUG endLesson API: String error message: $errorMessage');
-        }
-      } else {
-        // Network error hoặc timeout
-        print('DEBUG endLesson API: Network error - ${e.message}');
-        if (e.type == DioExceptionType.connectionTimeout ||
-            e.type == DioExceptionType.receiveTimeout) {
-          errorMessage = 'Kết nối timeout. Vui lòng thử lại.';
-        } else if (e.type == DioExceptionType.connectionError) {
-          errorMessage = 'Không thể kết nối đến server. Vui lòng kiểm tra kết nối mạng.';
-        }
-      }
-      
-      throw Exception(errorMessage);
-    } catch (e) {
-      // Catch các exception khác
-      print('DEBUG endLesson API: Generic exception - $e');
-      if (e is Exception) {
-        rethrow;
-      }
-      throw Exception('Lỗi không xác định: $e');
-    }
-  }
-
-  // ===== Stats =====
-  Future<Map<String, dynamic>> getStats() async {
-    final res = await _dio.get('/api/lecturer/stats');
-    return Map<String, dynamic>.from(res.data);
+  // Gi? tuong th�ch v?i code cu c?a b?n:
+  // submitReport(id, content: '...', issues: '...', nextPlan: '...')
+  @Deprecated('D�ng submitReport({...}) v?i tham s? d?t t�n')
+  Future<void> submitReportLegacy(
+    int id, {
+    required String content,
+    String? issues,
+    String? nextPlan,
+  }) async {
+    await submitReport(
+      sessionId: id,
+      content: content,
+      issues: issues,
+      nextPlan: nextPlan,
+    );
   }
 
   // ===== Upcoming sessions for leave =====
@@ -353,20 +241,10 @@ class ScheduleApi {
     DateTime? to,
     int page = 1,
   }) async {
-    // Build query parameters
-    final queryParams = <String, dynamic>{
-      'status': 'PLANNED',
-      'page': page,
-      'per_page': 1000, // Lấy nhiều items để bao phủ toàn bộ semester
-    };
-    
-    // Chỉ thêm from/to nếu được cung cấp
-    if (from != null) {
-      queryParams['from'] = from.toIso8601String().substring(0, 10);
-    }
-    if (to != null) {
-      queryParams['to'] = to.toIso8601String().substring(0, 10);
-    }
+    final fromStr = (from ?? DateTime.now()).toIso8601String().substring(0, 10);
+    final toStr = (to ?? DateTime.now().add(const Duration(days: 30)))
+        .toIso8601String()
+        .substring(0, 10);
 
     String? onlyDate(dynamic v) {
       if (v == null) return null;
@@ -390,10 +268,16 @@ class ScheduleApi {
       return value?.toString() ?? '';
     }
 
-    // Fetch với per_page lớn để lấy nhiều items trong 1 request
+    // Fetch với per_page=100 để lấy nhiều items trong 1 request (nhanh hơn)
     final res = await _dio.get(
       '/api/lecturer/sessions',
-      queryParameters: queryParams,
+      queryParameters: {
+        'status': 'PLANNED',
+        'from': fromStr,
+        'to': toStr,
+        'page': 1,
+        'per_page': 100, // Request nhiều items để giảm số requests
+      },
     );
 
     final src = res.data;
@@ -414,7 +298,7 @@ class ScheduleApi {
       return <String, dynamic>{
         'id': m['id'],
         'date': date,
-        'session_date': m['session_date'] ?? date, // Giữ lại session_date gốc
+        'session_date': date,
         // Normalized (flat) fields
         'subject': subj?['name'] ?? subj?['code'] ?? m['subject']?.toString() ?? '',
         'class_name': cu?['name'] ?? cu?['code'] ?? '',
