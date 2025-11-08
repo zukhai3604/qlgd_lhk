@@ -1,824 +1,348 @@
 ﻿import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 
 import '../../../common/providers/auth_state_provider.dart';
-import '../../../services/profile_service.dart';
+import '../../../common/providers/role_provider.dart';
+import '../../../core/api_client.dart';
+
+/// Cho phép LecturerAccountPage tự mở đúng bottom sheet khi được điều hướng tới
+/// /account/edit    -> AccountSheet.edit
+/// /account/change-password -> AccountSheet.changePassword
+enum AccountSheet { none, edit, changePassword }
 
 class LecturerAccountPage extends ConsumerStatefulWidget {
-  const LecturerAccountPage({super.key});
+  const LecturerAccountPage({
+    super.key,
+    this.initialSheet = AccountSheet.none,
+  });
+
+  /// Sheet muốn tự mở khi vào trang (dùng cho deep-link từ router)
+  final AccountSheet initialSheet;
 
   @override
-  ConsumerState<LecturerAccountPage> createState() =>
-      _LecturerAccountPageState();
+  ConsumerState<LecturerAccountPage> createState() => _LecturerAccountPageState();
 }
 
 class _LecturerAccountPageState extends ConsumerState<LecturerAccountPage> {
-  bool _loading = true;
-  bool _saving = false;
-  bool _loadingDepartments = false;
-  String? _error;
-
-  Map<String, dynamic> _profile = {};
-  List<Map<String, dynamic>>? _cachedFaculties;
-  final Map<int, List<Map<String, dynamic>>> _cachedDepartments = {};
-
-  final _nameCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
-  DateTime? _dob;
-  String? _genderCode;
-  int? _facultyId;
-  int? _departmentId;
-
-  ProfileService get _service => ref.read(profileServiceProvider);
+  bool loading = true;
+  String? error;
+  Map<String, dynamic> me = {};
 
   @override
   void initState() {
     super.initState();
-    _fetchProfile();
+    _loadMe();
+
+    // Nếu route con yêu cầu mở sheet ngay khi vào
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      switch (widget.initialSheet) {
+        case AccountSheet.edit:
+          _showEditAccountSheet(context);
+          break;
+        case AccountSheet.changePassword:
+          _showChangePasswordSheet(context);
+          break;
+        case AccountSheet.none:
+          break;
+      }
+    });
   }
 
-  @override
-  void dispose() {
-    _nameCtrl.dispose();
-    _emailCtrl.dispose();
-    _phoneCtrl.dispose();
-    super.dispose();
+  // ===== Helpers chọn endpoint theo ROLE =====
+  Role _role() {
+    final s = ref.read(authStateProvider);
+    return s?.role ?? Role.UNKNOWN;
   }
 
-  void safeSetState(VoidCallback fn) {
+  // GET profile theo role (có fallback /api/me)
+  List<String> _profileGetUrls(Role r) {
+    switch (r) {
+      case Role.DAO_TAO:
+        return ['/api/training_department/me/profile', '/api/me'];
+      case Role.GIANG_VIEN:
+        return ['/api/lecturer/me/profile', '/api/me'];
+      case Role.ADMIN:
+        return ['/api/admin/me/profile', '/api/me'];
+      default:
+        return ['/api/me'];
+    }
+  }
+
+  // UPDATE profile theo role (thử lần lượt)
+  List<({String method, String url})> _profileUpdateEndpoints(Role r) {
+    switch (r) {
+      case Role.DAO_TAO:
+        return [
+          (method: 'PATCH', url: '/api/training_department/me/profile'),
+          (method: 'POST', url: '/api/me/update'),
+        ];
+      case Role.GIANG_VIEN:
+        return [
+          (method: 'PATCH', url: '/api/lecturer/me/profile'),
+          (method: 'POST', url: '/api/me/update'),
+        ];
+      case Role.ADMIN:
+        return [
+          (method: 'PATCH', url: '/api/admin/me/profile'),
+          (method: 'POST', url: '/api/me/update'),
+        ];
+      default:
+        return [
+          (method: 'POST', url: '/api/me/update'),
+        ];
+    }
+  }
+
+  // CHANGE-PASSWORD (ưu tiên chung /api/me/change-password, thêm fallback theo role nếu có)
+  List<String> _changePasswordUrls(Role r) {
+    return [
+      '/api/me/change-password',
+      if (r == Role.GIANG_VIEN) '/api/lecturer/me/change-password',
+      if (r == Role.DAO_TAO) '/api/training_department/me/change-password',
+      if (r == Role.ADMIN) '/api/admin/me/change-password',
+    ];
+  }
+
+  Future<void> _loadMe() async {
     if (!mounted) return;
-    final phase = SchedulerBinding.instance.schedulerPhase;
-    if (phase == SchedulerPhase.idle ||
-        phase == SchedulerPhase.postFrameCallbacks) {
-      setState(fn);
-      return;
+    setState(() {
+      loading = true;
+      error = null;
+    });
+
+    final dio = ApiClient().dio;
+    final urls = _profileGetUrls(_role());
+
+    DioException? lastErr;
+    for (final u in urls) {
+      try {
+        final res = await dio.get(u);
+        final body = res.data;
+        final map = (body is Map && body['data'] is Map) ? body['data'] : body;
+        if (map is! Map) throw Exception('Dữ liệu hồ sơ không hợp lệ.');
+
+        if (!mounted) return;
+        setState(() {
+          me = Map<String, dynamic>.from(map);
+          loading = false;
+          error = null;
+        });
+        return;
+      } on DioException catch (e) {
+        lastErr = e;
+        final code = e.response?.statusCode ?? 0;
+        // 404/405 -> thử URL tiếp theo
+        if (code == 404 || code == 405) continue;
+        continue;
+      } catch (_) {
+        continue;
+      }
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(fn);
+
+    if (!mounted) return;
+    setState(() {
+      error = lastErr != null
+          ? 'Lỗi tải hồ sơ (HTTP ${lastErr.response?.statusCode ?? 'null'})'
+          : 'Không tải được hồ sơ';
+      loading = false;
     });
   }
 
-  void _showSnackBar(String message) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      messenger
-        ?..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(message)));
-    });
+  // Helper: lấy chuỗi từ map lồng nhau
+  String _pickS(List<String> keys, [String defaultValue = '---']) {
+    for (final k in keys) {
+      dynamic cur = me;
+      for (final p in k.split('.')) {
+        if (cur is Map && cur.containsKey(p)) {
+          cur = cur[p];
+        } else {
+          cur = null;
+          break;
+        }
+      }
+      if (cur != null && '$cur'.trim().isNotEmpty) return '$cur'.trim();
+    }
+    return defaultValue;
   }
 
-  Future<void> _fetchProfile() async {
-    safeSetState(() {
-      _loading = true;
-      _error = null;
-    });
-
+  String _fmtDob(String raw) {
     try {
-      final data = await _service.getProfile();
-      safeSetState(() {
-        _profile = data;
-        _loading = false;
-        _error = null;
-      });
-      _syncFormStateFromProfile();
-    } on DioException catch (e) {
-      await _handleDioError(e);
-    } catch (e) {
-      safeSetState(() {
-        _loading = false;
-        _error = 'Không thể tải hồ sơ: $e';
-      });
+      final d = DateTime.parse(raw);
+      return '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    } catch (_) {
+      return raw;
     }
   }
 
-  Future<void> _handleDioError(DioException e) async {
-    if (e.response?.statusCode == 401) {
-      await _handleUnauthorized();
-      return;
+  String _vnRole(String r) {
+    switch (r.toUpperCase()) {
+      case 'ADMIN':
+        return 'Quản trị';
+      case 'TRAINING_DEPARTMENT':
+      case 'DAO_TAO':
+        return 'Phòng Đào tạo';
+      case 'LECTURER':
+      case 'GIANG_VIEN':
+        return 'Giảng viên';
+      default:
+        return r;
     }
-
-    final message = e.response?.data is Map
-        ? (e.response?.data['message']?.toString() ??
-            e.response?.data['error']?.toString() ??
-            'Không thể tải hồ sơ.')
-        : 'Không thể tải hồ sơ.';
-
-    safeSetState(() {
-      _error = message;
-      _loading = false;
-    });
   }
 
-  Future<void> _handleUnauthorized() async {
+  Future<void> _logout() async {
     const storage = FlutterSecureStorage();
     await storage.delete(key: 'access_token');
     await storage.delete(key: 'auth_token');
 
-    if (!mounted) return;
-    ref.read(authStateProvider.notifier).logout();
-    context.go('/login');
-  }
-
-  Future<bool> _updateProfile(Map<String, dynamic> patch) async {
-    safeSetState(() {
-      _saving = true;
-    });
-
-    try {
-      final updated = await _service.updateProfile(patch);
-      safeSetState(() {
-        _profile = updated;
-        _saving = false;
-        _error = null;
-      });
-      _syncFormStateFromProfile();
-      return true;
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 401) {
-        await _handleUnauthorized();
-        return false;
-      }
-
-      final message = e.response?.data is Map
-          ? (e.response?.data['message']?.toString() ??
-              e.response?.data['error']?.toString() ??
-              'Cập nhật thất bại.')
-          : 'Cập nhật thất bại.';
-
-      safeSetState(() => _saving = false);
-      _showSnackBar(message);
-      return false;
-    } catch (e) {
-      safeSetState(() => _saving = false);
-      _showSnackBar('Cập nhật thất bại: $e');
-      return false;
+    if (mounted) {
+      ref.read(authStateProvider.notifier).logout();
+      context.go('/login');
     }
   }
 
-  void _syncFormStateFromProfile() {
-    final name = _profile['name']?.toString() ?? '';
-    if (_nameCtrl.text != name) {
-      _nameCtrl.text = name;
-    }
-
-    final email = _profile['email']?.toString() ?? '';
-    if (_emailCtrl.text != email) {
-      _emailCtrl.text = email;
-    }
-
-    final phone = _profile['phone']?.toString() ?? '';
-    if (_phoneCtrl.text != phone) {
-      _phoneCtrl.text = phone;
-    }
-
-    final dobStr = _profile['date_of_birth']?.toString();
-    DateTime? dob;
-    if (dobStr != null && dobStr.isNotEmpty) {
-      dob = DateTime.tryParse(dobStr);
-    }
-
-    final genderRaw = _profile['gender']?.toString();
-    final genderCode = _genderCodeFromProfileValue(genderRaw);
-
-    final lecturer = _profile['lecturer'];
-    final departmentId =
-        _asNullableInt(lecturer is Map ? lecturer['department_id'] : null);
-    final facultyId = _asNullableInt(
-      lecturer is Map && lecturer['department'] is Map
-          ? lecturer['department']['faculty'] is Map
-              ? lecturer['department']['faculty']['id']
-              : null
-          : null,
-    );
-
-    safeSetState(() {
-      _dob = dob;
-      _genderCode = genderCode;
-      _departmentId = departmentId;
-      _facultyId = facultyId;
-    });
-  }
-
-  int? _asNullableInt(dynamic value) {
-    if (value == null) return null;
-    if (value is int) return value;
-    if (value is num) return value.toInt();
-    if (value is String && value.trim().isNotEmpty) {
-      return int.tryParse(value.trim());
-    }
-    return null;
-  }
-
-  String? _genderCodeFromProfileValue(String? raw) {
-    if (raw == null || raw.isEmpty) return null;
-    final normalized = raw.trim().toLowerCase();
-    if (normalized == 'male' || normalized == 'nam') return 'Nam';
-    if (normalized == 'female' || normalized == 'nữ' || normalized == 'nu') {
-      return 'Nữ';
-    }
-    return null;
-  }
-
-  Future<void> _ensureFacultyCache() async {
-    if (_cachedFaculties != null) {
-      if (_facultyId != null && !_cachedDepartments.containsKey(_facultyId!)) {
-        await _loadDepartments(_facultyId!);
-      }
-      return;
-    }
-
-    try {
-      final faculties = await _service.listFaculties();
-      safeSetState(() {
-        _cachedFaculties = faculties;
-      });
-      if (_facultyId != null) {
-        await _loadDepartments(_facultyId!);
-      }
-    } catch (_) {
-      _showSnackBar('Không thể tải danh sách khoa.');
-    }
-  }
-
-  Future<void> _loadDepartments(int facultyId) async {
-    safeSetState(() {
-      _loadingDepartments = true;
-    });
-
-    try {
-      final fetched = await _service.listDepartments(facultyId: facultyId);
-      safeSetState(() {
-        _cachedDepartments[facultyId] =
-            List<Map<String, dynamic>>.from(fetched);
-      });
-    } catch (_) {
-      _showSnackBar('Không thể tải danh sách bộ môn.');
-    } finally {
-      safeSetState(() {
-        _loadingDepartments = false;
-      });
-    }
-  }
-
-  List<Map<String, dynamic>> _departmentsForFaculty(int? facultyId) {
-    if (facultyId == null) return const [];
-    return List<Map<String, dynamic>>.from(
-      _cachedDepartments[facultyId] ?? const <Map<String, dynamic>>[],
+  void _showSnack(String msg, {bool error = false}) {
+    final theme = Theme.of(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: error ? theme.colorScheme.error : theme.colorScheme.primary,
+      ),
     );
   }
-
-  String _roleLabel(String value) {
-    switch (value.toUpperCase()) {
-      case 'ADMIN':
-        return 'Quản trị viên';
-      case 'DAO_TAO':
-      case 'TRAINING_DEPARTMENT':
-        return 'Phòng đào tạo';
-      case 'GIANG_VIEN':
-      case 'LECTURER':
-        return 'Giảng viên';
-      default:
-        return value.isEmpty ? 'Chưa xác định' : value;
-    }
-  }
-
-  String _textOrPlaceholder(String? value) {
-    if (value == null || value.trim().isEmpty) return '---';
-    return value.trim();
-  }
-
-  Future<void> _pickDob() async {
-    final initial = _dob ?? DateTime(1990, 1, 1);
-    final lastDate = DateTime.now();
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initial.isAfter(lastDate) ? lastDate : initial,
-      firstDate: DateTime(1950, 1, 1),
-      lastDate: lastDate,
-    );
-    if (picked != null) {
-      safeSetState(() {
-        _dob = picked;
-      });
-    }
-  }
-
-  // ---------- MỚI: helper trang trí input cho đẹp ----------
-  InputDecoration _dec(BuildContext ctx, String label,
-      {IconData? icon, String? hint}) {
-    final scheme = Theme.of(ctx).colorScheme;
-    OutlineInputBorder _b(Color c) => OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: c, width: 1),
-        );
-    return InputDecoration(
-      labelText: label,
-      hintText: hint,
-      prefixIcon: icon != null ? Icon(icon) : null,
-      floatingLabelBehavior: FloatingLabelBehavior.auto,
-      filled: true,
-      fillColor: scheme.surfaceVariant.withOpacity(0.35),
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-      enabledBorder: _b(Colors.grey.shade300),
-      focusedBorder: _b(scheme.primary),
-      errorBorder: _b(Colors.red.shade300),
-      focusedErrorBorder: _b(Colors.red.shade400),
-    );
-  }
-
-  // ========= mở popup chỉnh sửa =========
-  Future<void> _openEditSheet() async {
-    await _ensureFacultyCache();
-
-    final tmpNameCtrl = TextEditingController(text: _nameCtrl.text);
-    final tmpEmailCtrl = TextEditingController(text: _emailCtrl.text);
-    final tmpPhoneCtrl = TextEditingController(text: _phoneCtrl.text);
-    DateTime? tmpDob = _dob;
-    String? tmpGender = _genderCode;
-    int? tmpFacultyId = _facultyId;
-    int? tmpDepartmentId = _departmentId;
-
-    final formKey = GlobalKey<FormState>();
-    bool submitting = false;
-    bool localLoadingDepartments = false;
-
-    Future<void> _loadDepsInSheet(StateSetter refresh, int facultyId) async {
-      refresh(() => localLoadingDepartments = true);
-      try {
-        await _loadDepartments(facultyId);
-        final deps = _departmentsForFaculty(facultyId);
-        if (!deps.any((d) => _asNullableInt(d['id']) == tmpDepartmentId)) {
-          tmpDepartmentId = null;
-        }
-      } finally {
-        refresh(() => localLoadingDepartments = false);
-      }
-    }
-
-    final saved = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (sheetContext, refresh) {
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 16,
-                right: 16,
-                bottom: 16 + MediaQuery.of(sheetContext).viewInsets.bottom,
-                top: 8,
-              ),
-              child: Form(
-                key: formKey,
-                child: SingleChildScrollView(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Chỉnh sửa hồ sơ',
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Họ và tên
-                      TextFormField(
-                        controller: tmpNameCtrl,
-                        decoration: _dec(sheetContext, 'Họ và tên',
-                            icon: Icons.person_outline, hint: 'Nhập họ và tên'),
-                        validator: (v) => (v == null || v.trim().isEmpty)
-                            ? 'Họ và tên không được để trống'
-                            : null,
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Ngày sinh (readOnly cho đồng bộ UI)
-                      TextFormField(
-                        readOnly: true,
-                        controller: TextEditingController(
-                          text: tmpDob != null
-                              ? DateFormat('dd/MM/yyyy').format(tmpDob!)
-                              : '',
-                        ),
-                        decoration: _dec(sheetContext, 'Ngày sinh',
-                                icon: Icons.calendar_today_outlined,
-                                hint: 'Chọn ngày sinh')
-                            .copyWith(suffixIcon: const Icon(Icons.expand_more)),
-                        onTap: () async {
-                          final init = tmpDob ?? DateTime(1990, 1, 1);
-                          final last = DateTime.now();
-                          final picked = await showDatePicker(
-                            context: sheetContext,
-                            initialDate: init.isAfter(last) ? last : init,
-                            firstDate: DateTime(1950, 1, 1),
-                            lastDate: last,
-                          );
-                          if (picked != null) {
-                            refresh(() => tmpDob = picked);
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Giới tính
-                      DropdownButtonFormField<String?>(
-                        value: tmpGender,
-                        isExpanded: true,
-                        decoration: _dec(sheetContext, 'Giới tính',
-                            icon: Icons.wc_outlined, hint: 'Chọn giới tính'),
-                        items: const [
-                          DropdownMenuItem<String?>(value: null, child: Text('Không chọn')),
-                          DropdownMenuItem<String?>(value: 'Nam', child: Text('Nam')),
-                          DropdownMenuItem<String?>(value: 'Nữ', child: Text('Nữ')),
-                        ],
-                        onChanged: (v) => refresh(() => tmpGender = v),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Số điện thoại
-                      TextFormField(
-                        controller: tmpPhoneCtrl,
-                        keyboardType: TextInputType.phone,
-                        decoration: _dec(sheetContext, 'Số điện thoại',
-                            icon: Icons.phone_outlined, hint: 'Nhập số điện thoại'),
-                        validator: (v) {
-                          final s = (v ?? '').trim();
-                          if (s.isEmpty) return null;
-                          return RegExp(r'^[0-9+() -]{6,30}$').hasMatch(s)
-                              ? null
-                              : 'Số điện thoại không hợp lệ';
-                        },
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Email
-                      TextFormField(
-                        controller: tmpEmailCtrl,
-                        keyboardType: TextInputType.emailAddress,
-                        decoration: _dec(sheetContext, 'Email',
-                            icon: Icons.alternate_email_outlined, hint: 'Nhập email'),
-                        validator: (v) {
-                          final s = (v ?? '').trim();
-                          if (s.isEmpty) return 'Email không hợp lệ';
-                          return RegExp(r'^[^@]+@[^@]+\.[^@]+$').hasMatch(s)
-                              ? null
-                              : 'Email không hợp lệ';
-                        },
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Khoa
-                      DropdownButtonFormField<int?>(
-                        value: tmpFacultyId,
-                        isExpanded: true,
-                        decoration: _dec(sheetContext, 'Khoa',
-                            icon: Icons.school_outlined, hint: 'Chọn khoa'),
-                        items: [
-                          const DropdownMenuItem<int?>(value: null, child: Text('Không chọn')),
-                          ...?_cachedFaculties?.map((f) => DropdownMenuItem<int?>(
-                                value: _asNullableInt(f['id']),
-                                child: Text(f['name']?.toString() ?? ''),
-                              )),
-                        ],
-                        onChanged: (v) async {
-                          refresh(() {
-                            tmpFacultyId = v;
-                            tmpDepartmentId = null;
-                          });
-                          if (v != null) {
-                            await _loadDepsInSheet(refresh, v);
-                          }
-                        },
-                      ),
-                      const SizedBox(height: 12),
-
-                      // Bộ môn
-                      DropdownButtonFormField<int?>(
-                        value: tmpDepartmentId,
-                        isExpanded: true,
-                        decoration: _dec(sheetContext, 'Bộ môn',
-                            icon: Icons.account_tree_outlined, hint: 'Chọn bộ môn'),
-                        items: [
-                          const DropdownMenuItem<int?>(value: null, child: Text('Không chọn')),
-                          ..._departmentsForFaculty(tmpFacultyId).map((d) =>
-                              DropdownMenuItem<int?>(
-                                value: _asNullableInt(d['id']),
-                                child: Text(d['name']?.toString() ?? ''),
-                              )),
-                        ],
-                        onChanged: localLoadingDepartments
-                            ? null
-                            : (v) => refresh(() => tmpDepartmentId = v),
-                      ),
-                      if (localLoadingDepartments) ...[
-                        const SizedBox(height: 8),
-                        const LinearProgressIndicator(),
-                      ],
-
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          TextButton(
-                            onPressed: submitting
-                                ? null
-                                : () => Navigator.of(sheetContext).pop(false),
-                            child: const Text('Hủy'),
-                          ),
-                          const Spacer(),
-                          FilledButton(
-                            onPressed: submitting
-                                ? null
-                                : () async {
-                                    if (!(formKey.currentState?.validate() ?? false)) return;
-
-                                    final patch = <String, dynamic>{};
-                                    void addChange(String key, dynamic newValue, dynamic originalValue) {
-                                      if (newValue is String && newValue.isEmpty) newValue = null;
-                                      if (originalValue is String && originalValue.isEmpty) originalValue = null;
-                                      if (newValue == originalValue) return;
-                                      patch[key] = newValue;
-                                    }
-
-                                    addChange('name',  tmpNameCtrl.text.trim(), _profile['name']?.toString() ?? '');
-                                    addChange('email', tmpEmailCtrl.text.trim(), _profile['email']?.toString() ?? '');
-                                    addChange('phone', tmpPhoneCtrl.text.trim(), _profile['phone']?.toString() ?? '');
-
-                                    final origDob = _profile['date_of_birth']?.toString();
-                                    final newDobStr = tmpDob != null ? DateFormat('yyyy-MM-dd').format(tmpDob!) : null;
-                                    addChange('date_of_birth', newDobStr, (origDob?.isEmpty == true) ? null : origDob);
-
-                                    final origGender = _genderCodeFromProfileValue(_profile['gender']?.toString());
-                                    addChange('gender', tmpGender, origGender);
-
-                                    final origFacultyId = _asNullableInt(
-                                      _profile['lecturer'] is Map &&
-                                              _profile['lecturer']['department'] is Map &&
-                                              _profile['lecturer']['department']['faculty'] is Map
-                                          ? _profile['lecturer']['department']['faculty']['id']
-                                          : null,
-                                    );
-                                    addChange('faculty_id', tmpFacultyId, origFacultyId);
-
-                                    final origDepartmentId = _asNullableInt(
-                                      _profile['lecturer'] is Map ? _profile['lecturer']['department_id'] : null,
-                                    );
-                                    addChange('department_id', tmpDepartmentId, origDepartmentId);
-
-                                    if (patch.isEmpty) {
-                                      _showSnackBar('Không có thay đổi nào để lưu');
-                                      Navigator.of(sheetContext).pop(false);
-                                      return;
-                                    }
-
-                                    refresh(() => submitting = true);
-                                    final ok = await _updateProfile(patch);
-                                    if (!mounted) return;
-                                    if (ok) {
-                                      _nameCtrl.text  = tmpNameCtrl.text.trim();
-                                      _emailCtrl.text = tmpEmailCtrl.text.trim();
-                                      _phoneCtrl.text = tmpPhoneCtrl.text.trim();
-                                      _dob            = tmpDob;
-                                      _genderCode     = tmpGender;
-                                      _facultyId      = tmpFacultyId;
-                                      _departmentId   = tmpDepartmentId;
-
-                                      _showSnackBar('Cập nhật hồ sơ thành công');
-                                      Navigator.of(sheetContext).pop(true);
-                                    } else {
-                                      refresh(() => submitting = false);
-                                    }
-                                  },
-                            child: submitting
-                                ? const SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
-                                : const Text('Lưu'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-
-    // dọn controller tạm
-    tmpNameCtrl.dispose();
-    tmpEmailCtrl.dispose();
-    tmpPhoneCtrl.dispose();
-
-    // saved==true nghĩa là đã lưu trong sheet; ở lại trang account
-  }
-  // ========= END popup =========
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: false,
-        title: null,
+        title: const Text(''),
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
       ),
-      body: SafeArea(
-        child: _loading
-            ? const Center(child: CircularProgressIndicator())
-            : _error != null
-                ? _buildError()
-                : _buildContent(),
-      ),
+      body: _buildBody(),
     );
   }
 
-  Widget _buildError() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline, size: 48, color: Colors.redAccent),
-            const SizedBox(height: 12),
-            Text(
-              _error ?? 'Đã xảy ra lỗi.',
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: _fetchProfile,
-              child: const Text('Thử lại'),
-            ),
-          ],
+  Widget _buildBody() {
+    if (loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(error!, style: const TextStyle(color: Colors.red), textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                onPressed: _loadMe,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Tải lại'),
+              ),
+            ],
+          ),
         ),
-      ),
-    );
-  }
+      );
+    }
 
-  Widget _buildContent() {
-    final formattedDob = _dob != null
-        ? DateFormat('dd/MM/yyyy').format(_dob!)
-        : _textOrPlaceholder(_profile['date_of_birth']?.toString());
-
-    final roleName = _profile['role']?.toString() ?? '';
-
-    final facultyName = _textOrPlaceholder(_profile['faculty']?.toString());
-    final departmentName = _textOrPlaceholder(_profile['department']?.toString());
-    final genderDisplay = _genderCode ??
-        _genderCodeFromProfileValue(_profile['gender']?.toString()) ??
-        '---';
-
-    final avatarUrl = _profile['avatar_url']?.toString() ?? '';
+    // ==== Map dữ liệu ra UI ====
+    final name = _pickS(['user.name', 'name', 'full_name']);
+    final dobRaw = _pickS(['lecturer.date_of_birth', 'date_of_birth', 'dob'], '');
+    final dob = dobRaw.isEmpty ? '---' : _fmtDob(dobRaw);
+    final gender = _pickS(['lecturer.gender', 'gender']);
+    final phone = _pickS(['user.phone', 'phone']);
+    final email = _pickS(['user.email', 'email']);
+    final department = _pickS(['lecturer.department.name', 'department.name', 'lecturer.department']);
+    final faculty = _pickS(['lecturer.department.faculty.name', 'department.faculty.name', 'faculty.name']);
+    final roleStr = _pickS(['user.role', 'role'], '');
+    final role = roleStr.isEmpty ? '---' : _vnRole(roleStr);
+    final avatar = _pickS(['avatar_url', 'avatar'], '');
 
     return RefreshIndicator(
-      onRefresh: _fetchProfile,
+      onRefresh: _loadMe,
       child: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         children: [
-          if (_saving) const LinearProgressIndicator(),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           const Text(
             'TRƯỜNG ĐẠI HỌC THỦY LỢI',
             textAlign: TextAlign.center,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-              color: Colors.blue,
-            ),
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue),
           ),
           const SizedBox(height: 24),
           Center(
             child: CircleAvatar(
-              radius: 48,
+              radius: 50,
               backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-              backgroundImage: avatarUrl.startsWith('http')
-                  ? NetworkImage(avatarUrl)
-                  : null,
-              child: avatarUrl.startsWith('http')
-                  ? null
-                  : const Icon(Icons.person_outline, size: 42),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Center(
-            child: FilledButton.icon(
-              onPressed: _saving ? null : _openEditSheet,
-              icon: const Icon(Icons.edit_outlined),
-              label: const Text('Chỉnh sửa'),
+              backgroundImage: (avatar.isNotEmpty && avatar.startsWith('http')) ? NetworkImage(avatar) : null,
+              child: avatar.isEmpty ? const Icon(Icons.person, size: 44) : null,
             ),
           ),
           const SizedBox(height: 24),
-
-          _infoCard(
-            label: 'Họ và tên',
-            child: Text(
-              _textOrPlaceholder(_profile['name']?.toString()),
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
+          _buildInfoCard('Tên giảng viên', name),
+          _buildInfoCard('Ngày sinh', dob),
+          Row(
+            children: [
+              Expanded(child: _buildInfoCard('Giới tính', gender)),
+              const SizedBox(width: 16),
+              Expanded(child: _buildInfoCard('Số điện thoại', phone)),
+            ],
           ),
-          _infoCard(
-            label: 'Ngày sinh',
-            child: Text(
-              formattedDob,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
+          _buildInfoCard('Email', email),
+          _buildInfoCard('Bộ môn', department),
+          Row(
+            children: [
+              Expanded(child: _buildInfoCard('Vai trò', role)),
+              const SizedBox(width: 16),
+              Expanded(child: _buildInfoCard('Khoa', faculty)),
+            ],
           ),
-          _infoCard(
-            label: 'Giới tính',
-            child: Text(
-              genderDisplay,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-          _infoCard(
-            label: 'Số điện thoại',
-            child: Text(
-              _textOrPlaceholder(_profile['phone']?.toString()),
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-          _infoCard(
-            label: 'Email',
-            child: Text(
-              _textOrPlaceholder(_profile['email']?.toString()),
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-          _infoCard(
-            label: 'Khoa',
-            child: Text(
-              facultyName,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-          _infoCard(
-            label: 'Bộ môn',
-            child: Text(
-              departmentName,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-          _infoCard(
-            label: 'Vai trò',
-            child: Text(
-              _roleLabel(roleName),
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-
           const SizedBox(height: 32),
-          Text(
-            'Cài đặt',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
+          Text('Cài đặt', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
           Card(
-            elevation: 1,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+            elevation: 2,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             child: Column(
               children: [
-                ListTile(
-                  leading: const Icon(Icons.lock_outline),
-                  title: const Text('Đổi mật khẩu'),
-                  onTap: _changePassword,
+                _buildSettingsTile(
+                  icon: Icons.settings_outlined,
+                  title: 'Chỉnh sửa tài khoản',
+                  onTap: () => _showEditAccountSheet(context),
                 ),
                 const Divider(height: 1, indent: 16, endIndent: 16),
-                ListTile(
-                  leading: const Icon(Icons.logout, color: Colors.red),
-                  title: const Text(
-                    'Đăng xuất',
-                    style: TextStyle(color: Colors.red),
-                  ),
+                _buildSettingsTile(
+                  icon: Icons.lock_outline,
+                  title: 'Đổi mật khẩu',
+                  onTap: () => _showChangePasswordSheet(context),
+                ),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                _buildSettingsTile(
+                  icon: Icons.help_outline,
+                  title: 'Trợ giúp',
+                  onTap: () {},
+                ),
+                const Divider(height: 1, indent: 16, endIndent: 16),
+                _buildSettingsTile(
+                  icon: Icons.logout,
+                  title: 'Đăng xuất',
+                  color: Colors.red,
                   onTap: () {
-                    showDialog<void>(
+                    showDialog(
                       context: context,
-                      builder: (dialogContext) => AlertDialog(
+                      builder: (ctx) => AlertDialog(
                         title: const Text('Xác nhận đăng xuất'),
-                        content:
-                            const Text('Bạn có chắc chắn muốn đăng xuất không?'),
+                        content: const Text('Bạn có chắc chắn muốn đăng xuất?'),
                         actions: [
-                          TextButton(
-                            onPressed: () => Navigator.of(dialogContext).pop(),
-                            child: const Text('Hủy'),
-                          ),
+                          TextButton(onPressed: () => Navigator.of(ctx).pop(), child: const Text('Hủy')),
                           FilledButton(
                             onPressed: () {
-                              Navigator.of(dialogContext).pop();
+                              Navigator.of(ctx).pop();
                               _logout();
                             },
                             child: const Text('Đăng xuất'),
@@ -831,268 +355,621 @@ class _LecturerAccountPageState extends ConsumerState<LecturerAccountPage> {
               ],
             ),
           ),
+          const SizedBox(height: 24),
         ],
       ),
     );
   }
 
-  Widget _infoCard({required String label, required Widget child}) {
+  Widget _buildInfoCard(String label, String value) {
     return Card(
-      elevation: 1,
+      elevation: 2,
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              label,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodySmall
-                  ?.copyWith(color: Colors.grey[600]),
-            ),
-            const SizedBox(height: 6),
-            child,
+            Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[600])),
+            const SizedBox(height: 4),
+            Text(value, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
           ],
         ),
       ),
     );
   }
 
-  Future<void> _changePassword() async {
-    final oldCtrl = TextEditingController();
+  Widget _buildSettingsTile({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+    Color? color,
+  }) {
+    return ListTile(
+      leading: Icon(icon, color: color),
+      title: Text(title, style: TextStyle(color: color)),
+      trailing: const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+      onTap: onTap,
+    );
+  }
+
+  /// ====== POPUP: Đổi mật khẩu (bottom sheet Android-style) ======
+  Future<void> _showChangePasswordSheet(BuildContext context) async {
+    final currentCtrl = TextEditingController();
     final newCtrl = TextEditingController();
     final confirmCtrl = TextEditingController();
     final formKey = GlobalKey<FormState>();
-
     bool submitting = false;
-    bool obscureOld = true;
-    bool obscureNew = true;
-    bool obscureConfirm = true;
-    String? errorMessage;
-    bool sheetActive = true;
+    bool ob1 = true, ob2 = true, ob3 = true;
 
-    final result = await showModalBottomSheet<bool>(
+    await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       showDragHandle: true,
-      builder: (sheetContext) {
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
         return StatefulBuilder(
-          builder: (sheetContext, refresh) {
+          builder: (ctx, setS) {
+            String? errorMessage; // Lưu lỗi để hiển thị
             return Padding(
               padding: EdgeInsets.only(
-                left: 24,
-                right: 24,
-                bottom: 24 + MediaQuery.of(sheetContext).viewInsets.bottom,
-                top: 12,
+                left: 16, right: 16, top: 8,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Đổi mật khẩu',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 16),
-                  Form(
-                    key: formKey,
-                    child: Column(
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 4),
+                    Text('Đổi mật khẩu', style: Theme.of(ctx).textTheme.titleLarge),
+                    const SizedBox(height: 12),
+
+                    TextFormField(
+                      controller: currentCtrl,
+                      obscureText: ob1,
+                      decoration: InputDecoration(
+                        labelText: 'Mật khẩu hiện tại',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          onPressed: () => setS(() => ob1 = !ob1),
+                          icon: Icon(ob1 ? Icons.visibility : Icons.visibility_off),
+                        ),
+                      ),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Vui lòng nhập mật khẩu hiện tại' : null,
+                    ),
+                    const SizedBox(height: 12),
+
+                    TextFormField(
+                      controller: newCtrl,
+                      obscureText: ob2,
+                      decoration: InputDecoration(
+                        labelText: 'Mật khẩu mới (≥ 6 ký tự)',
+                        prefixIcon: const Icon(Icons.password),
+                        suffixIcon: IconButton(
+                          onPressed: () => setS(() => ob2 = !ob2),
+                          icon: Icon(ob2 ? Icons.visibility : Icons.visibility_off),
+                        ),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return 'Vui lòng nhập mật khẩu mới';
+                        if (v.trim().length < 6) return 'Mật khẩu phải từ 6 ký tự';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+
+                    TextFormField(
+                      controller: confirmCtrl,
+                      obscureText: ob3,
+                      decoration: InputDecoration(
+                        labelText: 'Xác nhận mật khẩu mới',
+                        prefixIcon: const Icon(Icons.check_circle_outline),
+                        suffixIcon: IconButton(
+                          onPressed: () => setS(() => ob3 = !ob3),
+                          icon: Icon(ob3 ? Icons.visibility : Icons.visibility_off),
+                        ),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return 'Vui lòng xác nhận mật khẩu';
+                        if (v != newCtrl.text) return 'Mật khẩu xác nhận không khớp';
+                        return null;
+                      },
+                    ),
+                    // Hiển thị lỗi từ server màu đỏ
+                    if (errorMessage != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        errorMessage!,
+                        style: TextStyle(
+                          color: Theme.of(ctx).colorScheme.error,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+
+                    Row(
                       children: [
-                        TextFormField(
-                          controller: oldCtrl,
-                          obscureText: obscureOld,
-                          decoration: InputDecoration(
-                            labelText: 'Mật khẩu hiện tại',
-                            border: const OutlineInputBorder(),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                obscureOld
-                                    ? Icons.visibility_off
-                                    : Icons.visibility,
-                              ),
-                              onPressed: () {
-                                refresh(() {
-                                  obscureOld = !obscureOld;
-                                });
-                              },
-                            ),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Vui lòng nhập mật khẩu hiện tại';
-                            }
-                            return null;
-                          },
+                        TextButton(
+                          onPressed: submitting ? null : () => Navigator.of(ctx).pop(),
+                          child: const Text('Hủy'),
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: newCtrl,
-                          obscureText: obscureNew,
-                          decoration: InputDecoration(
-                            labelText: 'Mật khẩu mới',
-                            border: const OutlineInputBorder(),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                obscureNew
-                                    ? Icons.visibility_off
-                                    : Icons.visibility,
-                              ),
-                              onPressed: () {
-                                refresh(() {
-                                  obscureNew = !obscureNew;
-                                });
-                              },
-                            ),
-                          ),
-                          validator: (value) {
-                            final newPassword = value?.trim() ?? '';
-                            if (newPassword.isEmpty) {
-                              return 'Vui lòng nhập mật khẩu mới';
+                        const Spacer(),
+                        FilledButton.icon(
+                          onPressed: submitting ? null : () async {
+                            if (!formKey.currentState!.validate()) return;
+                            setS(() {
+                              submitting = true;
+                              errorMessage = null; // Clear error khi submit lại
+                            });
+                            try {
+                              final dio = ApiClient().dio;
+                              final urls = _changePasswordUrls(_role());
+                              DioException? lastErr;
+
+                              for (final u in urls) {
+                                try {
+                                  await dio.post(u, data: {
+                                    'current_password': currentCtrl.text.trim(),
+                                    'password': newCtrl.text.trim(),
+                                    'password_confirmation': confirmCtrl.text.trim(),
+                                  });
+                                  if (mounted) {
+                                    Navigator.of(ctx).pop();
+                                    _showSnack('Đổi mật khẩu thành công');
+                                  }
+                                  return;
+                                } on DioException catch (e) {
+                                  lastErr = e;
+                                  // 422: hiển thị chi tiết ngay và dừng
+                                  if (e.response?.statusCode == 422) {
+                                    final data = e.response?.data;
+                                    if (data is Map && data['errors'] is Map) {
+                                      final errs = (data['errors'] as Map).entries
+                                          .expand((kv) => (kv.value as List).map((x) => '- ${kv.key}: $x'))
+                                          .join('\n');
+                                      setS(() {
+                                        submitting = false;
+                                        errorMessage = errs.isEmpty ? 'Dữ liệu không hợp lệ' : errs;
+                                      });
+                                      return;
+                                    }
+                                  }
+                                  // 404/405 -> thử URL tiếp
+                                  final code = e.response?.statusCode ?? 0;
+                                  if (code == 404 || code == 405) continue;
+                                  // lỗi khác -> thử tiếp URL sau
+                                  continue;
+                                }
+                              }
+
+                              setS(() {
+                                submitting = false;
+                                errorMessage = 'Lỗi đổi mật khẩu (HTTP ${lastErr?.response?.statusCode ?? 'null'})';
+                              });
+                            } catch (e) {
+                              setS(() {
+                                submitting = false;
+                                errorMessage = e.toString().replaceFirst('Exception: ', '');
+                              });
                             }
-                            if (newPassword.length < 8) {
-                              return 'Mật khẩu phải tối thiểu 8 ký tự';
-                            }
-                            final hasLetter =
-                                RegExp(r'[A-Za-z]').hasMatch(newPassword);
-                            final hasNumber =
-                                RegExp(r'[0-9]').hasMatch(newPassword);
-                            if (!hasLetter || !hasNumber) {
-                              return 'Mật khẩu phải có cả chữ và số';
-                            }
-                            if (newPassword == oldCtrl.text.trim()) {
-                              return 'Mật khẩu mới phải khác mật khẩu hiện tại';
-                            }
-                            return null;
                           },
-                        ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: confirmCtrl,
-                          obscureText: obscureConfirm,
-                          decoration: InputDecoration(
-                            labelText: 'Xác nhận mật khẩu mới',
-                            border: const OutlineInputBorder(),
-                            suffixIcon: IconButton(
-                              icon: Icon(
-                                obscureConfirm
-                                    ? Icons.visibility_off
-                                    : Icons.visibility,
-                              ),
-                              onPressed: () {
-                                refresh(() {
-                                  obscureConfirm = !obscureConfirm;
-                                });
-                              },
-                            ),
-                          ),
-                          validator: (value) {
-                            final confirm = value?.trim() ?? '';
-                            if (confirm.isEmpty) {
-                              return 'Vui lòng nhập lại mật khẩu mới';
-                            }
-                            if (confirm != newCtrl.text.trim()) {
-                              return 'Xác nhận mật khẩu không khớp';
-                            }
-                            return null;
-                          },
+                          icon: submitting
+                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Icon(Icons.save_outlined),
+                          label: const Text('Lưu'),
                         ),
                       ],
                     ),
-                  ),
-                  if (errorMessage != null) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      errorMessage!,
-                      style: const TextStyle(color: Colors.red),
-                    ),
+                    const SizedBox(height: 8),
                   ],
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      TextButton(
-                        onPressed: submitting
-                            ? null
-                            : () => Navigator.of(sheetContext).pop(false),
-                        child: const Text('Hủy'),
-                      ),
-                      const Spacer(),
-                      FilledButton(
-                        onPressed: submitting
-                            ? null
-                            : () async {
-                                if (!(formKey.currentState?.validate() ?? false)) {
-                                  return;
-                                }
-                                refresh(() {
-                                  submitting = true;
-                                  errorMessage = null;
-                                });
-                                try {
-                                  await _service.changePassword(
-                                    oldPassword: oldCtrl.text.trim(),
-                                    newPassword: newCtrl.text.trim(),
-                                  );
-                                  if (!sheetActive) return;
-                                  Navigator.of(sheetContext).pop(true);
-                                } on DioException catch (e) {
-                                  if (e.response?.statusCode == 401) {
-                                    Navigator.of(sheetContext).pop(false);
-                                    await _handleUnauthorized();
-                                    return;
-                                  }
-                                  final msg = e.response?.data is Map
-                                      ? (e.response?.data['message']?.toString() ??
-                                          e.response?.data['error']?.toString() ??
-                                          'Đổi mật khẩu thất bại.')
-                                      : 'Đổi mật khẩu thất bại.';
-                                  refresh(() {
-                                    submitting = false;
-                                    errorMessage = msg;
-                                  });
-                                } catch (err) {
-                                  refresh(() {
-                                    submitting = false;
-                                    errorMessage = err.toString();
-                                  });
-                                }
-                              },
-                        child: submitting
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Text('Lưu'),
-                      ),
-                    ],
-                  ),
-                ],
+                ),
               ),
             );
           },
         );
       },
-    ).whenComplete(() => sheetActive = false);
+    );
 
-    oldCtrl.dispose();
+    currentCtrl.dispose();
     newCtrl.dispose();
     confirmCtrl.dispose();
-
-    if (result == true) {
-      _showSnackBar('Đổi mật khẩu thành công');
-    }
   }
 
-  Future<void> _logout() async {
-    const storage = FlutterSecureStorage();
-    await storage.delete(key: 'access_token');
-    await storage.delete(key: 'auth_token');
+  /// ====== POPUP: Chỉnh tài khoản (bottom sheet Android-style) ======
+  Future<void> _showEditAccountSheet(BuildContext context) async {
+    // Pre-fill từ me
+    final nameCtrl = TextEditingController(text: _pickS(['user.name', 'name', 'full_name'], ''));
+    final phoneCtrl = TextEditingController(text: _pickS(['user.phone', 'phone'], ''));
+    final email = _pickS(['user.email', 'email'], ''); // read-only
 
-    if (!mounted) return;
-    ref.read(authStateProvider.notifier).logout();
-    context.go('/login');
+    // Gender
+    final genderRaw = _pickS(['lecturer.gender', 'gender'], '');
+    String gender = (['Nam', 'Nữ', 'Khác'].contains(genderRaw))
+        ? genderRaw
+        : (genderRaw.isEmpty ? 'Khác' : genderRaw);
+
+    // DOB
+    DateTime? dob;
+    final dobRaw = _pickS(['lecturer.date_of_birth', 'date_of_birth', 'dob'], '');
+    if (dobRaw.isNotEmpty) {
+      try {
+        dob = DateTime.parse(dobRaw);
+      } catch (_) {}
+    }
+
+    // Faculty/Department
+    final departmentIdRaw = _pickS(['lecturer.department_id', 'department_id'], '');
+    int? departmentId = int.tryParse(departmentIdRaw);
+    String departmentName = _pickS(['lecturer.department.name', 'department.name', 'lecturer.department'], '---');
+    String facultyName = _pickS(['lecturer.department.faculty.name', 'department.faculty.name', 'faculty.name'], '---');
+
+    final formKey = GlobalKey<FormState>();
+    bool submitting = false;
+
+    // DS chọn
+    List<Map<String, dynamic>> faculties = [];
+    List<Map<String, dynamic>> departments = [];
+    int? facultyId; // chọn Khoa → load lại Bộ môn
+
+    String fmtDob(DateTime d) => '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+    String ymd(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+    Future<void> fetchFaculties(Function(void Function()) setS) async {
+      try {
+        final dio = ApiClient().dio;
+        final res = await dio.get('/api/faculties');
+        final data = res.data;
+        final list = (data is Map && data['data'] is List) ? data['data'] : data;
+        if (list is List) {
+          setS(() {
+            faculties = List<Map<String, dynamic>>.from(
+              list.map((e) => Map<String, dynamic>.from(e)),
+            );
+            // nếu tìm ra facultyId theo facultyName hiện tại thì gán để tự load department
+            final found = faculties.firstWhere(
+              (f) => (f['name']?.toString() ?? '').trim() == facultyName.trim(),
+              orElse: () => {},
+            );
+            if (found.isNotEmpty) {
+              facultyId = int.tryParse('${found['id']}');
+            }
+          });
+        }
+      } catch (e) {
+        // 404/405 -> không có API danh mục, giữ nguyên fallback read-only
+      }
+    }
+
+    Future<void> fetchDepartments(Function(void Function()) setS, {int? byFacultyId}) async {
+      if (byFacultyId == null) {
+        setS(() => departments = []);
+        return;
+      }
+      try {
+        final dio = ApiClient().dio;
+        final res = await dio.get('/api/departments', queryParameters: {'faculty_id': byFacultyId});
+        final data = res.data;
+        final list = (data is Map && data['data'] is List) ? data['data'] : data;
+        if (list is List) {
+          setS(() {
+            departments = List<Map<String, dynamic>>.from(
+              list.map((e) => Map<String, dynamic>.from(e)),
+            );
+            // nếu đang có sẵn departmentId mà không thuộc faculty mới → clear
+            if (departmentId != null && !departments.any((d) => '${d['id']}' == '$departmentId')) {
+              departmentId = null;
+            }
+          });
+        }
+      } catch (e) {
+        // 404/405 -> không có API danh mục, giữ fallback read-only
+      }
+    }
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        bool firstBuild = true;
+        String? errorMessage; // Lưu lỗi để hiển thị
+        return StatefulBuilder(
+          builder: (ctx, setS) {
+            // Lần đầu: thử fetch danh mục (nếu có)
+            if (firstBuild) {
+              firstBuild = false;
+              // tải danh sách khoa → rồi tải bộ môn theo khoa đoán được
+              fetchFaculties(setS).then((_) => fetchDepartments(setS, byFacultyId: facultyId));
+            }
+
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 16, right: 16, top: 8,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 16,
+              ),
+              child: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 4),
+                    Text('Chỉnh sửa tài khoản', style: Theme.of(ctx).textTheme.titleLarge),
+                    const SizedBox(height: 12),
+
+                    // Họ tên
+                    TextFormField(
+                      controller: nameCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Họ và tên',
+                        prefixIcon: Icon(Icons.person_outline),
+                      ),
+                      validator: (v) => (v == null || v.trim().isEmpty) ? 'Vui lòng nhập họ tên' : null,
+                    ),
+                    const SizedBox(height: 12),
+
+                    // SĐT
+                    TextFormField(
+                      controller: phoneCtrl,
+                      keyboardType: TextInputType.phone,
+                      decoration: const InputDecoration(
+                        labelText: 'Số điện thoại',
+                        prefixIcon: Icon(Icons.phone_outlined),
+                      ),
+                      validator: (v) {
+                        if (v == null || v.trim().isEmpty) return null; // cho phép bỏ trống
+                        final p = v.replaceAll(RegExp(r'\s+'), '');
+                        if (!RegExp(r'^[0-9+\-]{8,15}$').hasMatch(p)) return 'Số điện thoại không hợp lệ';
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Giới tính
+                    DropdownButtonFormField<String>(
+                      value: (['Nam','Nữ','Khác'].contains(gender)) ? gender : 'Khác',
+                      decoration: const InputDecoration(
+                        labelText: 'Giới tính',
+                        prefixIcon: Icon(Icons.wc_outlined),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'Nam', child: Text('Nam')),
+                        DropdownMenuItem(value: 'Nữ', child: Text('Nữ')),
+                        DropdownMenuItem(value: 'Khác', child: Text('Khác')),
+                      ],
+                      onChanged: (v) => setS(() => gender = v ?? 'Khác'),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Ngày sinh
+                    InkWell(
+                      onTap: () async {
+                        final now = DateTime.now();
+                        final initial = dob ?? DateTime(now.year - 20, now.month, now.day);
+                        final picked = await showDatePicker(
+                          context: ctx,
+                          initialDate: initial,
+                          firstDate: DateTime(1950, 1, 1),
+                          lastDate: DateTime(now.year, now.month, now.day),
+                        );
+                        if (picked != null) setS(() => dob = picked);
+                      },
+                      child: InputDecorator(
+                        decoration: const InputDecoration(
+                          labelText: 'Ngày sinh',
+                          prefixIcon: Icon(Icons.cake_outlined),
+                          border: OutlineInputBorder(),
+                        ),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(dob == null ? 'Chạm để chọn' : fmtDob(dob!)),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Email (read-only)
+                    TextFormField(
+                      initialValue: email,
+                      readOnly: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Email (không chỉnh sửa)',
+                        prefixIcon: Icon(Icons.email_outlined),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Khoa + Bộ môn
+                    if (faculties.isNotEmpty) ...[
+                      DropdownButtonFormField<int>(
+                        value: facultyId,
+                        decoration: const InputDecoration(
+                          labelText: 'Khoa',
+                          prefixIcon: Icon(Icons.apartment_outlined),
+                        ),
+                        items: faculties.map((f) {
+                          return DropdownMenuItem(
+                            value: int.tryParse('${f['id']}'),
+                            child: Text('${f['name'] ?? '---'}'),
+                          );
+                        }).toList(),
+                        onChanged: (v) async {
+                          setS(() {
+                            facultyId = v;
+                            departments = [];
+                            departmentId = null;
+                          });
+                          await fetchDepartments(setS, byFacultyId: v);
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      DropdownButtonFormField<int>(
+                        value: departmentId,
+                        decoration: const InputDecoration(
+                          labelText: 'Bộ môn',
+                          prefixIcon: Icon(Icons.category_outlined),
+                        ),
+                        items: departments.map((d) {
+                          return DropdownMenuItem(
+                            value: int.tryParse('${d['id']}'),
+                            child: Text('${d['name'] ?? '---'}'),
+                          );
+                        }).toList(),
+                        onChanged: (v) => setS(() => departmentId = v),
+                        validator: (_) => null, // cho phép để trống nếu BE không bắt buộc
+                      ),
+                    ] else ...[
+                      // Fallback: không có API danh mục, hiển thị read-only
+                      TextFormField(
+                        initialValue: facultyName,
+                        readOnly: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Khoa (không chỉnh được – thiếu API danh mục)',
+                          prefixIcon: Icon(Icons.apartment_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        initialValue: departmentName,
+                        readOnly: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Bộ môn (không chỉnh được – thiếu API danh mục)',
+                          prefixIcon: Icon(Icons.category_outlined),
+                        ),
+                      ),
+                    ],
+
+                    // Hiển thị lỗi từ server màu đỏ
+                    if (errorMessage != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        errorMessage!,
+                        style: TextStyle(
+                          color: Theme.of(ctx).colorScheme.error,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 16),
+
+                    Row(
+                      children: [
+                        TextButton(
+                          onPressed: submitting ? null : () => Navigator.of(ctx).pop(),
+                          child: const Text('Hủy'),
+                        ),
+                        const Spacer(),
+                        FilledButton.icon(
+                          onPressed: submitting ? null : () async {
+                            if (!formKey.currentState!.validate()) return;
+                            setS(() {
+                              submitting = true;
+                              errorMessage = null; // Clear error khi submit lại
+                            });
+                            try {
+                              final dio = ApiClient().dio;
+
+                              // Chuẩn payload
+                              final payload = {
+                                'name': nameCtrl.text.trim(),
+                                'phone': phoneCtrl.text.trim().isEmpty ? null : phoneCtrl.text.trim(),
+                                'gender': gender,
+                                if (dob != null) 'date_of_birth': ymd(dob!),
+                                if (departmentId != null) 'department_id': departmentId,
+                              };
+
+                              final endpoints = _profileUpdateEndpoints(_role());
+                              DioException? lastErr;
+
+                              for (final ep in endpoints) {
+                                try {
+                                  switch (ep.method) {
+                                    case 'PUT':
+                                      await dio.put(ep.url, data: payload);
+                                      break;
+                                    case 'PATCH':
+                                      await dio.patch(ep.url, data: payload);
+                                      break;
+                                    default:
+                                      await dio.post(ep.url, data: payload);
+                                  }
+
+                                  if (!mounted) return;
+                                  Navigator.of(ctx).pop();
+                                  _showSnack('Cập nhật tài khoản thành công');
+                                  await _loadMe();
+                                  return;
+                                } on DioException catch (e) {
+                                  lastErr = e;
+                                  final code = e.response?.statusCode ?? 0;
+
+                                  // 422: hiển thị chi tiết và dừng
+                                  if (code == 422) {
+                                    final data = e.response?.data;
+                                    if (data is Map && data['errors'] is Map) {
+                                      final errs = (data['errors'] as Map).entries
+                                          .expand((kv) => (kv.value as List).map((x) => '- ${kv.key}: $x'))
+                                          .join('\n');
+                                      setS(() {
+                                        submitting = false;
+                                        errorMessage = errs.isEmpty ? 'Dữ liệu không hợp lệ' : errs;
+                                      });
+                                      return;
+                                    }
+                                    setS(() {
+                                      submitting = false;
+                                      errorMessage = 'Dữ liệu không hợp lệ';
+                                    });
+                                    return;
+                                  }
+
+                                  // 404/405 -> thử endpoint kế
+                                  if (code == 404 || code == 405) continue;
+
+                                  // lỗi khác -> thử tiếp endpoint sau
+                                  continue;
+                                }
+                              }
+
+                              setS(() {
+                                submitting = false;
+                                errorMessage = 'Lỗi cập nhật (HTTP ${lastErr?.response?.statusCode ?? 'null'})';
+                              });
+                            } catch (e) {
+                              setS(() {
+                                submitting = false;
+                                errorMessage = e.toString().replaceFirst('Exception: ', '');
+                              });
+                            }
+                          },
+                          icon: submitting
+                              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Icon(Icons.save_outlined),
+                          label: const Text('Lưu'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    nameCtrl.dispose();
+    phoneCtrl.dispose();
   }
 }
