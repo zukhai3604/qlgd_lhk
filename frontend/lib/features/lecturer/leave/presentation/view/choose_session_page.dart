@@ -327,27 +327,34 @@ class SessionItemTile extends StatelessWidget {
               const SizedBox(width: 12),
 
               // BÊN PHẢI
+              // ✅ Tăng width từ 140 lên 160 để giống home và history
               SizedBox(
-                width: 140,
+                width: 160,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.start, // ✅ Thêm để tránh overflow
                   children: [
+                    // ✅ Sửa: Thêm ConstrainedBox cho status text (giống history)
                     Wrap(
                       spacing: 4,
                       runSpacing: 2,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       alignment: WrapAlignment.end,
                       children: [
-                        Text(
-                          statusText,
-                          style: textTheme.bodySmall?.copyWith(
-                            color: statusColor,
-                            fontWeight: FontWeight.w500,
+                        // ✅ Dùng ConstrainedBox thay vì Text trực tiếp
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 120),
+                          child: Text(
+                            statusText,
+                            style: textTheme.bodySmall?.copyWith(
+                              color: statusColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            textAlign: TextAlign.right,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          textAlign: TextAlign.right,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
                         ),
                         Icon(
                           statusIcon,
@@ -356,25 +363,30 @@ class SessionItemTile extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 4), // ✅ Giảm từ 6 xuống 4
                     if (hasTime)
-                      Text(
-                        timeLine,
-                        style: textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey.shade900,
+                      // ✅ Thêm FittedBox để thời gian tự scale (giống home và history)
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          timeLine,
+                          style: textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey.shade900,
+                            fontSize: 16, // ✅ Giảm font size để vừa khung
+                          ),
+                          textAlign: TextAlign.right,
                         ),
-                        textAlign: TextAlign.right,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       )
                     else
-                      const SizedBox(height: 20),
-                    const SizedBox(height: 4),
+                      const SizedBox(height: 16), // ✅ Giảm từ 20 xuống 16
+                    const SizedBox(height: 2), // ✅ Giảm từ 4 xuống 2
                     Text(
                       'Chạm để chọn buổi này',
                       style: textTheme.bodySmall?.copyWith(
                         color: Colors.grey.shade500,
+                        fontSize: 11, // ✅ Giảm font size để tránh overflow
                       ),
                       textAlign: TextAlign.right,
                       maxLines: 1,

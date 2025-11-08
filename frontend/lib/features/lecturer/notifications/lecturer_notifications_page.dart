@@ -68,6 +68,10 @@ class _LecturerNotificationsPageState extends State<LecturerNotificationsPage> {
                     child: _items.isEmpty
                         ? const ListTile(title: Text('Chưa có thông báo'))
                         : ListView.separated(
+                            // ✅ Tối ưu performance (ListView.separated không có itemExtent)
+                            cacheExtent: 500, // Cache items ngoài viewport
+                            addAutomaticKeepAlives: false, // Tiết kiệm memory
+                            addRepaintBoundaries: true, // Tách repaint boundaries
                             padding: const EdgeInsets.symmetric(vertical: 8),
                             itemBuilder: (context, index) {
                               final n = _items[index];

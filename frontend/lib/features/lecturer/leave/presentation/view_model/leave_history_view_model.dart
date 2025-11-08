@@ -25,13 +25,16 @@ class LeaveHistoryState {
     List<Map<String, dynamic>>? allItems,
     List<Map<String, dynamic>>? filteredItems,
     String? selectedStatus,
+    bool clearSelectedStatus = false, // ✅ Thêm flag để clear selectedStatus về null
   }) {
     return LeaveHistoryState(
       isLoading: isLoading ?? this.isLoading,
       error: clearError ? null : (error ?? this.error),
       allItems: allItems ?? this.allItems,
       filteredItems: filteredItems ?? this.filteredItems,
-      selectedStatus: selectedStatus ?? this.selectedStatus,
+      selectedStatus: clearSelectedStatus 
+          ? null 
+          : (selectedStatus ?? this.selectedStatus), // ✅ Xử lý clearSelectedStatus
     );
   }
 }
@@ -57,13 +60,14 @@ class LeaveHistoryViewModel extends StateNotifier<LeaveHistoryState> {
           return status != 'CANCELED';
         }).toList();
         
-        // Gộp các đơn liền kề nhau của cùng môn học
-        final grouped = _groupConsecutiveLeaveRequests(filtered);
-        state = state.copyWith(
-          isLoading: false,
-          allItems: grouped,
-        );
-        _applyFilter();
+      // Gộp các đơn liền kề nhau của cùng môn học
+      final grouped = _groupConsecutiveLeaveRequests(filtered);
+      state = state.copyWith(
+        isLoading: false,
+        allItems: grouped,
+        // ✅ Bỏ reset selectedStatus - giữ nguyên filter hiện tại (giống makeup history)
+      );
+      _applyFilter();
       },
       failure: (error) {
         state = state.copyWith(
@@ -81,50 +85,90 @@ class LeaveHistoryViewModel extends StateNotifier<LeaveHistoryState> {
 
   /// Filter theo trạng thái
   void filterByStatus(String? status) {
-    state = state.copyWith(selectedStatus: status);
+    // ✅ Khi status là null (nút "Tất cả"), set về null rõ ràng
+    if (status == null) {
+      state = state.copyWith(clearSelectedStatus: true);
+    } else {
+      state = state.copyWith(selectedStatus: status);
+    }
     _applyFilter();
   }
 
   /// Áp dụng filter
   void _applyFilter() {
+    // ✅ Khi chọn "Tất cả" (selectedStatus == null), hiển thị tất cả items
     if (state.selectedStatus == null) {
-      state = state.copyWith(filteredItems: state.allItems);
-    } else {
-      final filtered = state.allItems
-          .where((item) => (item['status']?.toString().toUpperCase() ?? '') == state.selectedStatus)
-          .toList();
-      state = state.copyWith(filteredItems: filtered);
+      // ✅ Dùng state.allItems trực tiếp (giống makeup history)
+      state = state.copyWith(filteredItems: List.from(state.allItems));
+      return;
     }
+    
+    // ✅ So sánh status: uppercase cả 2 bên để đảm bảo khớp (an toàn hơn)
+    // UI có thể truyền vào 'PENDING' hoặc 'pending', database cũng có thể trả về khác format
+    final selectedStatusUpper = (state.selectedStatus ?? '').toUpperCase();
+    final filtered = state.allItems
+        .where((item) {
+          final itemStatus = (item['status']?.toString() ?? '').toUpperCase();
+          return itemStatus == selectedStatusUpper;
+        })
+        .toList();
+    
+    state = state.copyWith(filteredItems: filtered);
   }
 
   /// Cancel leave request
-  Future<bool> cancelLeaveRequest(int leaveRequestId) async {
-    final result = await _repository.cancelLeaveRequest(leaveRequestId);
-    return result.when(
-      success: (_) {
-        loadData(); // Reload sau khi hủy thành công
-        return true;
-      },
-      failure: (error) {
-        state = state.copyWith(error: error.toString());
-        return false;
-      },
-    );
+  Future<({bool success, String? errorMessage})> cancelLeaveRequest(int leaveRequestId) async {
+    print('DEBUG LeaveHistoryViewModel: cancelLeaveRequest called for ID: $leaveRequestId');
+    try {
+      final result = await _repository.cancelLeaveRequest(leaveRequestId);
+      return result.when(
+        success: (_) {
+          print('DEBUG LeaveHistoryViewModel: cancelLeaveRequest successful for ID: $leaveRequestId, reloading data...');
+          loadData(); // Reload sau khi hủy thành công
+          return (success: true, errorMessage: null);
+        },
+        failure: (error) {
+          print('DEBUG LeaveHistoryViewModel: cancelLeaveRequest failed for ID $leaveRequestId: $error');
+          final errorMessage = error.toString().replaceFirst('Exception: ', '');
+          state = state.copyWith(error: errorMessage);
+          return (success: false, errorMessage: errorMessage);
+        },
+      );
+    } catch (e, stackTrace) {
+      print('DEBUG LeaveHistoryViewModel: cancelLeaveRequest exception for ID $leaveRequestId: $e');
+      print('DEBUG LeaveHistoryViewModel: StackTrace: $stackTrace');
+      final errorMessage = e.toString().replaceFirst('Exception: ', '');
+      state = state.copyWith(error: errorMessage);
+      return (success: false, errorMessage: errorMessage);
+    }
   }
 
   /// Cancel multiple leave requests
-  Future<bool> cancelMultipleLeaveRequests(List<int> leaveRequestIds) async {
-    final result = await _repository.cancelMultipleLeaveRequests(leaveRequestIds);
-    return result.when(
-      success: (_) {
-        loadData(); // Reload sau khi hủy thành công
-        return true;
-      },
-      failure: (error) {
-        state = state.copyWith(error: error.toString());
-        return false;
-      },
-    );
+  Future<({bool success, String? errorMessage})> cancelMultipleLeaveRequests(List<int> leaveRequestIds) async {
+    print('DEBUG LeaveHistoryViewModel: cancelMultipleLeaveRequests called with IDs: $leaveRequestIds');
+    try {
+      final result = await _repository.cancelMultipleLeaveRequests(leaveRequestIds);
+      print('DEBUG LeaveHistoryViewModel: Repository result received');
+      return result.when(
+        success: (_) {
+          print('DEBUG LeaveHistoryViewModel: cancelMultipleLeaveRequests successful, reloading data...');
+          loadData(); // Reload sau khi hủy thành công
+          return (success: true, errorMessage: null);
+        },
+        failure: (error) {
+          print('DEBUG LeaveHistoryViewModel: cancelMultipleLeaveRequests failed: $error');
+          final errorMessage = error.toString().replaceFirst('Exception: ', '');
+          state = state.copyWith(error: errorMessage);
+          return (success: false, errorMessage: errorMessage);
+        },
+      );
+    } catch (e, stackTrace) {
+      print('DEBUG LeaveHistoryViewModel: cancelMultipleLeaveRequests exception: $e');
+      print('DEBUG LeaveHistoryViewModel: StackTrace: $stackTrace');
+      final errorMessage = e.toString().replaceFirst('Exception: ', '');
+      state = state.copyWith(error: errorMessage);
+      return (success: false, errorMessage: errorMessage);
+    }
   }
 
   /// Gộp các đơn xin nghỉ liền kề nhau của cùng môn học thành 1 đơn
@@ -230,6 +274,11 @@ class LeaveHistoryViewModel extends StateNotifier<LeaveHistoryState> {
             .whereType<int>()
             .toList();
         merged['_grouped_leave_request_ids'] = leaveRequestIds;
+        
+        // ✅ Đảm bảo merged item vẫn có leave_request_id (dùng ID đầu tiên làm fallback)
+        if (merged['leave_request_id'] == null && leaveRequestIds.isNotEmpty) {
+          merged['leave_request_id'] = leaveRequestIds.first;
+        }
 
         // Lưu created_at của đơn đầu tiên (hoặc mới nhất) để sắp xếp
         // Tìm created_at mới nhất trong group

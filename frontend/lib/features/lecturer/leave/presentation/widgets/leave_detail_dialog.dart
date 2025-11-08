@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:qlgd_lhk/features/lecturer/leave/presentation/view_model/leave_history_view_model.dart';
 import 'package:qlgd_lhk/features/lecturer/makeup/utils/makeup_data_helpers.dart';
 
@@ -114,7 +115,7 @@ class LeaveDetailDialog extends StatelessWidget {
         if (status == 'PENDING')
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
+              // ✅ KHÔNG đóng dialog ở đây - để _showCancelDialog tự quản lý
               _showCancelDialog(context, item, viewModel);
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -136,16 +137,24 @@ class LeaveDetailDialog extends StatelessWidget {
     final groupedIds = item['_grouped_leave_request_ids'];
     final List<int> leaveRequestIds;
 
+    // ✅ Debug: Log để kiểm tra
+    debugPrint('DEBUG LeaveDetailDialog: groupedIds=$groupedIds, item[leave_request_id]=${item['leave_request_id']}, item[id]=${item['id']}, item keys=${item.keys.toList()}');
+
     if (groupedIds is List && groupedIds.isNotEmpty) {
       leaveRequestIds = groupedIds
           .map((e) => int.tryParse('$e'))
           .whereType<int>()
           .where((id) => id > 0)
           .toList();
+      debugPrint('DEBUG LeaveDetailDialog: Using groupedIds, leaveRequestIds=$leaveRequestIds');
     } else {
-      final id = item['leave_request_id'];
+      // ✅ Thử cả leave_request_id và id (fallback)
+      var id = item['leave_request_id'] ?? item['id'];
+      debugPrint('DEBUG LeaveDetailDialog: No groupedIds, using item[leave_request_id]=${item['leave_request_id']}, item[id]=${item['id']}, final id=$id');
       leaveRequestIds = id != null && int.tryParse('$id') != null ? [int.parse('$id')] : [];
     }
+
+    debugPrint('DEBUG LeaveDetailDialog: Final leaveRequestIds=$leaveRequestIds');
 
     if (leaveRequestIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -154,17 +163,28 @@ class LeaveDetailDialog extends StatelessWidget {
       return;
     }
 
+    // ✅ Lưu root context và navigator TRƯỚC KHI đóng dialog
+    // Sử dụng rootNavigator để lấy context của Scaffold (history page)
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    final rootContext = rootNavigator.context;
+    final scaffoldMessenger = ScaffoldMessenger.of(rootContext);
+    final dialogNavigator = Navigator.of(context);
+    
+    // ✅ Hiển thị confirm dialog (sử dụng context của detail dialog)
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Hủy đơn xin nghỉ?'),
         content: Text(
           leaveRequestIds.length > 1
-              ? 'Bạn có muốn hủy ${leaveRequestIds.length} đơn xin nghỉ liền kề này không?'
+              ? 'Bạn có muốn hủy đơn xin nghỉ này không?'
               : 'Đơn này đang chờ duyệt. Bạn có muốn hủy không?',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Không'),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
@@ -174,22 +194,90 @@ class LeaveDetailDialog extends StatelessWidget {
       ),
     );
 
-    if (confirm == true && context.mounted) {
-      final success = leaveRequestIds.length > 1
+    // ✅ Nếu user không confirm, return (detail dialog vẫn mở)
+    if (confirm != true) {
+      debugPrint('DEBUG LeaveDetailDialog: User cancelled');
+      return;
+    }
+    
+    debugPrint('DEBUG LeaveDetailDialog: User confirmed, calling cancel API with leaveRequestIds=$leaveRequestIds');
+    
+    // ✅ Đóng detail dialog trước khi hiển thị loading
+    dialogNavigator.pop(); // Đóng detail dialog
+    
+    // ✅ Kiểm tra root context vẫn còn valid
+    if (!rootContext.mounted) {
+      debugPrint('DEBUG LeaveDetailDialog: Root context not mounted after closing dialog');
+      return;
+    }
+    
+    // ✅ Hiển thị loading indicator trên root context
+    showDialog(
+      context: rootContext,
+      barrierDismissible: false,
+      builder: (loadingCtx) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+    
+    try {
+      debugPrint('DEBUG LeaveDetailDialog: Starting cancel operation...');
+      final result = leaveRequestIds.length > 1
           ? await viewModel.cancelMultipleLeaveRequests(leaveRequestIds)
           : await viewModel.cancelLeaveRequest(leaveRequestIds.first);
 
-      if (!context.mounted) return;
+      debugPrint('DEBUG LeaveDetailDialog: Cancel operation completed, result: success=${result.success}, errorMessage=${result.errorMessage}');
 
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Đã hủy đơn xin nghỉ thành công.'),
-          ),
-        );
+      // ✅ Đóng loading dialog
+      if (rootContext.mounted) {
+        rootNavigator.pop(); // Đóng loading dialog
+      }
+
+      // ✅ Kiểm tra kết quả
+      if (result.success) {
+        debugPrint('DEBUG LeaveDetailDialog: Cancel successful');
+        
+        // ✅ Hiển thị success message
+        if (rootContext.mounted) {
+          scaffoldMessenger.showSnackBar(
+            const SnackBar(
+              content: Text('Đã hủy đơn xin nghỉ thành công.'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Lỗi khi hủy đơn xin nghỉ')),
+        debugPrint('DEBUG LeaveDetailDialog: Cancel failed: ${result.errorMessage}');
+        
+        // ✅ Hiển thị error message chi tiết từ backend
+        if (rootContext.mounted) {
+          scaffoldMessenger.showSnackBar(
+            SnackBar(
+              content: Text(result.errorMessage ?? 'Lỗi khi hủy đơn xin nghỉ'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+      }
+    } catch (e, stackTrace) {
+      debugPrint('DEBUG LeaveDetailDialog: Exception occurred: $e');
+      debugPrint('DEBUG LeaveDetailDialog: StackTrace: $stackTrace');
+      
+      // ✅ Đóng loading dialog nếu có lỗi
+      if (rootContext.mounted) {
+        rootNavigator.pop(); // Đóng loading dialog
+      }
+      
+      // ✅ Hiển thị error message
+      if (rootContext.mounted) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text('Lỗi không mong muốn: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
         );
       }
     }

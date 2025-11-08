@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qlgd_lhk/app/router/app_router.dart';
+import 'package:qlgd_lhk/app/theme/light_theme.dart';
+import 'package:qlgd_lhk/app/theme/dark_theme.dart';
 
 class App extends ConsumerWidget {
   const App({super.key});
@@ -21,10 +23,8 @@ class App extends ConsumerWidget {
           GlobalWidgetsLocalizations.delegate,
           GlobalCupertinoLocalizations.delegate,
         ],
-        theme: ThemeData(
-          useMaterial3: true,
-          colorSchemeSeed: const Color(0xFF1976D2),
-        ),
+        theme: lightTheme,
+        darkTheme: darkTheme,
         home: const Scaffold(
           body: Center(child: CircularProgressIndicator()),
         ),

@@ -99,6 +99,10 @@ class MakeupHistoryPage extends ConsumerWidget {
                               child: state.filteredItems.isEmpty
                                   ? const _EmptyBox()
                                   : ListView.builder(
+                                      // ✅ Tối ưu performance - không dùng itemExtent để card tự điều chỉnh chiều cao
+                                      cacheExtent: 500, // Cache items ngoài viewport
+                                      addAutomaticKeepAlives: false, // Tiết kiệm memory
+                                      addRepaintBoundaries: true, // Tách repaint boundaries
                                       padding: const EdgeInsets.fromLTRB(
                                           16, 0, 16, 16),
                                       itemCount:
@@ -213,7 +217,7 @@ class MakeupHistoryPage extends ConsumerWidget {
 
     return Card(
       elevation: 0,
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12), // ✅ Giống home: 12
       color: Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -231,133 +235,131 @@ class MakeupHistoryPage extends ConsumerWidget {
           ),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final rightMaxWidth = constraints.maxWidth * 0.4;
+          padding: const EdgeInsets.all(16), // ✅ Giống home: all(16)
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // ===== BÊN TRÁI: Thông tin môn / lớp / ngày / phòng - Giống home card =====
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Tên môn học (in đậm) - giống home
+                    Text(
+                      subject,
+                      style: tt.titleLarge?.copyWith( // ✅ Giống home: titleLarge (không override fontSize)
+                        fontWeight: FontWeight.bold,
+                        color: Colors.grey.shade900,
+                      ),
+                      maxLines: 2, // ✅ Giống home: maxLines 2
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8), // ✅ Giống home: 8
+                    // Phòng học - hiển thị trước như home
+                    if (room.isNotEmpty && room != '-')
+                      Text(
+                        'Phòng học: $room',
+                        style: tt.bodyMedium?.copyWith( // ✅ Giống home: bodyMedium (không override fontSize)
+                          color: Colors.grey.shade700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    // Lớp - Giống home: không có spacing giữa room và class
+                    if (className.isNotEmpty && className != 'Lớp')
+                      Text(
+                        'Lớp: $className',
+                        style: tt.bodyMedium?.copyWith( // ✅ Giống home: bodyMedium (không override fontSize)
+                          color: Colors.grey.shade700,
+                        ),
+                        maxLines: 2, // ✅ Giống home: maxLines 2
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    // Ngày - Thêm spacing nhỏ trước ngày
+                    if (date.isNotEmpty) ...[
+                      const SizedBox(height: 4), // ✅ Spacing nhỏ trước ngày
+                      Text(
+                        'Ngày: $date',
+                        style: tt.bodyMedium?.copyWith( // ✅ Giống home: bodyMedium
+                          color: Colors.grey.shade700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
 
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ===== BÊN TRÁI: Thông tin môn / lớp / ngày / phòng =====
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(width: 12), // ✅ Giống home: 12
+
+              // ===== BÊN PHẢI: Trạng thái + thời gian - Giống home card =====
+              SizedBox(
+                width: 160, // ✅ Giống home: 160
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Wrap(
+                      spacing: 4, // ✅ Giống home: 4
+                      runSpacing: 2, // ✅ Giống home: 2
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      alignment: WrapAlignment.end,
                       children: [
-                        // Tên môn học (in đậm)
-                        Text(
-                          subject,
-                          style: tt.titleLarge?.copyWith(
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 120), // ✅ Giống home: 120
+                          child: Text(
+                            statusText,
+                            style: tt.bodySmall?.copyWith( // ✅ Giống home: bodySmall (không override fontSize)
+                              color: statusColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            textAlign: TextAlign.right,
+                            maxLines: 2, // ✅ Giống home: maxLines 2
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Icon(
+                          statusIcon,
+                          size: 16, // ✅ Giống home: 16
+                          color: statusColor,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8), // ✅ Giống home: 8
+                    // Thời gian - giống home
+                    if (hasTime)
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          timeRange,
+                          style: tt.headlineSmall?.copyWith( // ✅ Giống home: headlineSmall
                             fontWeight: FontWeight.bold,
                             color: Colors.grey.shade900,
+                            fontSize: 16, // ✅ Giống home: fontSize 16
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.right,
                         ),
-                        const SizedBox(height: 8),
-                        // Lớp
-                        if (className.isNotEmpty)
-                          Text(
-                            'Lớp: $className',
-                            style: tt.bodyMedium?.copyWith(
-                              color: Colors.grey.shade700,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        // Phòng học
-                        if (room.isNotEmpty && room != '-')
-                          Text(
-                            'Phòng học: $room',
-                            style: tt.bodyMedium?.copyWith(
-                              color: Colors.grey.shade700,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        // Ngày
-                        if (date.isNotEmpty)
-                          Text(
-                            'Ngày: $date',
-                            style: tt.bodyMedium?.copyWith(
-                              color: Colors.grey.shade700,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                      ],
+                      )
+                    else
+                      const SizedBox(height: 24), // ✅ Giống home: 24
+                    const SizedBox(height: 4), // ✅ Giống home: 4
+                    // Hint (luôn hiển thị)
+                    Text(
+                      'Bấm để xem chi tiết',
+                      style: tt.bodySmall?.copyWith( // ✅ Giống home: bodySmall (không override fontSize)
+                        color: Colors.grey.shade500,
+                      ),
+                      textAlign: TextAlign.right, // ✅ Thêm textAlign
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-
-                  const SizedBox(width: 12),
-
-                  // ===== BÊN PHẢI: Trạng thái + thời gian + hint =====
-                  ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: rightMaxWidth.clamp(120.0, 200.0),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Status indicator: dùng Wrap để tránh tràn ngang
-                        Wrap(
-                          spacing: 4,
-                          runSpacing: 2,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          alignment: WrapAlignment.end,
-                          children: [
-                            Text(
-                              statusText,
-                              style: tt.bodySmall?.copyWith(
-                                color: statusColor,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Icon(
-                              statusIcon,
-                              size: 16,
-                              color: statusColor,
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 6),
-
-                        // Thời gian
-                        if (hasTime)
-                          Text(
-                            timeRange,
-                            style: tt.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.grey.shade900,
-                            ),
-                            overflow: TextOverflow.ellipsis,
-                            maxLines: 1,
-                          )
-                        else
-                          const SizedBox(height: 20),
-
-                        const SizedBox(height: 4),
-
-                        // Hint (luôn hiển thị)
-                        Text(
-                          'Bấm vào đây để xem chi tiết',
-                          style: tt.bodySmall?.copyWith(
-                            color: Colors.grey.shade500,
-                            fontWeight: FontWeight.normal,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              );
-            },
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
       ),

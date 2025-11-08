@@ -32,24 +32,35 @@ class MakeupHistoryRepositoryImpl implements MakeupHistoryRepository {
       await _api.cancel(makeupRequestId);
       return const MakeupHistoryResult.success(null);
     } catch (e) {
-      return MakeupHistoryResult.failure(Exception('Hủy đơn thất bại: $e'));
+      // ✅ Giữ nguyên error message từ API (đã được extract)
+      final errorMsg = e.toString().replaceFirst('Exception: ', '');
+      return MakeupHistoryResult.failure(Exception(errorMsg));
     }
   }
 
   @override
   Future<MakeupHistoryResult<void>> cancelMultipleMakeupRequests(List<int> makeupRequestIds) async {
     try {
+      print('DEBUG MakeupHistoryRepository: cancelMultipleMakeupRequests called with IDs: $makeupRequestIds');
       int successCount = 0;
       String? lastError;
 
       for (final makeupRequestId in makeupRequestIds) {
         try {
+          print('DEBUG MakeupHistoryRepository: Canceling makeup request ID: $makeupRequestId');
           await _api.cancel(makeupRequestId);
+          print('DEBUG MakeupHistoryRepository: Successfully canceled makeup request ID: $makeupRequestId');
           successCount++;
-        } catch (e) {
-          lastError = e.toString();
+        } catch (e, stackTrace) {
+          // ✅ Extract error message từ exception
+          print('DEBUG MakeupHistoryRepository: Error canceling makeup request ID $makeupRequestId: $e');
+          print('DEBUG MakeupHistoryRepository: StackTrace: $stackTrace');
+          final errorMsg = e.toString().replaceFirst('Exception: ', '');
+          lastError = errorMsg;
         }
       }
+
+      print('DEBUG MakeupHistoryRepository: cancelMultipleMakeupRequests result: successCount=$successCount/${makeupRequestIds.length}, lastError=$lastError');
 
       if (successCount == makeupRequestIds.length) {
         return const MakeupHistoryResult.success(null);
@@ -62,8 +73,12 @@ class MakeupHistoryRepositoryImpl implements MakeupHistoryRepository {
           Exception('Lỗi khi hủy: ${lastError ?? "Không xác định"}'),
         );
       }
-    } catch (e) {
-      return MakeupHistoryResult.failure(Exception('Lỗi khi hủy: $e'));
+    } catch (e, stackTrace) {
+      // ✅ Giữ nguyên error message từ API
+      print('DEBUG MakeupHistoryRepository: cancelMultipleMakeupRequests outer catch: $e');
+      print('DEBUG MakeupHistoryRepository: StackTrace: $stackTrace');
+      final errorMsg = e.toString().replaceFirst('Exception: ', '');
+      return MakeupHistoryResult.failure(Exception(errorMsg));
     }
   }
 }

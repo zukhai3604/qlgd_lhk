@@ -178,11 +178,12 @@ class LecturerHomePage extends ConsumerWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
+        // ✅ Cho phép title hiển thị nhiều dòng hơn để tránh bị cắt
         Expanded(
           child: Text(
             title,
             style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-            maxLines: 1,
+            maxLines: 2, // ✅ Thay đổi từ 1 sang 2
             overflow: TextOverflow.ellipsis,
           ),
         ),
@@ -422,15 +423,17 @@ class LecturerHomePage extends ConsumerWidget {
     }
 
     final subject = (s['subject'] ?? 'Môn học').toString();
-    // Lấy mã lớp (code) thay vì tên lớp
+    // ✅ Lấy mã lớp (code) thay vì tên lớp - ưu tiên code trước
     String className = '';
     if (s['assignment'] is Map) {
       final assignment = s['assignment'] as Map;
       if (assignment['class_unit'] is Map) {
         final classUnit = assignment['class_unit'] as Map;
-        className = (classUnit['code'] ?? classUnit['class_code'] ?? '').toString();
+        // ✅ Ưu tiên code trước, sau đó mới đến name
+        className = (classUnit['code'] ?? classUnit['class_code'] ?? classUnit['name'] ?? '').toString();
       }
     }
+    // ✅ Fallback: Lấy từ class_code trước, sau đó mới đến class_name
     if (className.isEmpty) {
       className = (s['class_code'] ?? s['class_name'] ?? '').toString();
     }
@@ -442,8 +445,30 @@ class LecturerHomePage extends ConsumerWidget {
             : r?.toString() ?? '-')
         .trim();
 
-    final start = _safeTime(s['start_time']);
-    final end = _safeTime(s['end_time']);
+    // ✅ Lấy thời gian từ timeslot nếu không có trực tiếp
+    String startTime = '';
+    String endTime = '';
+
+    // Ưu tiên 1: Lấy từ start_time và end_time trực tiếp
+    if (s['start_time'] != null) {
+      startTime = _safeTime(s['start_time']);
+    }
+    if (s['end_time'] != null) {
+      endTime = _safeTime(s['end_time']);
+    }
+
+    // Ưu tiên 2: Lấy từ timeslot nếu chưa có
+    if ((startTime.isEmpty || startTime == '--:--') && s['timeslot'] is Map) {
+      final timeslot = s['timeslot'] as Map;
+      startTime = _safeTime(timeslot['start_time']);
+    }
+    if ((endTime.isEmpty || endTime == '--:--') && s['timeslot'] is Map) {
+      final timeslot = s['timeslot'] as Map;
+      endTime = _safeTime(timeslot['end_time']);
+    }
+
+    final start = startTime.isEmpty ? '--:--' : startTime;
+    final end = endTime.isEmpty ? '--:--' : endTime;
     final timeLine = '$start - $end';
     final status = (s['status'] ?? 'PLANNED').toString();
 
@@ -571,8 +596,9 @@ class LecturerHomePage extends ConsumerWidget {
               const SizedBox(width: 12),
 
               // BÊN PHẢI
+              // ✅ Tăng width để thời gian hiển thị đủ (tăng lên 160)
               SizedBox(
-                width: 140,
+                width: 160,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   mainAxisSize: MainAxisSize.min,
@@ -583,15 +609,19 @@ class LecturerHomePage extends ConsumerWidget {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       alignment: WrapAlignment.end,
                       children: [
-                        Text(
-                          statusText,
-                          style: textTheme.bodySmall?.copyWith(
-                            color: statusColor,
-                            fontWeight: FontWeight.w500,
+                        // ✅ Sửa: Dùng ConstrainedBox thay vì Flexible (Flexible KHÔNG thể dùng trong Wrap)
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 120),
+                          child: Text(
+                            statusText,
+                            style: textTheme.bodySmall?.copyWith(
+                              color: statusColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            textAlign: TextAlign.right,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          textAlign: TextAlign.right,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
                         ),
                         Icon(
                           statusIcon,
@@ -600,21 +630,25 @@ class LecturerHomePage extends ConsumerWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8), // ✅ Tăng từ 6 lên 8 để giống history
                     if (timeLine.trim().isNotEmpty &&
                         timeLine != '--:-- - --:--')
-                      Text(
-                        timeLine,
-                        style: textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey.shade900,
+                      // ✅ Thêm FittedBox để thời gian tự scale và không bị cắt
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          timeLine,
+                          style: textTheme.headlineSmall?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey.shade900,
+                            fontSize: 16, // ✅ Giảm từ 18 xuống 16 để giống choose_session
+                          ),
+                          textAlign: TextAlign.right,
                         ),
-                        textAlign: TextAlign.right,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       )
                     else
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 24), // ✅ Tăng từ 20 lên 24 để giống history
                     const SizedBox(height: 4),
                     Text(
                       'Bấm để xem chi tiết',

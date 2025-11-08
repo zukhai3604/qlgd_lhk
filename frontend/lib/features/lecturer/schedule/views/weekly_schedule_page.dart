@@ -237,14 +237,6 @@ class _WeeklySchedulePageState extends ConsumerState<WeeklySchedulePage> {
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
               children: [
                 Text(
-                  'Trường Đại học Thủy Lợi',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                ),
-                const SizedBox(height: 12),
-                Text(
                   'Lịch giảng dạy',
                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:qlgd_lhk/common/widgets/status_chip.dart';
 import 'package:qlgd_lhk/features/lecturer/makeup/utils/makeup_data_helpers.dart';
 import 'package:qlgd_lhk/features/lecturer/makeup/presentation/view_model/makeup_history_view_model.dart';
@@ -30,8 +31,12 @@ class MakeupDetailDialog extends StatelessWidget {
     final leaveReason = MakeupDataExtractor.extractLeaveReason(item);
 
     // Kiểm tra status để hiển thị nút hủy đơn
-    final statusStr = (item['status'] ?? '').toString().toUpperCase();
+    // ✅ Check cả status và _normalized_status
+    final statusStr = ((item['status'] ?? item['_normalized_status']) ?? '').toString().toUpperCase();
     final isPending = statusStr == 'PENDING';
+    
+    // ✅ Debug: Log status để kiểm tra
+    debugPrint('DEBUG MakeupDetailDialog: statusStr=$statusStr, isPending=$isPending, item[id]=${item['id']}, item[status]=${item['status']}, item[_normalized_status]=${item['_normalized_status']}');
 
     // Format dates và times
     final dateStr = item['suggested_date'] ?? item['makeup_date'] ?? item['date'];
@@ -298,7 +303,8 @@ class MakeupDetailDialog extends StatelessWidget {
         if (isPending)
           TextButton(
             onPressed: () {
-              Navigator.pop(context);
+              debugPrint('DEBUG: Hủy đơn button pressed, item[id]=${item['id']}, status=$statusStr');
+              // ✅ KHÔNG đóng dialog ở đây - để _showCancelDialog tự quản lý
               _showCancelDialog(context, item, viewModel);
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -320,16 +326,23 @@ class MakeupDetailDialog extends StatelessWidget {
     final groupedIds = item['_grouped_makeup_request_ids'];
     final List<int> makeupRequestIds;
 
+    // ✅ Debug: Log để kiểm tra
+    debugPrint('DEBUG _showCancelDialog: groupedIds=$groupedIds, item[id]=${item['id']}, item keys=${item.keys.toList()}');
+
     if (groupedIds is List && groupedIds.isNotEmpty) {
       makeupRequestIds = groupedIds
           .map((e) => int.tryParse('$e'))
           .whereType<int>()
           .where((id) => id > 0)
           .toList();
+      debugPrint('DEBUG _showCancelDialog: Using groupedIds, makeupRequestIds=$makeupRequestIds');
     } else {
       final id = item['id'];
+      debugPrint('DEBUG _showCancelDialog: No groupedIds, using item[id]=$id');
       makeupRequestIds = id != null && int.tryParse('$id') != null ? [int.parse('$id')] : [];
     }
+
+    debugPrint('DEBUG _showCancelDialog: Final makeupRequestIds=$makeupRequestIds');
 
     if (makeupRequestIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -338,15 +351,28 @@ class MakeupDetailDialog extends StatelessWidget {
       return;
     }
 
+    // ✅ Lưu root context và navigator TRƯỚC KHI đóng dialog
+    // Sử dụng rootNavigator để lấy context của Scaffold (history page)
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    final rootContext = rootNavigator.context;
+    final scaffoldMessenger = ScaffoldMessenger.of(rootContext);
+    final dialogNavigator = Navigator.of(context);
+    
+    // ✅ Hiển thị confirm dialog (sử dụng context của detail dialog)
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Hủy đơn đăng ký dạy bù?'),
         content: Text(
-          'Đơn này đang chờ duyệt. Bạn có muốn hủy không?',
+          makeupRequestIds.length > 1
+              ? 'Bạn có muốn hủy đơn đăng ký dạy bù này không?'
+              : 'Đơn này đang chờ duyệt. Bạn có muốn hủy không?',
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Không')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Không'),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
@@ -356,22 +382,90 @@ class MakeupDetailDialog extends StatelessWidget {
       ),
     );
 
-    if (confirm == true && context.mounted) {
-      final success = makeupRequestIds.length > 1
+    // ✅ Nếu user không confirm, return (detail dialog vẫn mở)
+    if (confirm != true) {
+      debugPrint('DEBUG _showCancelDialog: User cancelled');
+      return;
+    }
+    
+    debugPrint('DEBUG _showCancelDialog: User confirmed, calling cancel API with makeupRequestIds=$makeupRequestIds');
+    
+    // ✅ Đóng detail dialog trước khi hiển thị loading
+    dialogNavigator.pop(); // Đóng detail dialog
+    
+    // ✅ Kiểm tra root context vẫn còn valid
+    if (!rootContext.mounted) {
+      debugPrint('DEBUG _showCancelDialog: Root context not mounted after closing dialog');
+      return;
+    }
+    
+    // ✅ Hiển thị loading indicator trên root context
+    showDialog(
+      context: rootContext,
+      barrierDismissible: false,
+      builder: (loadingCtx) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+    
+    try {
+      debugPrint('DEBUG _showCancelDialog: Starting cancel operation...');
+      final result = makeupRequestIds.length > 1
           ? await viewModel.cancelMultipleMakeupRequests(makeupRequestIds)
           : await viewModel.cancelMakeupRequest(makeupRequestIds.first);
 
-      if (!context.mounted) return;
+      debugPrint('DEBUG _showCancelDialog: Cancel operation completed, result: success=${result.success}, errorMessage=${result.errorMessage}');
 
-      if (success) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Đã hủy đơn đăng ký dạy bù thành công.'),
-          ),
-        );
+      // ✅ Đóng loading dialog
+      if (rootContext.mounted) {
+        rootNavigator.pop(); // Đóng loading dialog
+      }
+
+      // ✅ Kiểm tra kết quả
+      if (result.success) {
+        debugPrint('DEBUG _showCancelDialog: Cancel successful');
+        
+        // ✅ Hiển thị success message
+        if (rootContext.mounted) {
+          scaffoldMessenger.showSnackBar(
+            const SnackBar(
+              content: Text('Đã hủy đơn đăng ký dạy bù thành công.'),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 3),
+            ),
+          );
+        }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Lỗi khi hủy đơn đăng ký dạy bù')),
+        debugPrint('DEBUG _showCancelDialog: Cancel failed: ${result.errorMessage}');
+        
+        // ✅ Hiển thị error message chi tiết từ backend
+        if (rootContext.mounted) {
+          scaffoldMessenger.showSnackBar(
+            SnackBar(
+              content: Text(result.errorMessage ?? 'Lỗi khi hủy đơn đăng ký dạy bù'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+      }
+    } catch (e, stackTrace) {
+      debugPrint('DEBUG _showCancelDialog: Exception occurred: $e');
+      debugPrint('DEBUG _showCancelDialog: StackTrace: $stackTrace');
+      
+      // ✅ Đóng loading dialog nếu có lỗi
+      if (rootContext.mounted) {
+        rootNavigator.pop(); // Đóng loading dialog
+      }
+      
+      // ✅ Hiển thị error message
+      if (rootContext.mounted) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text('Lỗi không mong muốn: ${e.toString()}'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 5),
+          ),
         );
       }
     }

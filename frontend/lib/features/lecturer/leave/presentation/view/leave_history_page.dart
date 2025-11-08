@@ -100,6 +100,10 @@ class LeaveHistoryPage extends ConsumerWidget {
                               child: state.filteredItems.isEmpty
                                   ? const _EmptyBox()
                                   : ListView.builder(
+                                      // ✅ Tối ưu performance - không dùng itemExtent để card tự điều chỉnh chiều cao
+                                      cacheExtent: 500, // Cache items ngoài viewport
+                                      addAutomaticKeepAlives: false, // Tiết kiệm memory
+                                      addRepaintBoundaries: true, // Tách repaint boundaries
                                       padding: const EdgeInsets.fromLTRB(
                                           16, 0, 16, 16),
                                       itemCount: state.filteredItems.length,
@@ -150,17 +154,34 @@ class LeaveHistoryPage extends ConsumerWidget {
     final tt = Theme.of(context).textTheme;
 
     final subject = (item['subject'] ?? 'Môn học').toString();
-    // Lấy mã lớp (code) thay vì tên lớp
+    // ✅ Lấy mã lớp (code) thay vì tên lớp - ưu tiên code
     String className = '';
-    if (item['assignment'] is Map) {
+    
+    // Ưu tiên 1: Lấy từ class_code trực tiếp (repository đã extract)
+    if (item['class_code'] != null && item['class_code'].toString().isNotEmpty) {
+      className = item['class_code'].toString();
+    }
+    
+    // Ưu tiên 2: Lấy từ class_name (repository đã extract với ưu tiên code)
+    if (className.isEmpty && item['class_name'] != null && item['class_name'].toString().isNotEmpty) {
+      className = item['class_name'].toString();
+    }
+    
+    // Ưu tiên 3: Lấy từ assignment.class_unit.code (fallback)
+    if (className.isEmpty && item['assignment'] is Map) {
       final assignment = item['assignment'] as Map;
-      if (assignment['class_unit'] is Map) {
-        final classUnit = assignment['class_unit'] as Map;
-        className = (classUnit['code'] ?? classUnit['class_code'] ?? '').toString();
+      final cu = assignment['class_unit'] ?? assignment['classUnit'];
+      if (cu is Map) {
+        className = (cu['code'] ?? cu['class_code'] ?? cu['name'] ?? '').toString();
       }
     }
+    
+    // Ưu tiên 4: Lấy từ class_unit trực tiếp
     if (className.isEmpty) {
-      className = (item['class_code'] ?? item['class_name'] ?? '').toString();
+      final cu = item['class_unit'] ?? item['classUnit'];
+      if (cu is Map) {
+        className = (cu['code'] ?? cu['class_code'] ?? cu['name'] ?? '').toString();
+      }
     }
     final date =
         DateFormatter.formatDDMMYYYY(item['date']?.toString());
@@ -209,7 +230,7 @@ class LeaveHistoryPage extends ConsumerWidget {
 
     return Card(
       elevation: 0,
-      margin: const EdgeInsets.only(bottom: 10),
+      margin: const EdgeInsets.only(bottom: 12), // ✅ Giống home: 12
       color: Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -225,109 +246,121 @@ class LeaveHistoryPage extends ConsumerWidget {
           ),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16), // ✅ Giống home: all(16)
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // BÊN TRÁI
+              // BÊN TRÁI - Giống home card
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
                       subject,
-                      style: tt.titleLarge?.copyWith(
+                      style: tt.titleLarge?.copyWith( // ✅ Giống home: titleLarge (không override fontSize)
                         fontWeight: FontWeight.bold,
                         color: Colors.grey.shade900,
                       ),
-                      maxLines: 2,
+                      maxLines: 2, // ✅ Giống home: maxLines 2
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 8),
-                    if (className.isNotEmpty)
-                      Text(
-                        'Lớp: $className',
-                        style: tt.bodyMedium?.copyWith(
-                          color: Colors.grey.shade700,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    if (room.isNotEmpty)
+                    const SizedBox(height: 8), // ✅ Giống home: 8
+                    // Phòng học - hiển thị trước như home
+                    if (room.isNotEmpty && room != '-')
                       Text(
                         'Phòng học: $room',
-                        style: tt.bodyMedium?.copyWith(
+                        style: tt.bodyMedium?.copyWith( // ✅ Giống home: bodyMedium (không override fontSize)
                           color: Colors.grey.shade700,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                    if (date.isNotEmpty)
+                    // Lớp - Giống home: không có spacing giữa room và class
+                    if (className.isNotEmpty && className != 'Lớp')
+                      Text(
+                        'Lớp: $className',
+                        style: tt.bodyMedium?.copyWith( // ✅ Giống home: bodyMedium (không override fontSize)
+                          color: Colors.grey.shade700,
+                        ),
+                        maxLines: 2, // ✅ Giống home: maxLines 2
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    // Ngày - Thêm spacing nhỏ trước ngày
+                    if (date.isNotEmpty) ...[
+                      const SizedBox(height: 4), // ✅ Spacing nhỏ trước ngày
                       Text(
                         'Ngày: $date',
-                        style: tt.bodyMedium?.copyWith(
+                        style: tt.bodyMedium?.copyWith( // ✅ Giống home: bodyMedium
                           color: Colors.grey.shade700,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
+                    ],
                   ],
                 ),
               ),
 
-              const SizedBox(width: 12),
+              const SizedBox(width: 12), // ✅ Giống home: 12
 
-              // BÊN PHẢI
+              // BÊN PHẢI - Giống home card
               SizedBox(
-                width: 140,
+                width: 160, // ✅ Giống home: 160
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Wrap(
-                      spacing: 4,
-                      runSpacing: 2,
+                      spacing: 4, // ✅ Giống home: 4
+                      runSpacing: 2, // ✅ Giống home: 2
                       crossAxisAlignment: WrapCrossAlignment.center,
                       alignment: WrapAlignment.end,
                       children: [
-                        Text(
-                          statusText,
-                          style: tt.bodySmall?.copyWith(
-                            color: statusColor,
-                            fontWeight: FontWeight.w500,
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 120), // ✅ Giống home: 120
+                          child: Text(
+                            statusText,
+                            style: tt.bodySmall?.copyWith( // ✅ Giống home: bodySmall (không override fontSize)
+                              color: statusColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            textAlign: TextAlign.right,
+                            maxLines: 2, // ✅ Giống home: maxLines 2
+                            overflow: TextOverflow.ellipsis,
                           ),
-                          textAlign: TextAlign.right,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
                         ),
                         Icon(
                           statusIcon,
-                          size: 16,
+                          size: 16, // ✅ Giống home: 16
                           color: statusColor,
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    const SizedBox(height: 8), // ✅ Giống home: 8
                     if (hasTime)
-                      Text(
-                        timeLine,
-                        style: tt.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey.shade900,
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          timeLine,
+                          style: tt.headlineSmall?.copyWith( // ✅ Giống home: headlineSmall
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey.shade900,
+                            fontSize: 16, // ✅ Giống home: fontSize 16
+                          ),
+                          textAlign: TextAlign.right,
                         ),
-                        textAlign: TextAlign.right,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
                       )
                     else
-                      const SizedBox(height: 20),
-                    const SizedBox(height: 4),
+                      const SizedBox(height: 24), // ✅ Giống home: 24
+                    const SizedBox(height: 4), // ✅ Giống home: 4
                     Text(
-                      'Bấm vào đây để xem chi tiết',
-                      style: tt.bodySmall?.copyWith(
+                      'Bấm để xem chi tiết',
+                      style: tt.bodySmall?.copyWith( // ✅ Giống home: bodySmall (không override fontSize)
                         color: Colors.grey.shade500,
                       ),
-                      textAlign: TextAlign.right,
+                      textAlign: TextAlign.right, // ✅ Thêm textAlign
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),

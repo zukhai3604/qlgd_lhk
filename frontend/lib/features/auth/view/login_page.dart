@@ -167,6 +167,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           const SnackBar(
                               content: Text('Tính năng đang phát triển')),
                         ),
+                        style: TextButton.styleFrom(
+                          foregroundColor: cs.primary,
+                        ),
                         child: const Text('Quên mật khẩu?'),
                       ),
                     ),
