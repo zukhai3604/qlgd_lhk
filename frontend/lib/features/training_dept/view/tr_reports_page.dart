@@ -97,46 +97,33 @@ class _State extends State<TrainingDepartmentReportsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Status Bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            // Header với nút back
+            Container(
+              color: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    TimeOfDay.now().format(context),
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      color: Colors.black,
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: const Icon(Icons.arrow_back, color: Colors.black, size: 24),
+                  ),
+                  const SizedBox(width: 16),
+                  const Expanded(
+                    child: Text(
+                      'TRƯỜNG ĐẠI HỌC THUỶ LỢI',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: Color(0xFF1A2EB0),
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                  const Row(
-                    children: [
-                      Icon(Icons.signal_cellular_4_bar, size: 16),
-                      SizedBox(width: 4),
-                      Icon(Icons.wifi, size: 16),
-                      SizedBox(width: 4),
-                      Icon(Icons.battery_full, size: 16),
-                    ],
-                  ),
+                  const SizedBox(width: 40),
                 ],
               ),
             ),
             const SizedBox(height: 16),
-            
-            // School Header
-            const Text(
-              'TRƯỜNG ĐẠI HỌC THUỶ LỢI',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Color(0xFF1A2EB0),
-                fontSize: 20,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0.5,
-              ),
-            ),
-            const SizedBox(height: 20),
             
             // Title
             Padding(

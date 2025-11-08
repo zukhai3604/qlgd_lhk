@@ -305,15 +305,18 @@ class _ClassesListPageState extends State<ClassesListPage> {
                   else
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Column(
+                      child: GridView.count(
+                        physics: const NeverScrollableScrollPhysics(),
+                        shrinkWrap: true,
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 1.7,
                         children: filtered.map((classItem) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _ClassCard(
-                              id: (classItem['name'] ?? '').toString(),
-                              major: _getNested(classItem, ['department', 'name']) ?? 'Chưa xác định',
-                              faculty: _getNested(classItem, ['department', 'faculty', 'name']) ?? 'Chưa xác định',
-                            ),
+                          return _ClassCard(
+                            id: (classItem['name'] ?? '').toString(),
+                            major: _getNested(classItem, ['department', 'name']) ?? 'Chưa xác định',
+                            faculty: _getNested(classItem, ['department', 'faculty', 'name']) ?? 'Chưa xác định',
                           );
                         }).toList(),
                       ),

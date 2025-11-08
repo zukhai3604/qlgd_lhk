@@ -271,10 +271,15 @@ class _SubjectsListPageState extends State<SubjectsListPage> {
                   else
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Column(
+                      child: GridView.count(
+                        physics: const NeverScrollableScrollPhysics(),
+                        shrinkWrap: true,
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 1.7,
                         children: filtered.map((subject) {
                           return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
                             padding: const EdgeInsets.all(16),
                             decoration: BoxDecoration(
                               color: Colors.white,

@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qlgd_lhk/core/api_client.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:qlgd_lhk/features/training_dept/view/tr_reports_page.dart';
+// import 'package:qlgd_lhk/features/training_dept/view/tr_reports_page.dart';
 import 'package:qlgd_lhk/features/training_dept/view/tr_notifications_page.dart';
 
 class TrainingDepartmentHomePage extends StatefulWidget {
@@ -15,6 +15,52 @@ class TrainingDepartmentHomePage extends StatefulWidget {
 
 class _TrainingDepartmentHomePageState extends State<TrainingDepartmentHomePage> {
   String _activeTab = 'home';
+  final _dio = ApiClient.create().dio;
+
+  String? _greetingName;
+  int? _statLecturersNow;
+  int? _statRoomsInUse;
+  int? _statRoomsFree;
+  int? _statPending;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchHomeInfo();
+  }
+
+  Future<void> _ensureAuthHeader() async {
+    if (_dio.options.headers['Authorization'] != null) return;
+    const storage = FlutterSecureStorage();
+    final t1 = await storage.read(key: 'access_token');
+    final t2 = t1 ?? await storage.read(key: 'auth_token');
+    if (t2 != null && t2.isNotEmpty) {
+      _dio.options.headers['Authorization'] = 'Bearer $t2';
+    }
+  }
+
+  Future<void> _fetchHomeInfo() async {
+    try {
+      await _ensureAuthHeader();
+      // Profile for greeting
+      try {
+        final res = await _dio.get('/api/training_department/me/profile');
+        final data = (res.data is Map) ? (res.data['data'] as Map?) : null;
+        final name = data != null ? data['name']?.toString() : null;
+        _greetingName = (name != null && name.isNotEmpty) ? name : null;
+      } catch (_) {}
+
+      // Quick stats
+      try {
+        final st = await _dio.get('/api/training_department/stats/quick');
+        final d = (st.data is Map) ? (st.data['data'] as Map?) : null;
+        _statLecturersNow = ((d?['lecturers_teaching_now']) as num?)?.toInt();
+        _statRoomsInUse   = ((d?['rooms_in_use_now']) as num?)?.toInt();
+        _statRoomsFree    = ((d?['rooms_free_now']) as num?)?.toInt();
+        _statPending      = ((d?['pending_requests_total']) as num?)?.toInt();
+      } catch (_) {}
+    } finally {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,17 +97,15 @@ class _TrainingDepartmentHomePageState extends State<TrainingDepartmentHomePage>
 
             // Scrollable content
             Expanded(
-              child: _activeTab == 'account'
-                  ? const _AccountContent()
-                  : _activeTab == 'report'
-                      ? const TrainingDepartmentReportsPage()
-                      : _activeTab == 'notif'
+        child: _activeTab == 'account'
+          ? const _AccountContent()
+          : _activeTab == 'notif'
                           ? const TrainingNotificationsPage()
                           : SingleChildScrollView(
-                      padding: const EdgeInsets.only(bottom: 96),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                        padding: const EdgeInsets.only(bottom: 96),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                           // Header (University name)
                           Container(
                             width: double.infinity,
@@ -96,11 +140,16 @@ class _TrainingDepartmentHomePageState extends State<TrainingDepartmentHomePage>
                                 ],
                               ),
                               padding: const EdgeInsets.all(24),
-                              child: const Column(
+                              child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text('Xin chào,', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, height: 1.1)),
-                                  Text('Phòng Đào tạo !!!', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, height: 1.1)),
+                                  const Text('Xin chào,', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, height: 1.1)),
+                                  Text(
+                                    (_greetingName != null && _greetingName!.isNotEmpty)
+                                        ? _greetingName!
+                                        : 'Phòng Đào tạo',
+                                    style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, height: 1.1),
+                                  ),
                                 ],
                               ),
                             ),
@@ -135,14 +184,30 @@ class _TrainingDepartmentHomePageState extends State<TrainingDepartmentHomePage>
                                 GridView.count(
                                   physics: const NeverScrollableScrollPhysics(),
                                   shrinkWrap: true,
-                                  crossAxisCount: 4,
+                                  crossAxisCount: 1,
                                   mainAxisSpacing: 8,
                                   crossAxisSpacing: 8,
-                                  children: const [
-                                    _StatCard(label: 'Giảng viên đang dạy', value: '10', color: Color(0xFF22C55E)),
-                                    _StatCard(label: 'Lớp học đang được sử dụng', value: '34', color: Color(0xFF3B82F6)),
-                                    _StatCard(label: 'Lớp học đang trống', value: '2', color: Color(0xFFEF4444)),
-                                    _StatCard(label: 'Tổng số đơn cần phê duyệt', value: '2', color: Color(0xFFF59E0B)),
+                                  children: [
+                                    _StatCard(
+                                      label: 'Giảng viên đang dạy',
+                                      value: (_statLecturersNow ?? 0).toString(),
+                                      color: const Color(0xFF22C55E),
+                                    ),
+                                    _StatCard(
+                                      label: 'Lớp học đang được sử dụng',
+                                      value: (_statRoomsInUse ?? 0).toString(),
+                                      color: const Color(0xFF3B82F6),
+                                    ),
+                                    _StatCard(
+                                      label: 'Lớp học đang trống',
+                                      value: (_statRoomsFree ?? 0).toString(),
+                                      color: const Color(0xFFEF4444),
+                                    ),
+                                    _StatCard(
+                                      label: 'Tổng số đơn cần phê duyệt',
+                                      value: (_statPending ?? 0).toString(),
+                                      color: const Color(0xFFF59E0B),
+                                    ),
                                   ],
                                 ),
                               ],
@@ -160,7 +225,7 @@ class _TrainingDepartmentHomePageState extends State<TrainingDepartmentHomePage>
                                 GridView.count(
                                   physics: const NeverScrollableScrollPhysics(),
                                   shrinkWrap: true,
-                                  crossAxisCount: 4,
+                                  crossAxisCount: 1,
                                   mainAxisSpacing: 8,
                                   crossAxisSpacing: 8,
                                   children: [
@@ -196,12 +261,6 @@ class _TrainingDepartmentHomePageState extends State<TrainingDepartmentHomePage>
                     label: 'Trang chủ',
                     active: _activeTab == 'home',
                     onTap: () => setState(() => _activeTab = 'home'),
-                  ),
-                  _BottomItem(
-                    icon: Icons.bar_chart_rounded,
-                    label: 'Báo cáo',
-                    active: _activeTab == 'report',
-                    onTap: () => setState(() => _activeTab = 'report'),
                   ),
                   _BottomItem(
                     icon: Icons.notifications_none_rounded,
@@ -1014,8 +1073,18 @@ class _AccountContentState extends State<_AccountContent> {
             ? res.data['message'].toString()
             : 'Lỗi tải hồ sơ');
       }
-  final data = (res.data is Map) ? (res.data['data'] as Map?)?.cast<String, dynamic>() : null;
-  final staff = (data != null ? (data['training_staff'] as Map?) : null)?.cast<String, dynamic>();
+      // Parse flexible structure
+      Map<String, dynamic>? data;
+      if (res.data is Map) {
+        final top = res.data as Map;
+        if (top['data'] is Map) {
+          data = Map<String, dynamic>.from(top['data']);
+        }
+      }
+      Map<String, dynamic>? staff;
+      if (data != null && data['training_staff'] is Map) {
+        staff = Map<String, dynamic>.from(data['training_staff']);
+      }
 
       String? gender = staff?['gender']?.toString();
       if (gender != null) {
@@ -1033,14 +1102,14 @@ class _AccountContentState extends State<_AccountContent> {
       }
 
       setState(() {
-        _name = data != null ? data['name']?.toString() : null;
-        _email = data != null ? data['email']?.toString() : null;
-        _phone = data != null ? data['phone']?.toString() : null;
+        _name = data?['name']?.toString();
+        _email = data?['email']?.toString();
+        _phone = data?['phone']?.toString();
         _gender = gender;
         _dob = dob;
-        _position = staff != null ? staff['position']?.toString() : null;
-        final staffAvatar = staff != null ? staff['avatar_url']?.toString() : null;
-        final userAvatar = data != null ? data['avatar_url']?.toString() : null;
+        _position = staff?['position']?.toString();
+        final staffAvatar = staff?['avatar_url']?.toString();
+        final userAvatar = data?['avatar_url']?.toString();
         _avatarUrl = (staffAvatar != null && staffAvatar.isNotEmpty) ? staffAvatar : userAvatar;
         _loading = false;
       });
@@ -1074,20 +1143,22 @@ class _AccountContentState extends State<_AccountContent> {
       ));
     }
     if (_error != null) {
-      return Center(
+      return SingleChildScrollView(
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(24.0),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             children: [
-              Text('Không tải được hồ sơ', style: TextStyle(color: Colors.red[700], fontWeight: FontWeight.w600)),
+              Icon(Icons.error_outline, size: 48, color: Colors.red[600]),
+              const SizedBox(height: 12),
+              Text('Không tải được hồ sơ người dùng', style: TextStyle(color: Colors.red[700], fontWeight: FontWeight.w700)),
               const SizedBox(height: 8),
               Text(_error!, textAlign: TextAlign.center, style: const TextStyle(color: Color(0xFF545454))),
-              const SizedBox(height: 12),
-              ElevatedButton(
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
                 onPressed: _fetch,
-                child: const Text('Thử lại'),
-              )
+                icon: const Icon(Icons.refresh),
+                label: const Text('Thử lại'),
+              ),
             ],
           ),
         ),

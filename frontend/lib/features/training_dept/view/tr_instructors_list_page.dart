@@ -266,54 +266,57 @@ class _InstructorsListPageState extends State<InstructorsListPage> {
                   else
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Column(
+                      child: GridView.count(
+                        physics: const NeverScrollableScrollPhysics(),
+                        shrinkWrap: true,
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 1.7,
                         children: filtered.map((instructor) {
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(10),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.08),
-                                    blurRadius: 4,
-                                    offset: const Offset(0, 2),
+                          return Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(10),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.08),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  (instructor['name'] ?? 'Giảng viên').toString(),
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF545454),
                                   ),
-                                ],
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    (instructor['name'] ?? 'Giảng viên').toString(),
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w700,
-                                      color: Color(0xFF545454),
-                                    ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  'Khoa: ${_getNested(instructor, ['department', 'faculty', 'name']) ?? 'Chưa xác định'}',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF545454),
                                   ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Khoa: ${_getNested(instructor, ['department', 'faculty', 'name']) ?? 'Chưa xác định'}',
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                      color: Color(0xFF545454),
-                                    ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Học vị: ${instructor['degree'] ?? 'Chưa xác định'}',
+                                  style: const TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: Color(0xFF545454),
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Học vị: ${instructor['degree'] ?? 'Chưa xác định'}',
-                                    style: const TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                      color: Color(0xFF545454),
-                                    ),
-                                  ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           );
                         }).toList(),

@@ -91,6 +91,8 @@ Route::middleware(['auth:sanctum', 'ensure.active'])->group(function () {
         Route::get('rooms', [ApiRoomController::class, 'index']);
         Route::get('rooms/{id}', [ApiRoomController::class, 'show']);
         Route::get('faculties', [ApiFacultyController::class, 'index']);
+        // Quick stats for Training Department home
+        Route::get('stats/quick', [\App\Http\Controllers\TrainingDepartment\StatsController::class, 'quick']);
     });
 
     Route::middleware('role:GIANG_VIEN')->prefix('lecturer')->group(function () {

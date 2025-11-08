@@ -269,48 +269,49 @@ class _ClassroomsListPageState extends State<ClassroomsListPage> {
                             ),
                           )
                         else
-                          Column(
+                          GridView.count(
+                            physics: const NeverScrollableScrollPhysics(),
+                            shrinkWrap: true,
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: 1.7,
                             children: filtered.map((room) {
-                              return Column(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(color: Colors.black, width: 1),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.1),
-                                          blurRadius: 4,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.black, width: 1),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.1),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
                                     ),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          (room['name'] ?? 'Phòng học').toString(),
-                                          style: const TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.w600,
-                                            color: Colors.black,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Text(
-                                          room['building'] ?? 'Chưa xác định',
-                                          style: const TextStyle(
-                                            fontSize: 14,
-                                            color: Color(0xFF666666),
-                                          ),
-                                        ),
-                                      ],
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      (room['name'] ?? 'Phòng học').toString(),
+                                      style: const TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.black,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                ],
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      room['building'] ?? 'Chưa xác định',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: Color(0xFF666666),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               );
                             }).toList(),
                           ),
