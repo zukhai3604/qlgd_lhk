@@ -106,6 +106,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Tính năng đang phát triển')),
                         ),
+                        style: TextButton.styleFrom(
+                          foregroundColor: cs.primary,
+                        ),
                         child: const Text('Quên mật khẩu?'),
                       ),
                     ),

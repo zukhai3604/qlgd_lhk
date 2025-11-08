@@ -101,7 +101,10 @@ class WeeklyScheduleViewModel extends StateNotifier<WeeklyScheduleState> {
 
 /// Provider cho WeeklyScheduleViewModel
 final weeklyScheduleViewModelProvider =
-    StateNotifierProvider<WeeklyScheduleViewModel, WeeklyScheduleState>((ref) {
+    StateNotifierProvider.autoDispose<WeeklyScheduleViewModel, WeeklyScheduleState>((ref) {
+  // ✅ Keep alive để tránh dispose khi navigate (tối ưu performance)
+  ref.keepAlive();
+  
   return WeeklyScheduleViewModel(ScheduleRepositoryImpl());
 });
 

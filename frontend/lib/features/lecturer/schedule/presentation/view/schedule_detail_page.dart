@@ -416,10 +416,85 @@ class _LecturerScheduleDetailPageState extends ConsumerState<LecturerScheduleDet
     return p.length == 3 ? '${p[2]}/${p[1]}/${p[0]}' : iso;
   }
 
-  /// Check xem có thể kết thúc buổi học không (chỉ khi status là PLANNED hoặc TEACHING)
+  /// Check xem có thể kết thúc buổi học không
+  /// Chỉ hiển thị khi:
+  /// 1. Status là PLANNED hoặc TEACHING
+  /// 2. Đã đến hoặc qua thời gian bắt đầu buổi học
   bool _canEndLesson(Map<String, dynamic> detail) {
     final rawStatus = (detail['status'] ?? '').toString().toUpperCase();
-    return rawStatus == 'PLANNED' || rawStatus == 'TEACHING';
+    
+    // Kiểm tra status trước
+    if (rawStatus != 'PLANNED' && rawStatus != 'TEACHING') {
+      return false;
+    }
+    
+    // Kiểm tra thời gian: chỉ hiển thị nút nếu đã đến thời gian bắt đầu buổi học
+    try {
+      final now = DateTime.now();
+      
+      // Lấy session_date
+      final rawDate = ((detail['date'] ??
+                  detail['session_date'] ??
+                  detail['sessionDate']) ??
+              '')
+          .toString();
+      final dateOnly = rawDate.contains(' ') ? rawDate.split(' ').first : rawDate;
+      
+      if (dateOnly.isEmpty) {
+        // Nếu không có date, cho phép hiển thị (fallback)
+        return true;
+      }
+      
+      // Parse date
+      DateTime? scheduleDate = DateTime.tryParse(dateOnly);
+      if (scheduleDate == null) {
+        // Nếu không parse được, cho phép hiển thị (fallback)
+        return true;
+      }
+      
+      // Lấy start_time
+      String startTimeStr = '';
+      if (widget.sessionData != null) {
+        final mergedStart = widget.sessionData!['start_time'];
+        if (mergedStart != null) startTimeStr = _hhmm(mergedStart);
+      }
+      
+      if (startTimeStr.isEmpty) {
+        final ts = detail['timeslot'];
+        startTimeStr = _hhmm(detail['start_time'] ??
+            detail['start'] ??
+            (ts is Map ? ts['start_time'] : null));
+      }
+      
+      if (startTimeStr.isEmpty || startTimeStr == '--:--') {
+        // Nếu không có start_time, cho phép hiển thị (fallback)
+        return true;
+      }
+      
+      // Parse start_time và tạo DateTime
+      final startParts = startTimeStr.split(':');
+      if (startParts.length >= 2) {
+        final startHour = int.tryParse(startParts[0]) ?? 0;
+        final startMinute = int.tryParse(startParts[1]) ?? 0;
+        final startDateTime = DateTime(
+          scheduleDate.year,
+          scheduleDate.month,
+          scheduleDate.day,
+          startHour,
+          startMinute,
+        );
+        
+        // Chỉ hiển thị nút nếu thời gian hiện tại >= thời gian bắt đầu
+        return now.isAfter(startDateTime) || now.isAtSameMomentAs(startDateTime);
+      }
+    } catch (e) {
+      // Nếu có lỗi trong quá trình kiểm tra thời gian, cho phép hiển thị (fallback)
+      print('DEBUG _canEndLesson: Error checking time: $e');
+      return true;
+    }
+    
+    // Fallback: nếu không kiểm tra được thời gian, cho phép hiển thị
+    return true;
   }
 
   /// Check xem có thể chỉnh sửa không (chỉ khi status chưa là DONE hoặc CANCELED)
@@ -480,15 +555,15 @@ class _LecturerScheduleDetailPageState extends ConsumerState<LecturerScheduleDet
           context: context,
           builder: (ctx) => AlertDialog(
             title: const Text('Chưa điểm danh sinh viên'),
-            content: Text(
-              isGroupedSession
-                  ? 'Bạn chưa điểm danh sinh viên cho buổi học này. '
-                      'Nếu kết thúc buổi học, tất cả ${sessionIds.length} tiết trong buổi học sẽ bị hủy. '
-                      'Bạn có chắc chắn muốn kết thúc không?'
-                  : 'Bạn chưa điểm danh sinh viên cho buổi học này. '
-                      'Nếu kết thúc buổi học, hệ thống sẽ đánh dấu lớp là HUỶ. '
-                      'Bạn có chắc chắn muốn kết thúc không?',
-            ),
+              content: Text(
+                isGroupedSession
+                    ? 'Bạn chưa điểm danh sinh viên cho buổi học này. '
+                        'Nếu kết thúc buổi học, buổi học sẽ bị hủy. '
+                        'Bạn có chắc chắn muốn kết thúc không?'
+                    : 'Bạn chưa điểm danh sinh viên cho buổi học này. '
+                        'Nếu kết thúc buổi học, hệ thống sẽ đánh dấu lớp là HUỶ. '
+                        'Bạn có chắc chắn muốn kết thúc không?',
+              ),
             actions: [
               TextButton(
                 onPressed: () {
@@ -617,7 +692,7 @@ class _LecturerScheduleDetailPageState extends ConsumerState<LecturerScheduleDet
         print('DEBUG _handleEndLesson: Success path');
         final finalStatus = updatedState.status.toUpperCase();
         final message = isGroupedSession
-            ? 'Đã kết thúc buổi học (${sessionIds.length} tiết)'
+            ? 'Đã kết thúc buổi học thành công'
             : (finalStatus == 'DONE'
                 ? 'Buổi học đã được kết thúc (ĐÃ HOÀN THÀNH).'
                 : 'Buổi học đã được kết thúc (ĐÃ HUỶ).');
@@ -634,7 +709,7 @@ class _LecturerScheduleDetailPageState extends ConsumerState<LecturerScheduleDet
         print('DEBUG _handleEndLesson: Failure path');
         // Hiển thị error message
         final errorMessage = failedSessions.isNotEmpty
-            ? 'Không thể kết thúc một số tiết học: ${failedSessions.join(", ")}'
+            ? 'Không thể kết thúc một số buổi học: ${failedSessions.join(", ")}'
             : (updatedState.error ?? 'Không thể kết thúc buổi học');
         
         // Log chi tiết để debug

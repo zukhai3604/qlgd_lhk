@@ -232,8 +232,23 @@ class HomeViewModel extends StateNotifier<HomeState> {
         final last = group.last;
 
         final merged = Map<String, dynamic>.from(first);
-        final startTime = (first['start_time'] ?? '--:--').toString();
-        final endTime = (last['end_time'] ?? '--:--').toString();
+        
+        // ✅ Lấy thời gian từ timeslot nếu không có trực tiếp
+        String startTime = (first['start_time'] ?? '').toString();
+        String endTime = (last['end_time'] ?? '').toString();
+        
+        // Fallback: Lấy từ timeslot nếu chưa có
+        if ((startTime.isEmpty || startTime == '--:--') && first['timeslot'] is Map) {
+          final timeslot = first['timeslot'] as Map;
+          startTime = (timeslot['start_time'] ?? '').toString();
+        }
+        if ((endTime.isEmpty || endTime == '--:--') && last['timeslot'] is Map) {
+          final timeslot = last['timeslot'] as Map;
+          endTime = (timeslot['end_time'] ?? '').toString();
+        }
+        
+        if (startTime.isEmpty) startTime = '--:--';
+        if (endTime.isEmpty) endTime = '--:--';
 
         merged['start_time'] = startTime;
         merged['end_time'] = endTime;
@@ -293,7 +308,10 @@ class HomeViewModel extends StateNotifier<HomeState> {
 
 /// Provider cho HomeViewModel
 final homeViewModelProvider =
-    StateNotifierProvider<HomeViewModel, HomeState>((ref) {
+    StateNotifierProvider.autoDispose<HomeViewModel, HomeState>((ref) {
+  // ✅ Keep alive để tránh dispose khi navigate (tối ưu performance)
+  ref.keepAlive();
+  
   final repository = HomeRepositoryImpl();
   return HomeViewModel(repository);
 });

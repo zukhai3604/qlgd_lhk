@@ -346,8 +346,11 @@ class ScheduleDetailViewModel extends StateNotifier<ScheduleDetailState> {
 
 /// Provider cho ScheduleDetailViewModel
 final scheduleDetailViewModelProvider =
-    StateNotifierProvider.family<ScheduleDetailViewModel, ScheduleDetailState, int>(
+    StateNotifierProvider.autoDispose.family<ScheduleDetailViewModel, ScheduleDetailState, int>(
   (ref, sessionId) {
+    // ✅ Keep alive để tránh dispose khi navigate (tối ưu performance)
+    ref.keepAlive();
+    
     return ScheduleDetailViewModel(ScheduleDetailRepositoryImpl(), sessionId);
   },
 );

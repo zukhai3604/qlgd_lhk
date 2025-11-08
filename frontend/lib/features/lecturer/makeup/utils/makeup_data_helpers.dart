@@ -59,7 +59,7 @@ class MakeupDataExtractor {
     return subject.isEmpty || subject == 'null' ? 'Môn học' : subject;
   }
 
-  /// Extract class name với nhiều fallback
+  /// Extract class name với nhiều fallback - ưu tiên mã lớp (code) thay vì tên lớp
   static String extractClassName(Map<String, dynamic> item) {
     // Ưu tiên dùng normalized data nếu có
     String className = item['_normalized_class_name']?.toString().trim() ?? '';
@@ -67,17 +67,18 @@ class MakeupDataExtractor {
       return className == 'null' ? '' : className;
     }
 
-    // Fallback 1: Từ class_name hoặc class_code
-    final classNm = item['class_name']?.toString().trim() ?? '';
+    // ✅ Fallback 1: Ưu tiên class_code trước, sau đó mới đến class_name
     final classCd = item['class_code']?.toString().trim() ?? '';
-    className = classNm.isNotEmpty ? classNm : (classCd.isNotEmpty ? classCd : '');
+    final classNm = item['class_name']?.toString().trim() ?? '';
+    className = classCd.isNotEmpty ? classCd : (classNm.isNotEmpty ? classNm : '');
 
-    // Fallback 2: Từ class object
+    // ✅ Fallback 2: Từ class object - ưu tiên code
     if (className.isEmpty && item['class'] is Map) {
-      className = (item['class'] as Map)['name']?.toString().trim() ?? '';
+      final classObj = item['class'] as Map;
+      className = (classObj['code'] ?? classObj['class_code'] ?? classObj['name'] ?? '').toString().trim();
     }
 
-    // Fallback 3: Từ nested leave.schedule.assignment.classUnit
+    // ✅ Fallback 3: Từ nested leave.schedule.assignment.classUnit - ưu tiên code
     if (className.isEmpty) {
       try {
         final leave = item['leave'];
@@ -86,9 +87,10 @@ class MakeupDataExtractor {
           if (schedule is Map) {
             final assignment = schedule['assignment'];
             if (assignment is Map) {
-              final classUnit = assignment['classUnit'];
+              final classUnit = assignment['classUnit'] ?? assignment['class_unit'];
               if (classUnit is Map) {
-                className = classUnit['name']?.toString().trim() ?? '';
+                // ✅ Ưu tiên code trước, sau đó mới đến name
+                className = (classUnit['code'] ?? classUnit['class_code'] ?? classUnit['name'] ?? '').toString().trim();
               }
             }
           }

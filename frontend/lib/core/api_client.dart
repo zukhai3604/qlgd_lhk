@@ -10,8 +10,8 @@ class ApiClient {
     dio = Dio(
       BaseOptions(
         baseUrl: resolvedBaseUrl,
-        connectTimeout: const Duration(seconds: 15),
-        receiveTimeout: const Duration(seconds: 20),
+        connectTimeout: const Duration(seconds: 10), // ✅ Giảm từ 15s xuống 10s
+        receiveTimeout: const Duration(seconds: 15), // ✅ Giảm từ 20s xuống 15s
         headers: const {'Accept': 'application/json'},
       ),
     );
@@ -47,18 +47,43 @@ class ApiClient {
 
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
 
+  // ✅ Token cache trong memory để tối ưu performance
+  String? _cachedToken;
+  DateTime? _tokenCacheTime;
+  static const _tokenCacheDuration = Duration(minutes: 30);
+
   Future<String?> _readToken() async {
-    return await _storage.read(key: 'access_token') ??
+    // ✅ Kiểm tra cache trước (tránh đọc storage mỗi lần)
+    if (_cachedToken != null && 
+        _tokenCacheTime != null &&
+        DateTime.now().difference(_tokenCacheTime!) < _tokenCacheDuration) {
+      return _cachedToken;
+    }
+    
+    // Đọc từ storage (chỉ khi cache hết hạn hoặc không có)
+    final token = await _storage.read(key: 'access_token') ??
         await _storage.read(key: 'auth_token');
+    
+    // ✅ Lưu vào cache
+    _cachedToken = token;
+    _tokenCacheTime = DateTime.now();
+    
+    return token;
   }
 
   Future<void> setToken(String token) async {
     await _storage.write(key: 'access_token', value: token);
+    // ✅ Update cache khi set token mới
+    _cachedToken = token;
+    _tokenCacheTime = DateTime.now();
   }
 
   Future<void> clearToken() async {
     await _storage.delete(key: 'access_token');
     await _storage.delete(key: 'auth_token');
+    // ✅ Clear cache khi logout
+    _cachedToken = null;
+    _tokenCacheTime = null;
   }
 
   String _resolveBaseUrl() {

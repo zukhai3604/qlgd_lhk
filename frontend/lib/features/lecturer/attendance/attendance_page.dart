@@ -188,14 +188,9 @@ class _LecturerAttendancePageState extends State<LecturerAttendancePage> {
       
       if (!mounted) return;
       
-      final sessionCount = _sessionIdsToMark.length;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            sessionCount > 1 
-              ? 'Đã lưu điểm danh cho $sessionCount tiết học thành công'
-              : 'Đã lưu điểm danh thành công'
-          ),
+        const SnackBar(
+          content: Text('Đã lưu điểm danh thành công'),
           backgroundColor: Colors.green,
         ),
       );
@@ -420,6 +415,11 @@ class _LecturerAttendancePageState extends State<LecturerAttendancePage> {
                               ),
                             )
                           : ListView.builder(
+                              // ✅ Tối ưu performance với khoảng cách đẹp hơn
+                              itemExtent: 155, // ✅ Tăng từ 130 lên 155 để có khoảng cách đẹp hơn
+                              cacheExtent: 500, // Cache items ngoài viewport
+                              addAutomaticKeepAlives: false, // Tiết kiệm memory
+                              addRepaintBoundaries: true, // Tách repaint boundaries
                               padding: const EdgeInsets.symmetric(horizontal: 16),
                               itemCount: _filteredStudents.length,
                               itemBuilder: (context, index) {
@@ -437,96 +437,91 @@ class _LecturerAttendancePageState extends State<LecturerAttendancePage> {
                                 final currentStatus = _attendanceStatus[studentId] ?? 'ABSENT';
                                 
                                 return Card(
-                                  margin: const EdgeInsets.only(bottom: 12),
+                                  margin: const EdgeInsets.only(bottom: 12), // ✅ Tăng từ 8 lên 12
                                   elevation: 2,
                                   shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(12), // ✅ Tăng từ 8 lên 12
                                   ),
                                   child: Padding(
-                                    padding: const EdgeInsets.all(16),
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14), // ✅ Tăng từ (12, 8) lên (16, 14)
                                     child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
                                         // Student Info
                                         Expanded(
                                           child: Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
+                                            mainAxisSize: MainAxisSize.min,
                                             children: [
                                               Text(
                                                 '$studentCode-$studentName',
-                                                style: theme.textTheme.titleMedium?.copyWith(
+                                                style: theme.textTheme.titleSmall?.copyWith(
                                                   fontWeight: FontWeight.w600,
+                                                  fontSize: 15, // ✅ Tăng từ 14 lên 15
                                                 ),
                                                 maxLines: 2,
                                                 overflow: TextOverflow.ellipsis,
                                               ),
-                                              const SizedBox(height: 4),
+                                              const SizedBox(height: 6), // ✅ Tăng từ 3 lên 6
                                               Text(
                                                 'MSV: $studentCode',
                                                 style: theme.textTheme.bodySmall?.copyWith(
                                                   color: Colors.grey[600],
+                                                  fontSize: 12, // ✅ Tăng từ 11 lên 12
                                                 ),
                                               ),
-                                              const SizedBox(height: 2),
+                                              const SizedBox(height: 4), // ✅ Tăng từ 1 lên 4
                                               Text(
                                                 'Lớp: ${widget.className ?? 'N/A'}',
                                                 style: theme.textTheme.bodySmall?.copyWith(
                                                   color: Colors.grey[600],
+                                                  fontSize: 12, // ✅ Tăng từ 11 lên 12
                                                 ),
                                               ),
                                             ],
                                           ),
                                         ),
                                         
-                                        // Radio Buttons
+                                        const SizedBox(width: 14), // ✅ Tăng từ 8 lên 14
+                                        
+                                        // Radio Buttons - Compact version
                                         Flexible(
                                           child: Column(
                                             mainAxisSize: MainAxisSize.min,
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
-                                              RadioListTile<String>(
-                                                title: const Text('Có mặt', style: TextStyle(fontSize: 14)),
-                                                value: 'PRESENT',
-                                                groupValue: currentStatus,
-                                                onChanged: (value) {
-                                                  if (value != null) {
-                                                    setState(() {
-                                                      _attendanceStatus[studentId] = value;
-                                                    });
-                                                  }
+                                              // ✅ Compact Radio buttons - không dùng RadioListTile
+                                              _buildCompactRadio(
+                                                'Có mặt',
+                                                'PRESENT',
+                                                currentStatus,
+                                                () {
+                                                  setState(() {
+                                                    _attendanceStatus[studentId] = 'PRESENT';
+                                                  });
                                                 },
-                                                contentPadding: EdgeInsets.zero,
-                                                dense: true,
-                                                visualDensity: VisualDensity.compact,
                                               ),
-                                              RadioListTile<String>(
-                                                title: const Text('Vắng mặt', style: TextStyle(fontSize: 14)),
-                                                value: 'ABSENT',
-                                                groupValue: currentStatus,
-                                                onChanged: (value) {
-                                                  if (value != null) {
-                                                    setState(() {
-                                                      _attendanceStatus[studentId] = value;
-                                                    });
-                                                  }
+                                              const SizedBox(height: 8), // ✅ Tăng từ 2 lên 8
+                                              _buildCompactRadio(
+                                                'Vắng',
+                                                'ABSENT',
+                                                currentStatus,
+                                                () {
+                                                  setState(() {
+                                                    _attendanceStatus[studentId] = 'ABSENT';
+                                                  });
                                                 },
-                                                contentPadding: EdgeInsets.zero,
-                                                dense: true,
-                                                visualDensity: VisualDensity.compact,
                                               ),
-                                              RadioListTile<String>(
-                                                title: const Text('Muộn', style: TextStyle(fontSize: 14)),
-                                                value: 'LATE',
-                                                groupValue: currentStatus,
-                                                onChanged: (value) {
-                                                  if (value != null) {
-                                                    setState(() {
-                                                      _attendanceStatus[studentId] = value;
-                                                    });
-                                                  }
+                                              const SizedBox(height: 8), // ✅ Tăng từ 2 lên 8
+                                              _buildCompactRadio(
+                                                'Muộn',
+                                                'LATE',
+                                                currentStatus,
+                                                () {
+                                                  setState(() {
+                                                    _attendanceStatus[studentId] = 'LATE';
+                                                  });
                                                 },
-                                                contentPadding: EdgeInsets.zero,
-                                                dense: true,
-                                                visualDensity: VisualDensity.compact,
                                               ),
                                             ],
                                           ),
@@ -577,6 +572,48 @@ class _LecturerAttendancePageState extends State<LecturerAttendancePage> {
                     ),
                   ],
                 ),
+    );
+  }
+
+  // ✅ Helper method để tạo compact radio button với khoảng cách đẹp hơn
+  Widget _buildCompactRadio(
+    String label,
+    String value,
+    String groupValue,
+    VoidCallback onTap,
+  ) {
+    final isSelected = groupValue == value;
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(4), // ✅ Thêm border radius cho InkWell
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2), // ✅ Thêm padding để dễ tap hơn
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 20, // ✅ Tăng từ 18 lên 20
+              height: 20, // ✅ Tăng từ 18 lên 20
+              child: Radio<String>(
+                value: value,
+                groupValue: groupValue,
+                onChanged: (_) => onTap(),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+            const SizedBox(width: 6), // ✅ Tăng từ 4 lên 6
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13, // ✅ Tăng từ 12 lên 13
+                fontWeight: isSelected ? FontWeight.w500 : FontWeight.normal, // ✅ Thêm fontWeight khi selected
+                color: isSelected ? Colors.blue : Colors.grey[700],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

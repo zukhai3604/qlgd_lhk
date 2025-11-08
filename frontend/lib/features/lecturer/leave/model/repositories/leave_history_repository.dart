@@ -48,6 +48,24 @@ class LeaveHistoryRepositoryImpl implements LeaveHistoryRepository {
         final timeRange = LeaveDataExtractor.extractTime(sd);
         final room = LeaveDataExtractor.extractRoom(sd);
 
+        // ✅ Lấy class_code riêng từ schedule detail
+        String? classCode;
+        if (sd['class_code'] != null) {
+          classCode = sd['class_code'].toString();
+        } else if (sd['class_unit'] is Map) {
+          final cu = sd['class_unit'] as Map;
+          classCode = (cu['code'] ?? cu['class_code'])?.toString();
+        } else if (sd['classUnit'] is Map) {
+          final cu = sd['classUnit'] as Map;
+          classCode = (cu['code'] ?? cu['class_code'])?.toString();
+        } else if (sd['assignment'] is Map) {
+          final assignment = sd['assignment'] as Map;
+          final cu = assignment['class_unit'] ?? assignment['classUnit'];
+          if (cu is Map) {
+            classCode = (cu['code'] ?? cu['class_code'])?.toString();
+          }
+        }
+
         results.add({
           'leave_request_id': lr['id'],
           'status': (lr['status'] ?? 'UNKNOWN').toString(),
@@ -55,11 +73,15 @@ class LeaveHistoryRepositoryImpl implements LeaveHistoryRepository {
           'note': (lr['note'] ?? '').toString(),
           'schedule_id': scheduleId,
           'subject': subject,
-          'class_name': className,
+          'class_name': classCode ?? className, // ✅ Ưu tiên class_code nếu có
+          'class_code': classCode, // ✅ Thêm class_code riêng
           'date': dateIso,
           'start_time': timeRange.startTime,
           'end_time': timeRange.endTime,
           'room': room,
+          // ✅ Giữ lại nested structure để view có thể extract
+          'assignment': sd['assignment'],
+          'class_unit': sd['class_unit'] ?? sd['classUnit'],
         });
       }
 
@@ -72,27 +94,42 @@ class LeaveHistoryRepositoryImpl implements LeaveHistoryRepository {
   @override
   Future<LeaveHistoryResult<void>> cancelLeaveRequest(int leaveRequestId) async {
     try {
+      print('DEBUG LeaveHistoryRepository: cancelLeaveRequest called for ID: $leaveRequestId');
       await _api.cancel(leaveRequestId);
+      print('DEBUG LeaveHistoryRepository: cancelLeaveRequest successful for ID: $leaveRequestId');
       return LeaveHistoryResult.success(null);
-    } catch (e) {
-      return LeaveHistoryResult.failure(Exception('Không thể hủy đơn: $e'));
+    } catch (e, stackTrace) {
+      print('DEBUG LeaveHistoryRepository: cancelLeaveRequest failed for ID $leaveRequestId: $e');
+      print('DEBUG LeaveHistoryRepository: StackTrace: $stackTrace');
+      // ✅ Giữ nguyên error message từ API (đã được extract)
+      final errorMsg = e.toString().replaceFirst('Exception: ', '');
+      return LeaveHistoryResult.failure(Exception(errorMsg));
     }
   }
 
   @override
   Future<LeaveHistoryResult<void>> cancelMultipleLeaveRequests(List<int> leaveRequestIds) async {
     try {
+      print('DEBUG LeaveHistoryRepository: cancelMultipleLeaveRequests called with IDs: $leaveRequestIds');
       int successCount = 0;
       String? lastError;
 
       for (final leaveRequestId in leaveRequestIds) {
         try {
+          print('DEBUG LeaveHistoryRepository: Canceling leave request ID: $leaveRequestId');
           await _api.cancel(leaveRequestId);
+          print('DEBUG LeaveHistoryRepository: Successfully canceled leave request ID: $leaveRequestId');
           successCount++;
-        } catch (e) {
-          lastError = e.toString();
+        } catch (e, stackTrace) {
+          // ✅ Extract error message từ exception
+          print('DEBUG LeaveHistoryRepository: Error canceling leave request ID $leaveRequestId: $e');
+          print('DEBUG LeaveHistoryRepository: StackTrace: $stackTrace');
+          final errorMsg = e.toString().replaceFirst('Exception: ', '');
+          lastError = errorMsg;
         }
       }
+
+      print('DEBUG LeaveHistoryRepository: cancelMultipleLeaveRequests result: successCount=$successCount/${leaveRequestIds.length}, lastError=$lastError');
 
       if (successCount == leaveRequestIds.length) {
         return LeaveHistoryResult.success(null);
@@ -105,8 +142,12 @@ class LeaveHistoryRepositoryImpl implements LeaveHistoryRepository {
           Exception('Lỗi khi hủy: ${lastError ?? "Không xác định"}'),
         );
       }
-    } catch (e) {
-      return LeaveHistoryResult.failure(Exception('Không thể hủy đơn: $e'));
+    } catch (e, stackTrace) {
+      // ✅ Giữ nguyên error message từ API
+      print('DEBUG LeaveHistoryRepository: cancelMultipleLeaveRequests outer catch: $e');
+      print('DEBUG LeaveHistoryRepository: StackTrace: $stackTrace');
+      final errorMsg = e.toString().replaceFirst('Exception: ', '');
+      return LeaveHistoryResult.failure(Exception(errorMsg));
     }
   }
 

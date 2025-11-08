@@ -41,21 +41,26 @@ class LeaveDataExtractor {
     return v.isEmpty ? 'Môn học' : v;
   }
 
-  /// Extract class name với nhiều fallback
+  /// Extract class name với nhiều fallback - ưu tiên mã lớp (code) thay vì tên lớp
   static String extractClassName(Map<String, dynamic> session) {
+    // ✅ Ưu tiên code trước, sau đó mới đến name
     return _pickStr(session, [
-      'assignment.classUnit.name',  // camelCase từ backend
-      'assignment.classUnit.code',  // camelCase từ backend
-      'assignment.class_unit.name',
-      'assignment.class_unit.code',
-      'classUnit.name',  // camelCase
-      'classUnit.code',  // camelCase
-      'class_unit.name',
-      'class_unit.code',
-      'class_name',
-      'class',
-      'class_code',
-      'group_name',
+      'assignment.classUnit.code',  // camelCase - ưu tiên code
+      'assignment.classUnit.class_code',  // camelCase
+      'assignment.class_unit.code',  // snake_case - ưu tiên code
+      'assignment.class_unit.class_code',  // snake_case
+      'classUnit.code',  // camelCase - ưu tiên code
+      'classUnit.class_code',  // camelCase
+      'class_unit.code',  // snake_case - ưu tiên code
+      'class_unit.class_code',  // snake_case
+      'class_code',  // Trực tiếp
+      'assignment.classUnit.name',  // camelCase - fallback name
+      'assignment.class_unit.name',  // snake_case - fallback name
+      'classUnit.name',  // camelCase - fallback name
+      'class_unit.name',  // snake_case - fallback name
+      'class_name',  // Fallback
+      'class',  // Fallback
+      'group_name',  // Fallback
     ]);
   }
 

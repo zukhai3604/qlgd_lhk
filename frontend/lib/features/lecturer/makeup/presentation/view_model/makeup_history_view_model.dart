@@ -79,44 +79,61 @@ class MakeupHistoryViewModel extends StateNotifier<MakeupHistoryState> {
     if (state.selectedStatus == null) {
       state = state.copyWith(filteredItems: state.allItems);
     } else {
+      final selectedStatusUpper = (state.selectedStatus ?? '').toUpperCase();
       final filtered = state.allItems
-          .where((item) =>
-              (item['status']?.toString().toUpperCase() ?? '') ==
-              state.selectedStatus)
+          .where((item) {
+            // ✅ Check cả status và _normalized_status
+            final itemStatus = ((item['status'] ?? item['_normalized_status']) ?? '').toString().toUpperCase();
+            return itemStatus == selectedStatusUpper;
+          })
           .toList();
       state = state.copyWith(filteredItems: filtered);
     }
   }
 
   /// Cancel makeup request
-  Future<bool> cancelMakeupRequest(int makeupRequestId) async {
+  Future<({bool success, String? errorMessage})> cancelMakeupRequest(int makeupRequestId) async {
     final result = await _repository.cancelMakeupRequest(makeupRequestId);
     return result.when(
       success: (_) {
         loadData(); // Reload sau khi hủy thành công
-        return true;
+        return (success: true, errorMessage: null);
       },
       failure: (error) {
-        state = state.copyWith(error: error.toString());
-        return false;
+        final errorMessage = error.toString().replaceFirst('Exception: ', '');
+        state = state.copyWith(error: errorMessage);
+        return (success: false, errorMessage: errorMessage);
       },
     );
   }
 
   /// Cancel multiple makeup requests
-  Future<bool> cancelMultipleMakeupRequests(List<int> makeupRequestIds) async {
-    final result =
-        await _repository.cancelMultipleMakeupRequests(makeupRequestIds);
-    return result.when(
-      success: (_) {
-        loadData(); // Reload sau khi hủy thành công
-        return true;
-      },
-      failure: (error) {
-        state = state.copyWith(error: error.toString());
-        return false;
-      },
-    );
+  Future<({bool success, String? errorMessage})> cancelMultipleMakeupRequests(List<int> makeupRequestIds) async {
+    print('DEBUG MakeupHistoryViewModel: cancelMultipleMakeupRequests called with IDs: $makeupRequestIds');
+    try {
+      final result =
+          await _repository.cancelMultipleMakeupRequests(makeupRequestIds);
+      print('DEBUG MakeupHistoryViewModel: Repository result received');
+      return result.when(
+        success: (_) {
+          print('DEBUG MakeupHistoryViewModel: Cancel successful, reloading data...');
+          loadData(); // Reload sau khi hủy thành công
+          return (success: true, errorMessage: null);
+        },
+        failure: (error) {
+          print('DEBUG MakeupHistoryViewModel: Cancel failed with error: $error');
+          final errorMessage = error.toString().replaceFirst('Exception: ', '');
+          state = state.copyWith(error: errorMessage);
+          return (success: false, errorMessage: errorMessage);
+        },
+      );
+    } catch (e, stackTrace) {
+      print('DEBUG MakeupHistoryViewModel: Exception in cancelMultipleMakeupRequests: $e');
+      print('DEBUG MakeupHistoryViewModel: StackTrace: $stackTrace');
+      final errorMessage = e.toString().replaceFirst('Exception: ', '');
+      state = state.copyWith(error: errorMessage);
+      return (success: false, errorMessage: errorMessage);
+    }
   }
 
   /// Chuẩn hóa dữ liệu để dễ so sánh và gộp
@@ -279,6 +296,14 @@ class MakeupHistoryViewModel extends StateNotifier<MakeupHistoryState> {
         final last = group.last;
 
         final merged = Map<String, dynamic>.from(first);
+        
+        // ✅ Đảm bảo status được copy vào merged (từ _normalized_status nếu status không có)
+        if (merged['status'] == null || merged['status'].toString().isEmpty) {
+          final normalizedStatus = (first['_normalized_status'] ?? '').toString();
+          if (normalizedStatus.isNotEmpty) {
+            merged['status'] = normalizedStatus;
+          }
+        }
 
         final startTime =
             (first['_normalized_start_time'] ?? '--:--').toString();

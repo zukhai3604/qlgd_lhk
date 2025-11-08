@@ -71,12 +71,16 @@ class ScheduleApi {
         'session_date': m['session_date'] ?? date, // Giữ lại session_date gốc
         'subject':
             m['subject']?.toString() ?? subj?['name'] ?? subj?['code'] ?? '',
+        // ✅ Ưu tiên code trước name để hiển thị mã lớp
         'class_name':
-            m['class_name']?.toString() ?? cu?['name'] ?? cu?['code'] ?? '',
+            m['class_name']?.toString() ?? cu?['code'] ?? cu?['class_code'] ?? cu?['name'] ?? '',
+        'class_code': cu?['code'] ?? cu?['class_code'] ?? '', // ✅ Thêm class_code riêng
         'room': room,
         'start_time': start,
         'end_time': end,
         'status': m['status'] ?? 'PLANNED',
+        // ✅ Giữ lại nested structure để extract có thể dùng
+        'assignment': asg,
       };
     }).toList();
 
@@ -166,12 +170,17 @@ class ScheduleApi {
         'date': date,
         'session_date': m['session_date'] ?? date, // Giữ lại session_date gốc
         'subject': subj?['name'] ?? subj?['code'] ?? m['subject']?.toString() ?? '',
-        'class_name': cu?['name'] ?? cu?['code'] ?? '',
+        // ✅ Ưu tiên code trước name để hiển thị mã lớp
+        'class_name': cu?['code'] ?? cu?['class_code'] ?? cu?['name'] ?? '',
+        'class_code': cu?['code'] ?? cu?['class_code'] ?? '', // ✅ Thêm class_code riêng
         'room': roomLabel(m['room']),
         'start_time': start,
         'end_time': end,
         'status': m['status'] ?? 'CANCELED',
         'note': m['note'],
+        // ✅ Giữ lại nested structure để extract có thể dùng
+        'class_unit': cu,
+        'timeslot': timeslot,
       };
     }).toList();
   }
@@ -444,7 +453,9 @@ class ScheduleApi {
         'session_date': m['session_date'] ?? date, // Giữ lại session_date gốc
         // Normalized (flat) fields
         'subject': subj?['name'] ?? subj?['code'] ?? m['subject']?.toString() ?? '',
-        'class_name': cu?['name'] ?? cu?['code'] ?? '',
+        // ✅ Ưu tiên code trước name để hiển thị mã lớp
+        'class_name': cu?['code'] ?? cu?['class_code'] ?? cu?['name'] ?? '',
+        'class_code': cu?['code'] ?? cu?['class_code'] ?? '', // ✅ Thêm class_code riêng
         'room': roomLabel(m['room']),
         'start_time': start,
         'end_time': end,
@@ -453,8 +464,9 @@ class ScheduleApi {
         // Giữ lại nested structure gốc để logic extract có thể dùng
         'timeslot': timeslot != null ? Map<String, dynamic>.from(timeslot) : null,
         'subject_nested': subj, // Giữ lại subject Map gốc
-        'class_unit': cu, // Giữ lại class_unit Map gốc (camelCase)
+        'class_unit': cu, // Giữ lại class_unit Map gốc (snake_case)
         'classUnit': cu, // Cũng giữ camelCase variant
+        'assignment': m['assignment'] is Map ? Map<String, dynamic>.from(m['assignment']) : null, // ✅ Giữ lại assignment
         'room_nested': room, // Giữ lại room Map gốc
       };
     }).toList();
